@@ -1,0 +1,169 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel>=0.37.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "speechmatics-rt"
+dynamic = ["version"]
+description = "Speechmatics Real-Time SDK"
+readme = "README.md"
+authors = [{ name = "Speechmatics", email = "support@speechmatics.com" }]
+license = "MIT"
+requires-python = ">=3.9"
+dependencies = ["websockets>=10.0", "aiohttp>=3.8.3", "structlog>=23.0.0"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+
+    "Operating System :: OS Independent",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+keywords = [
+    "speechmatics",
+    "speech-to-text",
+    "real-time",
+    "transcription",
+    "websocket",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.5.0",
+    "pre-commit>=3.0.0",
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+    "build>=1.2.0",
+]
+
+[project.urls]
+homepage = "https://github.com/speechmatics/speechmatics-python-sdk"
+documentation = "https://docs.speechmatics.com/"
+repository = "https://github.com/speechmatics/speechmatics-python-sdk"
+changelog = "https://github.com/speechmatics/speechmatics-python-sdk/blob/main/CHANGELOG.md"
+issues = "https://github.com/speechmatics/speechmatics-python-sdk/issues"
+
+[tool.setuptools]
+package-dir = { "" = "." }
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = { file = "VERSION" }
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["speechmatics*"]
+
+[tool.black]
+line-length = 100
+target-version = ['py39']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  \.git
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "B008", # do not perform function calls in argument defaults
+    "E203", # whitespace before ':'
+    "N818", # Exception name should end with Error - we have ForceEndSession by design
+    "UP007", # Use X | Y for type annotations - we support Python 3.9
+    "B904", # Within except clause, raise exceptions with raise ... from err
+    "SIM105", # Use contextlib.suppress - keep explicit for clarity
+    "SIM108", # Use ternary operator - keep explicit for readability
+    "SIM117", # Use single with statement - keep nested for clarity
+    "E501", # Line too long - handled by black
+]
+
+[tool.ruff.isort]
+known-first-party = ["speechmatics"]
+force-single-line = true
+
+[tool.mypy]
+python_version = "3.9"
+explicit_package_bases = true
+namespace_packages = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+exclude = [
+    "tests/",
+    "examples/",
+    "build/",
+    "dist/",
+]
+
+[[tool.mypy.overrides]]
+module = "websockets.*"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers --strict-config"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+]
+
+[tool.coverage.run]
+source = ["speechmatics"]
+branch = true
+omit = ["*/tests/*", "*/examples/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+show_missing = true
+precision = 2
