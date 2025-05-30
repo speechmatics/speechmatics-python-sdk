@@ -23,10 +23,16 @@ fi
 
 # Install development dependencies
 echo "Installing development dependencies..."
-uv pip install pytest pytest-cov black ruff mypy
+uv pip install pytest pytest-cov black ruff mypy pre-commit
 
 # Install all packages in development mode
 echo "Installing all packages in development mode..."
 uv pip install -e ./speechmatics/rt && uv pip install -e ./speechmatics/batch
 
+# Install pre-commit hooks
+echo "Installing pre-commit hooks..."
+pre-commit install
+
 echo "Development setup complete!"
+echo "Pre-commit hooks are now installed and will run on every commit."
+echo "To run pre-commit on all files manually: pre-commit run --all-files"

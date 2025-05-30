@@ -1,6 +1,7 @@
 import logging
 import sys
-from typing import Any, Optional
+from typing import Any
+from typing import Optional
 
 import structlog
 from structlog.types import Processor
@@ -24,9 +25,7 @@ def setup_logging(log_level: str = "WARNING") -> None:
     # Set different processors for different environments
     if sys.stderr.isatty():
         # Development: pretty console output
-        processors = shared_processors + [
-            structlog.dev.ConsoleRenderer(colors=True, sort_keys=False)
-        ]
+        processors = shared_processors + [structlog.dev.ConsoleRenderer(colors=True, sort_keys=False)]
     else:
         # Production: JSON logs
         processors = shared_processors + [

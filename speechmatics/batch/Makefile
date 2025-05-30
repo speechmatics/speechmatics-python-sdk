@@ -1,32 +1,24 @@
-# Makefile for Speechmatics RT SDK
+# Makefile for Speechmatics Batch SDK
 
-.PHONY: help install-dev test format lint type-check build clean
+.PHONY: help install-dev test lint build clean
 
 help:
 	@echo "Available commands:"
 	@echo "  install-dev   Install with development dependencies"
 	@echo "  test          Run tests"
-	@echo "  format        Auto-fix formatting"
-	@echo "  lint          Run basic linting (ruff only)"
-	@echo "  type-check    Run type checking (mypy)"
+	@echo "  lint          Run linting and type checking"
 	@echo "  build         Build distribution packages"
 	@echo "  clean         Clean build artifacts"
 
 install-dev:
-	pip install -e .[dev]
+	pip install -e .
+	pip install pytest pytest-cov pytest-mock black ruff mypy types-requests build
 
 test:
-	pytest ../../tests/rt/ -v
-
-format:
-	black .
-	ruff check --fix .
+	pytest ../../tests/batch/ -v
 
 lint:
-	ruff check .
-
-type-check:
-	mypy .
+	@echo "No source code to lint in batch SDK yet"
 
 build: clean
 	pip install build

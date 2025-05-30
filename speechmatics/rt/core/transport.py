@@ -12,23 +12,29 @@ import asyncio
 import json
 import os
 import uuid
-from typing import Any, Optional
-from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+from typing import Any
+from typing import Optional
+from urllib.parse import parse_qsl
+from urllib.parse import urlencode
+from urllib.parse import urlparse
+from urllib.parse import urlunparse
 
 import aiohttp
 
-from .exceptions import ConnectionError, TransportError
+from .exceptions import ConnectionError
+from .exceptions import TransportError
 from .helpers import get_version
 from .logging import get_logger
 from .models import ConnectionConfig
 
 try:
-    from websockets.asyncio.client import ClientConnection, connect
+    from websockets.asyncio.client import ClientConnection
+    from websockets.asyncio.client import connect
 
     WS_HEADERS_KEY = "additional_headers"
 except ImportError:
-    from websockets.legacy.client import WebSocketClientProtocol as ClientConnection
-    from websockets.legacy.client import connect
+    from websockets.legacy.client import WebSocketClientProtocol as ClientConnection  # type: ignore
+    from websockets.legacy.client import connect  # type: ignore
 
     WS_HEADERS_KEY = "extra_headers"
 
@@ -116,13 +122,16 @@ class Transport:
         ws_headers = await self._prepare_headers(headers)
 
         try:
-            ws_kwargs = {
+            ws_kwargs: dict[str, Any] = {
                 "ping_timeout": self._config.ping_timeout,
                 WS_HEADERS_KEY: ws_headers,
             }
 
-            self._connection = await asyncio.wait_for(  # type: ignore
-                connect(url, **ws_kwargs),
+            self._connection = await asyncio.wait_for(
+                connect(
+                    url,
+                    **ws_kwargs,
+                ),
                 timeout=self._config.connect_timeout,
             )
         except asyncio.TimeoutError:

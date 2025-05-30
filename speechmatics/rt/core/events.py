@@ -5,7 +5,9 @@ Simplified and type-safe event emitter for the Speechmatics RT SDK.
 from __future__ import annotations
 
 import inspect
-from typing import Any, Callable, Optional
+from typing import Any
+from typing import Callable
+from typing import Optional
 
 from .logging import get_logger
 from .models import ServerMessageType
@@ -96,9 +98,7 @@ class EventEmitter:
                 callback(message)
             except Exception as e:
                 # Log error but don't stop other handlers
-                self._logger.warning(
-                    "event_handler_error", error=str(e), event=str(event), exc_info=True
-                )
+                self._logger.warning("event_handler_error", error=str(e), event=str(event), exc_info=True)
 
         # Call one-time handlers and remove them
         once_handlers = self._once_handlers.get(event, set()).copy()

@@ -1,26 +1,26 @@
-from .core import (
-    AsyncClient,
-    AudioEncoding,
-    AudioError,
-    AudioEventsConfig,
-    AudioFormat,
-    AuthenticationError,
-    ClientMessageType,
-    ConfigurationError,
-    ConnectionConfig,
-    ConnectionError,
-    EndOfTranscriptError,
-    ForceEndSession,
-    ServerMessageType,
-    SessionError,
-    SpeechmaticsError,
-    TimeoutError,
-    TranscriptionConfig,
-    TranscriptionError,
-    TranscriptResult,
-    TranslationConfig,
-    TransportError,
-)
+__version__ = "0.0.0"
+
+from .core import AsyncClient
+from .core import AudioEncoding
+from .core import AudioError
+from .core import AudioEventsConfig
+from .core import AudioFormat
+from .core import AuthenticationError
+from .core import ClientMessageType
+from .core import ConfigurationError
+from .core import ConnectionConfig
+from .core import ConnectionError
+from .core import EndOfTranscriptError
+from .core import ForceEndSession
+from .core import ServerMessageType
+from .core import SessionError
+from .core import SpeechmaticsError
+from .core import TimeoutError
+from .core import TranscriptionConfig
+from .core import TranscriptionError
+from .core import TranscriptResult
+from .core import TranslationConfig
+from .core import TransportError
 
 __all__ = [
     # Main client
@@ -50,5 +50,3 @@ __all__ = [
     "EndOfTranscriptError",
     "ForceEndSession",
 ]
-
-__version__ = "0.1.0"
