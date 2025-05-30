@@ -1,35 +1,27 @@
-__version__ = "0.0.0"
-
-from .core import (
-    AsyncClient,
+from .async_client import AsyncClient
+from .exceptions import (
     AuthenticationError,
     BatchError,
     ConfigurationError,
-    ConnectionConfig,
     ConnectionError,
+    JobError,
+    SpeechmaticsError,
+    TimeoutError,
+    TransportError,
+)
+from .models import (
+    ConnectionConfig,
     JobConfig,
     JobDetails,
-    JobError,
     JobInfo,
     JobStatus,
     JobType,
-    SpeechmaticsError,
-    TimeoutError,
     Transcript,
     TranscriptionConfig,
-    TransportError,
 )
 
 __all__ = [
     "AsyncClient",
-    "JobConfig",
-    "TranscriptionConfig",
-    "ConnectionConfig",
-    "JobDetails",
-    "JobInfo",
-    "Transcript",
-    "JobStatus",
-    "JobType",
     "SpeechmaticsError",
     "ConfigurationError",
     "AuthenticationError",
@@ -38,4 +30,12 @@ __all__ = [
     "BatchError",
     "JobError",
     "TimeoutError",
+    "JobConfig",
+    "JobDetails",
+    "JobInfo",
+    "Transcript",
+    "TranscriptionConfig",
+    "ConnectionConfig",
+    "JobStatus",
+    "JobType",
 ]

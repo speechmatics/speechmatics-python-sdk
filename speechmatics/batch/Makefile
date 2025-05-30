@@ -17,8 +17,19 @@ install-dev:
 test:
 	pytest ../../tests/batch/ -v
 
+format:
+	black .
+	ruff check --fix .
+
 lint:
-	@echo "No source code to lint in batch SDK yet"
+	ruff check .
+
+type-check:
+	mypy .
+
+build: clean
+	pip install build
+	python -m build
 
 build: clean
 	pip install build
