@@ -6,31 +6,27 @@ Simplified and optimized core components for real-time speech transcription.
 
 from .async_client import AsyncClient
 from .events import EventEmitter
-from .exceptions import (
-    AudioError,
-    AuthenticationError,
-    ConfigurationError,
-    ConnectionError,
-    EndOfTranscriptError,
-    ForceEndSession,
-    SessionError,
-    SpeechmaticsError,
-    TimeoutError,
-    TranscriptionError,
-    TransportError,
-)
-from .models import (
-    AudioEncoding,
-    AudioEventsConfig,
-    AudioFormat,
-    ClientMessageType,
-    ConnectionConfig,
-    ServerMessageType,
-    SessionInfo,
-    TranscriptionConfig,
-    TranscriptResult,
-    TranslationConfig,
-)
+from .exceptions import AudioError
+from .exceptions import AuthenticationError
+from .exceptions import ConfigurationError
+from .exceptions import ConnectionError
+from .exceptions import EndOfTranscriptError
+from .exceptions import ForceEndSession
+from .exceptions import SessionError
+from .exceptions import SpeechmaticsError
+from .exceptions import TimeoutError
+from .exceptions import TranscriptionError
+from .exceptions import TransportError
+from .models import AudioEncoding
+from .models import AudioEventsConfig
+from .models import AudioFormat
+from .models import ClientMessageType
+from .models import ConnectionConfig
+from .models import ServerMessageType
+from .models import SessionInfo
+from .models import TranscriptionConfig
+from .models import TranscriptResult
+from .models import TranslationConfig
 
 __all__ = [
     # Main client

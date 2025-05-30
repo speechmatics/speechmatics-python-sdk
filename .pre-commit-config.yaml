@@ -1,0 +1,76 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-docstring-first
+      - id: debug-statements
+      - id: requirements-txt-fixer
+
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        name: black
+        files: ^speechmatics/
+        args: [--line-length=120, --target-version=py39]
+
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: v0.1.9
+    hooks:
+      - id: ruff
+        name: ruff
+        files: ^speechmatics/
+        args:
+          - --fix
+          - --exit-non-zero-on-fix
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        name: mypy
+        files: ^speechmatics/.*/.*\.py$
+        exclude: ^speechmatics/.*/(tests/|examples/|setup\.py)
+        args:
+          [--ignore-missing-imports, --warn-unused-configs, --show-error-codes]
+        additional_dependencies:
+          [types-requests, websockets, aiohttp, structlog]
+
+  - repo: https://github.com/pycqa/bandit
+    rev: 1.7.5
+    hooks:
+      - id: bandit
+        files: ^speechmatics/
+        args: [-r, -f, json, -ll]
+        exclude: ^(tests/|examples/)
+
+  - repo: https://github.com/pre-commit/pygrep-hooks
+    rev: v1.10.0
+    hooks:
+      - id: python-check-blanket-noqa
+        files: ^speechmatics/
+      - id: python-no-log-warn
+        files: ^speechmatics/
+      - id: python-use-type-annotations
+        files: ^speechmatics/
+
+  - repo: local
+    hooks:
+      - id: pytest-check
+        name: pytest
+        entry: python -m pytest
+        language: system
+        files: ^speechmatics/.*/.*\.py$
+        stages: [manual]
+        pass_filenames: false
+        always_run: false
+
+default_stages: [pre-commit]

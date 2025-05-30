@@ -12,31 +12,29 @@ from __future__ import annotations
 import asyncio
 import os
 import uuid
-from typing import Any, BinaryIO, Optional
+from typing import Any
+from typing import BinaryIO
+from typing import Optional
 
 from .events import EventEmitter
-from .exceptions import (
-    AudioError,
-    AuthenticationError,
-    ConfigurationError,
-    EndOfTranscriptError,
-    ForceEndSession,
-    SessionError,
-    TimeoutError,
-)
+from .exceptions import AudioError
+from .exceptions import AuthenticationError
+from .exceptions import ConfigurationError
+from .exceptions import EndOfTranscriptError
+from .exceptions import ForceEndSession
+from .exceptions import SessionError
+from .exceptions import TimeoutError
 from .helpers import read_audio_chunks
 from .logging import get_logger
-from .models import (
-    AudioEncoding,
-    AudioEventsConfig,
-    AudioFormat,
-    ClientMessageType,
-    ConnectionConfig,
-    ServerMessageType,
-    SessionInfo,
-    TranscriptionConfig,
-    TranslationConfig,
-)
+from .models import AudioEncoding
+from .models import AudioEventsConfig
+from .models import AudioFormat
+from .models import ClientMessageType
+from .models import ConnectionConfig
+from .models import ServerMessageType
+from .models import SessionInfo
+from .models import TranscriptionConfig
+from .models import TranslationConfig
 from .transport import Transport
 
 
@@ -119,12 +117,10 @@ class AsyncClient(EventEmitter):
         else:
             api_key = api_key or os.environ.get("SPEECHMATICS_API_KEY")
             if not api_key:
-                raise ConfigurationError(
-                    "API key required: provide api_key parameter or set SPEECHMATICS_API_KEY"
-                )
+                raise ConfigurationError("API key required: provide api_key parameter or set SPEECHMATICS_API_KEY")
 
             url = url or os.environ.get("SPEECHMATICS_RT_URL", "wss://eu2.rt.speechmatics.com/v2")
-            self._conn_config = ConnectionConfig(url=url, api_key=api_key)
+            self._conn_config = ConnectionConfig(url=url, api_key=api_key)  # type: ignore[arg-type]
 
         self._session = SessionInfo(request_id=str(uuid.uuid4()))
         self._transport = Transport(self._conn_config, self._session.request_id)
@@ -338,9 +334,7 @@ class AsyncClient(EventEmitter):
         """
         await self._transport.connect(headers)
 
-        await self._start_recognition(
-            transcription_config, audio_format, translation_config, audio_events_config
-        )
+        await self._start_recognition(transcription_config, audio_format, translation_config, audio_events_config)
 
         await asyncio.gather(
             self._audio_producer(audio_stream, audio_format),
