@@ -22,7 +22,7 @@ format:
 	ruff check --fix .
 
 lint:
-	ruff check .
+	ruff check . --line-length=120
 
 type-check:
 	mypy .
