@@ -2,9 +2,7 @@
 Asynchronous client for Speechmatics real-time transcription.
 
 This module provides the main AsyncClient class that handles real-time
-speech-to-text transcription using the Speechmatics RT API. It implements
-the complete WebSocket protocol with proper error handling, event emission,
-and resource management.
+speech-to-text transcription using the Speechmatics RT API.
 """
 
 from __future__ import annotations
@@ -18,12 +16,12 @@ from typing import Optional
 
 from .events import EventEmitter
 from .exceptions import AudioError
-from .exceptions import AuthenticationError
 from .exceptions import ConfigurationError
 from .exceptions import EndOfTranscriptError
 from .exceptions import ForceEndSession
 from .exceptions import SessionError
 from .exceptions import TimeoutError
+from .exceptions import TranscriptionError
 from .helpers import read_audio_chunks
 from .logging import get_logger
 from .models import AudioEncoding
@@ -40,16 +38,11 @@ from .transport import Transport
 
 class AsyncClient(EventEmitter):
     """
-    Asynchronous client for Speechmatics real-time speech transcription.
+    Asynchronous client for Speechmatics real-time audio transcription.
 
     This client provides a full-featured async interface to the Speechmatics RT API,
     supporting real-time audio streaming, event-driven transcript handling, and
-    comprehensive error management. It properly implements the Speechmatics WebSocket
-    protocol with automatic connection management and resource cleanup.
-
-    The client uses an event-driven architecture where transcription results are
-    delivered through registered event handlers. It supports both partial and final
-    transcripts, error handling, and session management.
+    comprehensive error management.
 
     Args:
         api_key: Speechmatics API key for authentication. If not provided,
@@ -169,8 +162,6 @@ class AsyncClient(EventEmitter):
         timeout: Optional[float] = None,
     ) -> None:
         """
-        Perform real-time transcription on an audio stream.
-
         This is the main method for transcribing audio. It establishes a WebSocket
         connection to the Speechmatics RT API, streams audio data, and processes
         transcription results through registered event handlers.
@@ -235,23 +226,19 @@ class AsyncClient(EventEmitter):
                 ...     timeout=300.0
                 ... )
         """
-        # Validate inputs
         if not audio_stream:
             raise AudioError("Audio stream cannot be None")
 
-        # Set defaults
         transcription_config = transcription_config or TranscriptionConfig()
         audio_format = audio_format or AudioFormat(encoding=AudioEncoding.PCM_S16LE)
         timeout = timeout or self._conn_config.operation_timeout
 
-        # Reset state
         self._session.is_running = False
         self._recognition_started.clear()
         self._end_of_stream_sent = False
         self._seq_no = 0
 
         try:
-            # Run transcription with timeout
             await asyncio.wait_for(
                 self._run_transcription(
                     audio_stream,
@@ -280,9 +267,6 @@ class AsyncClient(EventEmitter):
         - Closing WebSocket connection
         - Removing all registered event listeners
         - Marking session as not running
-
-        This method is safe to call multiple times and will handle cleanup
-        gracefully even if errors occur during the process.
 
         Examples:
             >>> client = AsyncClient(api_key="key")
@@ -316,8 +300,6 @@ class AsyncClient(EventEmitter):
         headers: Optional[dict[str, str]],
     ) -> None:
         """
-        Execute the complete transcription workflow.
-
         This internal method orchestrates the entire transcription process:
         1. Establishes WebSocket connection
         2. Sends start recognition message
@@ -334,7 +316,12 @@ class AsyncClient(EventEmitter):
         """
         await self._transport.connect(headers)
 
-        await self._start_recognition(transcription_config, audio_format, translation_config, audio_events_config)
+        await self._start_recognition(
+            transcription_config,
+            audio_format,
+            translation_config,
+            audio_events_config,
+        )
 
         await asyncio.gather(
             self._audio_producer(audio_stream, audio_format),
@@ -350,11 +337,11 @@ class AsyncClient(EventEmitter):
         audio_events_config: Optional[AudioEventsConfig] = None,
     ) -> None:
         """
-        Send the start recognition message to begin transcription session.
+        Send StartRecognition message to begin transcription session.
 
         Constructs and sends the StartRecognition message with the specified
         transcription and audio format configuration to initialize the
-        transcription session on the server.
+        transcription session.
 
         Args:
             transcription_config: Configuration for transcription behavior.
@@ -382,15 +369,9 @@ class AsyncClient(EventEmitter):
 
     async def _audio_producer(self, audio_stream: BinaryIO, audio_format: AudioFormat) -> None:
         """
-        Stream audio data to the transcription service.
-
         This method continuously reads audio chunks from the input stream and
         sends them to the service via WebSocket. It handles the audio streaming
         loop and sends an end-of-stream message when complete.
-
-        The method reads audio in chunks according to the specified chunk size,
-        tracks sequence numbers for debugging, and sends raw audio data directly
-        (not wrapped in JSON).
 
         Args:
             audio_stream: Audio data source with read() method.
@@ -404,12 +385,11 @@ class AsyncClient(EventEmitter):
             while self._session.is_running:
                 async for chunk in read_audio_chunks(audio_stream, audio_format.chunk_size):
                     self._seq_no += 1
-                    # Send raw audio data directly (no JSON wrapper)
                     await self._transport.send_message(chunk)
 
+                # Break out of the loop when EOF is reached
                 break
 
-            # Send end of stream
             await self._send_end_of_stream()
 
         except Exception as e:
@@ -438,10 +418,12 @@ class AsyncClient(EventEmitter):
         try:
             while self._session.is_running:
                 try:
-                    message = await asyncio.wait_for(self._transport.receive_message(), timeout=1.0)
+                    message = await asyncio.wait_for(
+                        self._transport.receive_message(),
+                        timeout=1.0,
+                    )
                     await self._handle_message(message)
                 except asyncio.TimeoutError:
-                    # Continue receiving, just a timeout
                     continue
 
         except (EndOfTranscriptError, ForceEndSession):
@@ -450,18 +432,11 @@ class AsyncClient(EventEmitter):
             # ForceEndSession signals user-requested early termination
             self._session.is_running = False
             raise
-        except Exception as e:
-            self._logger.error(f"Message receiver error: {e}")
-            self._session.is_running = False
 
-            # Handle specific authentication errors
-            if "4001" in str(e) and "not_authorised" in str(e):
-                raise AuthenticationError("Invalid API key - authentication failed")
-            elif "ConnectionClosed" in str(e):
-                # Connection was closed, check if it's due to authentication
-                raise AuthenticationError("Connection closed - check API key")
-            else:
-                raise SessionError(f"Failed to receive messages: {e}")
+        except Exception as e:
+            self._logger.error("session_error", error=str(e))
+            self._session.is_running = False
+            raise SessionError(f"Message receiver error: {e}")
 
     async def _handle_message(self, message: dict[str, Any]) -> None:
         """
@@ -501,43 +476,43 @@ class AsyncClient(EventEmitter):
 
         elif server_msg_type == ServerMessageType.END_OF_TRANSCRIPT:
             self._session.is_running = False
-            self._logger.info("transcript_completed", session_id=self._session.session_id)
-            raise EndOfTranscriptError("Transcript completed")
+            self._logger.info("transcription_completed", session_id=self._session.session_id)
+            raise EndOfTranscriptError("Transcription completed")
+
+        elif server_msg_type == ServerMessageType.WARNING:
+            self._logger.warning("session_warning", session_id=self._session.session_id, warning=message["reason"])
 
         elif server_msg_type == ServerMessageType.ERROR:
-            error_msg = message.get("reason", "Unknown error")
-            error_type = message.get("type", "unknown")
             self._session.is_running = False
+            self._logger.error("transcription_error", session_id=self._session.session_id, error=message["reason"])
+            raise TranscriptionError(message["reason"])
 
-            # Handle specific error types
-            if error_type == "not_authorised":
-                raise AuthenticationError(f"Authentication failed: {error_msg}")
-            else:
-                raise SessionError(f"Server error ({error_type}): {error_msg}")
-
-        # Emit event for user handlers
+        # Emit event for event handlers
         try:
             self.emit(server_msg_type, message)
         except ForceEndSession:
+            self._logger.warning(
+                "force_end_session",
+                session_id=self._session.session_id,
+                warning="Session was ended forcefully by an event handler.",
+            )
             self._session.is_running = False
             raise
         except Exception as e:
-            self._logger.warning("user_event_handler_error", error=str(e))
+            self._logger.warning("event_handler_error", error=str(e))
 
     async def _send_end_of_stream(self) -> None:
         """
-        Send end-of-stream message to signal completion of audio input.
-
         This method constructs and sends the EndOfStream message to notify
         the server that no more audio data will be sent. It includes the
-        last sequence number for proper session tracking.
-
-        The method is idempotent - it will only send the message once even
-        if called multiple times.
+        last sequence number for tracking.
 
         Raises:
             TransportError: If sending the message fails.
         """
+        if self._end_of_stream_sent:
+            return
+
         end_message = {
             "message": ClientMessageType.END_OF_STREAM,
             "last_seq_no": self._seq_no,

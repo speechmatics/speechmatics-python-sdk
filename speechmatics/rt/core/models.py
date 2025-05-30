@@ -1,12 +1,3 @@
-"""
-Models for the Speechmatics RT SDK.
-
-This module contains all data models, enums, and configuration classes used
-throughout the Speechmatics Real-Time Speech Recognition SDK. These models
-provide type-safe interfaces for configuration, session management, and
-result handling.
-"""
-
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -57,12 +48,12 @@ class ClientMessageType(str, Enum):
 
     Attributes:
         START_RECOGNITION: Initiates a new transcription session with
-                          configuration parameters.
+            configuration parameters.
         ADD_AUDIO: Indicates that audio data follows (not used in message
-                   headers, audio is sent as binary data).
+            headers, audio is sent as binary data).
         END_OF_STREAM: Signals that no more audio data will be sent.
         SET_RECOGNITION_CONFIG: Updates transcription configuration during
-                               an active session (advanced use).
+            an active session (advanced use).
         GET_SPEAKERS: Internal, Speechmatics only message. Allows the client to request speaker data.
 
     Examples:
@@ -95,12 +86,13 @@ class ServerMessageType(str, Enum):
     Speechmatics RT API can send to the client.
 
     Attributes:
-        RECOGNITION_STARTED: Confirms that recognition has started successfully.
-        AUDIO_ADDED: Acknowledges receipt of audio data (rarely used).
-        ADD_PARTIAL_TRANSCRIPT: Provides interim transcription results that
-            may change as more audio is processed.
-        ADD_TRANSCRIPT: Provides final transcription results that will not
-            change for the given audio segment.
+        RECOGNITION_STARTED: Server response to 'StartRecognition',
+            acknowledging that a recognition session has started.
+        AUDIO_ADDED: Server response to 'AddAudio', indicating
+            that audio has been added successfully.
+        ADD_PARTIAL_TRANSCRIPT: Indicates a partial transcript, which is an incomplete transcript that
+            is immediately produced and may change as more context becomes available.
+        ADD_TRANSCRIPT: Indicates the final transcript that will not change for the given audio segment.
         END_OF_UTTERANCE: Signals that an utterance has ended, based on silence.
         AUDIO_EVENT_STARTED: Signals the start of an audio event.
         AUDIO_EVENT_ENDED: Signals the end of an audio event.
@@ -216,30 +208,45 @@ class AudioFormat:
 
 @dataclass
 class ConversationConfig:
-    """Conversation configuration for end-of-utterance detection."""
+    """Conversation configuration for end-of-utterance detection.
+
+    Attributes:
+        end_of_utterance_silence_trigger: (Optional) How much silence in seconds is required to trigger end of utterance detection.
+
+    Examples:
+        >>> config = ConversationConfig(end_of_utterance_silence_trigger=0.5)
+    """
 
     end_of_utterance_silence_trigger: Optional[float] = None
-    """How much silence in seconds is required to trigger end of utterance detection."""
 
 
 @dataclass
 class SpeakerDiarizationConfig:
-    """Speaker diarization configuration."""
+    """Speaker diarization configuration.
+
+    Attributes:
+        max_speakers: (Optional) This enforces the maximum number of speakers allowed in a single audio stream.
+        speaker_sensitivity: (Optional) The sensitivity of the speaker detection.
+            This is a number between 0 and 1, where 0 means least sensitive and 1 means
+            most sensitive.
+        prefer_current_speaker: (Optional) Whether to prefer the current speaker when assigning speaker labels.
+            If true, the algorithm will prefer to stay with the current active speaker if it
+            is a close enough match, even if other speakers may be closer. This is useful
+            for cases where we can flip incorrectly between similar speakers during a single
+            speaker section.
+
+    Examples:
+        >>> config = SpeakerDiarizationConfig(
+            max_speakers=2,
+            speaker_sensitivity=0.8,
+            prefer_current_speaker=True,
+        )
+
+    """
 
     max_speakers: Optional[int] = None
-    """This enforces the maximum number of speakers allowed in a single audio stream."""
-
     speaker_sensitivity: Optional[float] = None
-    """The sensitivity of the speaker detection.
-    This is a number between 0 and 1, where 0 means least sensitive and 1 means
-    most sensitive."""
-
     prefer_current_speaker: Optional[bool] = None
-    """Whether to prefer the current speaker when assigning speaker labels.
-    If true, the algorithm will prefer to stay with the current active speaker if it
-    is a close enough match, even if other speakers may be closer. This is useful
-    for cases where we can flip incorrectly between similar speakers during a single
-    speaker section."""
 
 
 @dataclass
