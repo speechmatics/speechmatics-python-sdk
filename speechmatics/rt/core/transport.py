@@ -33,7 +33,7 @@ try:
 
     WS_HEADERS_KEY = "additional_headers"
 except ImportError:
-    from websockets.legacy.client import WebSocketClientProtocol as ClientConnection  # type: ignore
+    from websockets.legacy.client import WebSocketClientProtocol
     from websockets.legacy.client import connect  # type: ignore
 
     WS_HEADERS_KEY = "extra_headers"
@@ -84,7 +84,7 @@ class Transport:
         """
         self._config = config
         self._request_id = request_id or str(uuid.uuid4())
-        self._connection: Optional[ClientConnection] = None
+        self._connection: Optional[ClientConnection | WebSocketClientProtocol] = None
         self._closed = False
         self._logger = get_logger(__name__, self._request_id)
 
@@ -159,10 +159,10 @@ class Transport:
 
         Examples:
             >>> # Send JSON message
-            >>> await transport.send_message({"message": "StartRecognition"})
+            >>> await transport.send_message({"message": "StartRecognition", ...})
 
             >>> # Send audio data
-            >>> audio_chunk = b"audio data here"
+            >>> audio_chunk = b""
             >>> await transport.send_message(audio_chunk)
         """
         if not self._connection:
@@ -172,20 +172,19 @@ class Transport:
             if isinstance(message, (dict, list)):
                 data = json.dumps(message)
             else:
-                data = message  # Assume bytes for audio
+                data = message
 
             await self._connection.send(data)
         except Exception as e:
             self._logger.error("send_failed", error=str(e))
-            raise TransportError(f"Send failed: {e}")
+            raise TransportError(f"Send message failed: {e}")
 
     async def receive_message(self) -> dict[str, Any]:
         """
         Receive and parse a message from the WebSocket connection.
 
         This method waits for an incoming message from the server, automatically
-        handles text/binary message types, and parses JSON content into Python
-        dictionaries.
+        handles text/binary message types, and parses JSON payload.
 
         Returns:
             The parsed message as a dictionary. The structure depends on the
@@ -214,7 +213,7 @@ class Transport:
             raise TransportError(f"Invalid JSON received: {e}")
         except Exception as e:
             self._logger.error("receive_failed", error=str(e))
-            raise TransportError(f"Receive failed: {e}")
+            raise TransportError(f"Receive message failed: {e}")
 
     async def close(self) -> None:
         """
@@ -280,7 +279,7 @@ class Transport:
 
         This method constructs the headers dictionary including authentication
         headers. If temporary token generation is enabled, it will generate a
-        temporary token using the main API key. Otherwise, it uses the API key
+        temporary token using the API key. Otherwise, it uses the API key
         directly.
 
         Args:
@@ -309,9 +308,7 @@ class Transport:
         Generate a temporary token from the Speechmatics management platform API.
 
         This function exchanges a main API key for a short-lived temporary token
-        that can be used for RT API authentication. Temporary tokens provide enhanced
-        security by limiting the exposure of the main API key and automatically
-        expiring after a short period (60 seconds).
+        that can be used for RT API authentication.
 
         The function makes an HTTP POST request to the management platform to
         generate the temporary token with appropriate metadata for tracking.
