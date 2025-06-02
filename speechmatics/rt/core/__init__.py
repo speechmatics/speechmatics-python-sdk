@@ -13,7 +13,6 @@ from .exceptions import ConnectionError
 from .exceptions import EndOfTranscriptError
 from .exceptions import ForceEndSession
 from .exceptions import SessionError
-from .exceptions import SpeechmaticsError
 from .exceptions import TimeoutError
 from .exceptions import TranscriptionError
 from .exceptions import TransportError

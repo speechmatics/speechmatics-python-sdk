@@ -33,7 +33,7 @@ try:
 
     WS_HEADERS_KEY = "additional_headers"
 except ImportError:
-    from websockets.legacy.client import WebSocketClientProtocol
+    from websockets.legacy.client import WebSocketClientProtocol as ClientConnection  # type: ignore
     from websockets.legacy.client import connect  # type: ignore
 
     WS_HEADERS_KEY = "extra_headers"
@@ -84,11 +84,11 @@ class Transport:
         """
         self._config = config
         self._request_id = request_id or str(uuid.uuid4())
-        self._connection: Optional[ClientConnection | WebSocketClientProtocol] = None
+        self._websocket: Optional[ClientConnection] = None
         self._closed = False
         self._logger = get_logger(__name__, self._request_id)
 
-    async def connect(self, headers: Optional[dict[str, str]] = None) -> None:
+    async def connect(self, ws_headers: Optional[dict] = None) -> None:
         """
         Establish WebSocket connection to the Speechmatics RT API.
 
@@ -100,7 +100,7 @@ class Transport:
         a temporary token using the main API key before establishing the connection.
 
         Args:
-            headers: Optional additional HTTP headers to include in the WebSocket
+            ws_headers: Optional additional HTTP headers to include in the WebSocket
                     handshake request.
 
         Raises:
@@ -113,33 +113,29 @@ class Transport:
             >>> # Connection is now established and ready for communication
 
             >>> # With additional headers
-            >>> await transport.connect(headers={"User-Agent": "MyApp/1.0"})
+            >>> await transport.connect(ws_headers={"User-Agent": "MyApp/1.0"})
         """
-        if self._connection or self._closed:
+        if self._websocket or self._closed:
             return
 
-        url = self._prepare_url()
-        ws_headers = await self._prepare_headers(headers)
+        url_with_params = self._prepare_url()
+        ws_headers = await self._prepare_headers(ws_headers)
 
         try:
-            ws_kwargs: dict[str, Any] = {
-                "ping_timeout": self._config.ping_timeout,
+            ws_kwargs: dict = {
                 WS_HEADERS_KEY: ws_headers,
             }
 
-            self._connection = await asyncio.wait_for(
-                connect(
-                    url,
-                    **ws_kwargs,
-                ),
-                timeout=self._config.connect_timeout,
+            self._websocket = await connect(
+                url_with_params,
+                **ws_kwargs,
             )
-        except asyncio.TimeoutError:
-            self._logger.error("connection_timeout", timeout=self._config.connect_timeout)
-            raise ConnectionError(f"Connection timeout after {self._config.connect_timeout}s")
+        except asyncio.TimeoutError as e:
+            self._logger.error("connection_timeout", error=str(e))
+            raise TimeoutError(f"WebSocket connection timeout: {str(e)}")
         except Exception as e:
-            self._logger.error("connection_failed", error=str(e))
-            raise ConnectionError(f"Failed to connect: {e}")
+            self._logger.error("connection_error", error=str(e))
+            raise ConnectionError(f"WebSocket connection error: {str(e)}")
 
     async def send_message(self, message: Any) -> None:
         """
@@ -165,7 +161,7 @@ class Transport:
             >>> audio_chunk = b""
             >>> await transport.send_message(audio_chunk)
         """
-        if not self._connection:
+        if not self._websocket:
             raise TransportError("Not connected")
 
         try:
@@ -174,12 +170,12 @@ class Transport:
             else:
                 data = message
 
-            await self._connection.send(data)
+            await self._websocket.send(data)
         except Exception as e:
             self._logger.error("send_failed", error=str(e))
             raise TransportError(f"Send message failed: {e}")
 
-    async def receive_message(self) -> dict[str, Any]:
+    async def receive_message(self) -> dict:
         """
         Receive and parse a message from the WebSocket connection.
 
@@ -202,11 +198,11 @@ class Transport:
             ...     transcript = message["metadata"]["transcript"]
             ...     print(f"Transcript: {transcript}")
         """
-        if not self._connection:
+        if not self._websocket:
             raise TransportError("Not connected")
 
         try:
-            raw_message = await self._connection.recv()
+            raw_message = await self._websocket.recv()
             return json.loads(raw_message)
         except json.JSONDecodeError as e:
             self._logger.error("invalid_json_received", error=str(e))
@@ -231,13 +227,13 @@ class Transport:
             >>> await transport.close()
             >>> # Connection is now closed and transport cannot be used
         """
-        if self._connection:
+        if self._websocket:
             try:
-                await self._connection.close()
+                await self._websocket.close()
             except Exception:
-                pass  # Best effort cleanup
+                pass
             finally:
-                self._connection = None
+                self._websocket = None
                 self._closed = True
 
     @property
@@ -253,7 +249,7 @@ class Transport:
             >>> if transport.is_connected:
             ...     await transport.send_message(message)
         """
-        return self._connection is not None and self._closed is False
+        return self._websocket is not None and self._closed is False
 
     def _prepare_url(self) -> str:
         """
@@ -273,7 +269,7 @@ class Transport:
         updated_query = urlencode(query_params)
         return urlunparse(parsed._replace(query=updated_query))
 
-    async def _prepare_headers(self, extra_headers: Optional[dict[str, str]]) -> dict[str, str]:
+    async def _prepare_headers(self, extra_headers: Optional[dict] = None) -> dict:
         """
         Prepare HTTP headers for the WebSocket handshake with authentication.
 
@@ -291,7 +287,7 @@ class Transport:
         Raises:
             TransportError: If temporary token generation fails.
         """
-        headers = extra_headers or {}
+        headers = {}
         headers["X-Request-Id"] = self._request_id
 
         if self._config.api_key:
@@ -300,6 +296,9 @@ class Transport:
                 headers["Authorization"] = f"Bearer {temp_token}"
             else:
                 headers["Authorization"] = f"Bearer {self._config.api_key}"
+
+        if extra_headers:
+            headers.update(extra_headers)
 
         return headers
 
@@ -337,11 +336,9 @@ class Transport:
         mp_api_url = os.getenv("SM_MANAGEMENT_PLATFORM_URL", "https://mp.speechmatics.com")
         endpoint = f"{mp_api_url}/v1/api_keys"
 
-        # Add query parameters
         params = {"type": "rt", "sm-sdk": f"python-{version}"}
         endpoint_with_params = f"{endpoint}?{urlencode(params)}"
 
-        # Prepare request
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",

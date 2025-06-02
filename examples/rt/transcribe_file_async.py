@@ -43,7 +43,7 @@ async def main() -> None:
             print("Set AUDIO_FILE_PATH environment variable to specify audio file")
 
         except Exception as e:
-            print(f"Transcription failed: {e}")
+            print(f"Transcription error: {e}")
 
 
 if __name__ == "__main__":

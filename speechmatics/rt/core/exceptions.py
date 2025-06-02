@@ -1,73 +1,58 @@
-from __future__ import annotations
-
-from typing import Any
-from typing import Optional
-
-
-class SpeechmaticsError(Exception):
-    """Base exception for all Speechmatics RT SDK errors."""
-
-    def __init__(self, message: str, details: Optional[dict[str, Any]] = None) -> None:
-        super().__init__(message)
-        self.message = message
-        self.details = details or {}
-
-
-class ConfigurationError(SpeechmaticsError):
+class ConfigurationError(Exception):
     """Raised when there's an error in configuration."""
 
     pass
 
 
-class AuthenticationError(SpeechmaticsError):
+class AuthenticationError(Exception):
     """Raised when authentication fails."""
 
     pass
 
 
-class ConnectionError(SpeechmaticsError):
+class ConnectionError(Exception):
     """Raised when connection to the service fails."""
 
     pass
 
 
-class TransportError(SpeechmaticsError):
+class TransportError(Exception):
     """Raised when there's an error in the transport layer."""
 
     pass
 
 
-class TranscriptionError(SpeechmaticsError):
+class TranscriptionError(Exception):
     """Raised when transcription fails."""
 
     pass
 
 
-class AudioError(SpeechmaticsError):
+class AudioError(Exception):
     """Raised when there's an issue with audio data."""
 
     pass
 
 
-class SessionError(SpeechmaticsError):
+class SessionError(Exception):
     """Raised when there's an error with the session state."""
 
     pass
 
 
-class TimeoutError(SpeechmaticsError):
+class TimeoutError(Exception):
     """Raised when an operation times out."""
 
     pass
 
 
-class EndOfTranscriptError(SpeechmaticsError):
+class EndOfTranscriptError(Exception):
     """Raised when the transcript has ended."""
 
     pass
 
 
-class ForceEndSession(SpeechmaticsError):
+class ForceEndSession(Exception):
     """
     Exception that can be raised by user handlers to force session termination.
 
