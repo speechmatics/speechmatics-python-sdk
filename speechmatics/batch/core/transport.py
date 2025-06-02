@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from typing import Any
+from typing import Optional
 
 import aiohttp
 
@@ -48,7 +49,7 @@ class Transport:
             >>> await transport.close()
     """
 
-    def __init__(self, config: ConnectionConfig, request_id: str | None = None) -> None:
+    def __init__(self, config: ConnectionConfig, request_id: Optional[str] = None) -> None:
         """
         Initialize the transport with connection configuration.
 
@@ -60,7 +61,7 @@ class Transport:
         """
         self._config = config
         self._request_id = request_id or str(uuid.uuid4())
-        self._session: aiohttp.ClientSession | None = None
+        self._session: Optional[aiohttp.ClientSession] = None
         self._closed = False
         self._logger = get_logger(__name__, self._request_id)
 
@@ -69,12 +70,12 @@ class Transport:
         await self._ensure_session()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Async context manager exit with automatic cleanup."""
         await self.close()
 
     async def get(
-        self, path: str, params: dict[str, Any] | None = None, timeout: float | None = None
+        self, path: str, params: Optional[dict[str, Any]] = None, timeout: Optional[float] = None
     ) -> dict[str, Any]:
         """
         Send GET request to the API.
@@ -96,9 +97,9 @@ class Transport:
     async def post(
         self,
         path: str,
-        json_data: dict[str, Any] | None = None,
-        multipart_data: dict[str, Any] | None = None,
-        timeout: float | None = None,
+        json_data: Optional[dict[str, Any]] = None,
+        multipart_data: Optional[dict[str, Any]] = None,
+        timeout: Optional[float] = None,
     ) -> dict[str, Any]:
         """
         Send POST request to the API.
@@ -118,7 +119,7 @@ class Transport:
         """
         return await self._request("POST", path, json_data=json_data, multipart_data=multipart_data, timeout=timeout)
 
-    async def delete(self, path: str, timeout: float | None = None) -> dict[str, Any]:
+    async def delete(self, path: str, timeout: Optional[float] = None) -> dict[str, Any]:
         """
         Send DELETE request to the API.
 
@@ -171,10 +172,10 @@ class Transport:
         self,
         method: str,
         path: str,
-        params: dict[str, Any] | None = None,
-        json_data: dict[str, Any] | None = None,
-        multipart_data: dict[str, Any] | None = None,
-        timeout: float | None = None,
+        params: Optional[dict[str, Any]] = None,
+        json_data: Optional[dict[str, Any]] = None,
+        multipart_data: Optional[dict[str, Any]] = None,
+        timeout: Optional[float] = None,
     ) -> dict[str, Any]:
         """
         Send HTTP request to the API.
@@ -292,7 +293,7 @@ class Transport:
                 response.content_type == "application/json"
                 or response.content_type == "application/vnd.speechmatics.v2+json"
             ):
-                return await response.json()
+                return await response.json()  # type: ignore[no-any-return]
             else:
                 # For non-JSON responses (like plain text transcripts)
                 text = await response.text()

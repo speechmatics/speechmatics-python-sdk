@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any
+from typing import Optional
 
 
 class JobType(str, Enum):
@@ -57,7 +58,9 @@ class TranscriptionConfig:
 
     Attributes:
         language: ISO 639-1 language code (e.g., "en", "es", "fr").
+            defaults to "en"
         operating_point: Which acoustic model to use.
+            defaults to "enhanced"
         output_locale: RFC-5646 language code for transcript output.
         diarization: Type of diarization to use. Options: "none", "speaker".
         additional_vocab: Additional vocabulary for better recognition.
@@ -71,19 +74,19 @@ class TranscriptionConfig:
         max_delay_mode: Mode for handling max delay.
     """
 
-    language: str | None = None
-    operating_point: OperatingPoint | None = None
-    output_locale: str | None = None
-    diarization: str | None = None
-    additional_vocab: list[dict[str, Any]] | None = None
-    punctuation_overrides: dict[str, Any] | None = None
-    domain: str | None = None
-    enable_entities: bool | None = None
-    speaker_diarization_config: dict[str, Any] | None = None
-    channel_diarization_labels: list[str] | None = None
-    enable_partials: bool | None = None
-    max_delay: float | None = None
-    max_delay_mode: str | None = None
+    language: str = "en"
+    operating_point: OperatingPoint = OperatingPoint.ENHANCED
+    output_locale: Optional[str] = None
+    diarization: Optional[str] = None
+    additional_vocab: Optional[list[dict[str, Any]]] = None
+    punctuation_overrides: Optional[dict[str, Any]] = None
+    domain: Optional[str] = None
+    enable_entities: Optional[bool] = None
+    speaker_diarization_config: Optional[dict[str, Any]] = None
+    channel_diarization_labels: Optional[list[str]] = None
+    enable_partials: Optional[bool] = None
+    max_delay: Optional[float] = None
+    max_delay_mode: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary, excluding None values."""
@@ -106,8 +109,8 @@ class NotificationConfig:
     """Configuration for job completion notifications."""
 
     url: str
-    contents: NotificationContents | None = None
-    auth_headers: dict[str, str] | None = None
+    contents: Optional[NotificationContents] = None
+    auth_headers: Optional[dict[str, str]] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary, excluding None values."""
@@ -118,9 +121,9 @@ class NotificationConfig:
 class TrackingConfig:
     """Configuration for job tracking metadata."""
 
-    title: str | None = None
-    reference: str | None = None
-    tags: list[str] | None = None
+    title: Optional[str] = None
+    reference: Optional[str] = None
+    tags: Optional[list[str]] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary, excluding None values."""
@@ -132,7 +135,7 @@ class TranslationConfig:
     """Configuration for translation features."""
 
     target_languages: list[str]
-    enable_partials: bool | None = None
+    enable_partials: Optional[bool] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary, excluding None values."""
@@ -143,7 +146,7 @@ class TranslationConfig:
 class LanguageIdentificationConfig:
     """Configuration for language identification."""
 
-    expected_languages: list[str] | None = None
+    expected_languages: Optional[list[str]] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary, excluding None values."""
@@ -154,9 +157,9 @@ class LanguageIdentificationConfig:
 class SummarizationConfig:
     """Configuration for summarization features."""
 
-    content_type: str | None = None
-    summary_length: str | None = None
-    summary_type: str | None = None
+    content_type: Optional[str] = None
+    summary_length: Optional[str] = None
+    summary_type: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary, excluding None values."""
@@ -178,7 +181,7 @@ class SentimentAnalysisConfig:
 class TopicDetectionConfig:
     """Configuration for topic detection."""
 
-    topics: list[str] | None = None
+    topics: Optional[list[str]] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary, excluding None values."""
@@ -200,7 +203,7 @@ class AutoChaptersConfig:
 class AudioEventsConfig:
     """Configuration for audio event detection."""
 
-    types: list[str] | None = None
+    types: Optional[list[str]] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary, excluding None values."""
@@ -231,17 +234,17 @@ class JobConfig:
     """
 
     type: JobType
-    transcription_config: TranscriptionConfig | None = None
-    alignment_config: AlignmentConfig | None = None
-    notification_config: NotificationConfig | None = None
-    tracking: TrackingConfig | None = None
-    translation_config: TranslationConfig | None = None
-    language_identification_config: LanguageIdentificationConfig | None = None
-    summarization_config: SummarizationConfig | None = None
-    sentiment_analysis_config: SentimentAnalysisConfig | None = None
-    topic_detection_config: TopicDetectionConfig | None = None
-    auto_chapters_config: AutoChaptersConfig | None = None
-    audio_events_config: AudioEventsConfig | None = None
+    transcription_config: Optional[TranscriptionConfig] = None
+    alignment_config: Optional[AlignmentConfig] = None
+    notification_config: Optional[NotificationConfig] = None
+    tracking: Optional[TrackingConfig] = None
+    translation_config: Optional[TranslationConfig] = None
+    language_identification_config: Optional[LanguageIdentificationConfig] = None
+    summarization_config: Optional[SummarizationConfig] = None
+    sentiment_analysis_config: Optional[SentimentAnalysisConfig] = None
+    topic_detection_config: Optional[TopicDetectionConfig] = None
+    auto_chapters_config: Optional[AutoChaptersConfig] = None
+    audio_events_config: Optional[AudioEventsConfig] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert job config to dictionary for API submission."""
@@ -354,7 +357,7 @@ class JobError:
 
     type: str
     message: str
-    details: dict[str, Any] | None = None
+    details: Optional[dict[str, Any]] = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> JobError:
@@ -382,9 +385,9 @@ class JobInfo:
     id: str
     created_at: str
     data_name: str
-    duration: float | None = None
-    text_name: str | None = None
-    tracking: dict[str, Any] | None = None
+    duration: Optional[float] = None
+    text_name: Optional[str] = None
+    tracking: Optional[dict[str, Any]] = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> JobInfo:
@@ -422,9 +425,9 @@ class JobDetails:
     status: JobStatus
     created_at: str
     data_name: str
-    duration: float | None = None
-    config: JobConfig | None = None
-    errors: list[JobError] | None = None
+    duration: Optional[float] = None
+    config: Optional[JobConfig] = None
+    errors: Optional[list[JobError]] = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> JobDetails:
@@ -474,17 +477,17 @@ class RecognitionMetadata:
 
     created_at: str
     type: str
-    transcription_config: dict[str, Any] | None = None
-    orchestrator_version: str | None = None
-    translation_errors: list[dict[str, Any]] | None = None
-    summarization_errors: list[dict[str, Any]] | None = None
-    sentiment_analysis_errors: list[dict[str, Any]] | None = None
-    topic_detection_errors: list[dict[str, Any]] | None = None
-    auto_chapters_errors: list[dict[str, Any]] | None = None
-    alignment_config: dict[str, Any] | None = None
-    output_config: dict[str, Any] | None = None
-    language_pack_info: dict[str, Any] | None = None
-    language_identification: dict[str, Any] | None = None
+    transcription_config: Optional[dict[str, Any]] = None
+    orchestrator_version: Optional[str] = None
+    translation_errors: Optional[list[dict[str, Any]]] = None
+    summarization_errors: Optional[list[dict[str, Any]]] = None
+    sentiment_analysis_errors: Optional[list[dict[str, Any]]] = None
+    topic_detection_errors: Optional[list[dict[str, Any]]] = None
+    auto_chapters_errors: Optional[list[dict[str, Any]]] = None
+    alignment_config: Optional[dict[str, Any]] = None
+    output_config: Optional[dict[str, Any]] = None
+    language_pack_info: Optional[dict[str, Any]] = None
+    language_identification: Optional[dict[str, Any]] = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> RecognitionMetadata:
@@ -511,10 +514,10 @@ class Alternative:
     """Alternative transcription result."""
 
     content: str
-    confidence: float | None = None
-    language: str | None = None
-    speaker: str | None = None
-    words: list[dict[str, Any]] | None = None
+    confidence: Optional[float] = None
+    language: Optional[str] = None
+    speaker: Optional[str] = None
+    words: Optional[list[dict[str, Any]]] = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Alternative:
@@ -533,10 +536,10 @@ class RecognitionResult:
     """Individual recognition result with alternatives."""
 
     type: str
-    start_time: float | None = None
-    end_time: float | None = None
-    channel: str | None = None
-    alternatives: list[Alternative] | None = None
+    start_time: Optional[float] = None
+    end_time: Optional[float] = None
+    channel: Optional[str] = None
+    alternatives: Optional[list[Alternative]] = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> RecognitionResult:
@@ -580,13 +583,13 @@ class Transcript:
     job: JobInfo
     metadata: RecognitionMetadata
     results: list[RecognitionResult]
-    translations: dict[str, Any] | None = None
-    summary: dict[str, Any] | None = None
-    sentiment_analysis: dict[str, Any] | None = None
-    topics: dict[str, Any] | None = None
-    chapters: list[dict[str, Any]] | None = None
-    audio_events: list[dict[str, Any]] | None = None
-    audio_event_summary: dict[str, Any] | None = None
+    translations: Optional[dict[str, Any]] = None
+    summary: Optional[dict[str, Any]] = None
+    sentiment_analysis: Optional[dict[str, Any]] = None
+    topics: Optional[dict[str, Any]] = None
+    chapters: Optional[list[dict[str, Any]]] = None
+    audio_events: Optional[list[dict[str, Any]]] = None
+    audio_event_summary: Optional[dict[str, Any]] = None
 
     @property
     def transcript_text(self) -> str:
@@ -627,7 +630,7 @@ class Transcript:
                 if current_group:
                     text = self._join_content_items(current_group, word_delimiter)
                     if current_speaker:
-                        transcript_parts.append(f"SPEAKER {current_speaker}: {text}")
+                        transcript_parts.append(f"SPEAKER {current_speaker}: {text}")  # type: ignore[unreachable]
                     else:
                         transcript_parts.append(text)
                     current_group = []
@@ -683,7 +686,7 @@ class Transcript:
         return "".join(result).strip()
 
     @property
-    def confidence(self) -> float | None:
+    def confidence(self) -> Optional[float]:
         """Calculate average confidence from all results."""
         confidences = []
         for result in self.results:

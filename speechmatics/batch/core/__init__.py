@@ -5,7 +5,6 @@ from .exceptions import (
     ConfigurationError,
     ConnectionError,
     JobError,
-    SpeechmaticsError,
     TimeoutError,
     TransportError,
 )
@@ -22,7 +21,6 @@ from .models import (
 
 __all__ = [
     "AsyncClient",
-    "SpeechmaticsError",
     "ConfigurationError",
     "AuthenticationError",
     "ConnectionError",

@@ -33,7 +33,7 @@ class AudioEventsConfig:
     types: Optional[list[str]] = None
     """Optional list of audio event types to detect."""
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         if self.types is None:
             return {}
         return asdict(self)
@@ -317,7 +317,7 @@ class TranscriptionConfig:
     """
 
     language: str = "en"
-    operating_point: Optional[str] = None
+    operating_point: str = "enhanced"
     output_locale: Optional[str] = None
     diarization: Optional[str] = None
     additional_vocab: Optional[dict] = None
@@ -384,7 +384,7 @@ class TranslationConfig:
     target_languages: list[str]
     enable_partials: Optional[bool] = None
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self, dict_factory=lambda x: {k: v for (k, v) in x if v is not None})
 
 

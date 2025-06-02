@@ -59,7 +59,7 @@ def get_logger(name: str, request_id: Optional[str] = None) -> structlog.BoundLo
     if request_id:
         logger = logger.bind(request_id=request_id)
 
-    return logger
+    return logger  # type: ignore[no-any-return]
 
 
 def bind_context(logger: structlog.BoundLogger, **kwargs: Any) -> structlog.BoundLogger:

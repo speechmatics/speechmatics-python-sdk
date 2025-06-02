@@ -31,10 +31,6 @@ build: clean
 	pip install build
 	python -m build
 
-build: clean
-	pip install build
-	python -m build
-
 clean:
 	rm -rf build/ dist/ *.egg-info/
 	find . -name __pycache__ -exec rm -rf {} + 2>/dev/null || true

@@ -46,7 +46,7 @@ async def main() -> None:
                 timeout=300.0,
             )
 
-            print(f"Transcription completed!")
+            print("Transcription completed!")
             if isinstance(result, Transcript):
                 print(f"Transcript: {result.transcript_text}")
             else:

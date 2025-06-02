@@ -1,6 +1,7 @@
 import logging
 import sys
-from typing import Any, Optional
+from typing import Any
+from typing import Optional
 
 import structlog
 from structlog.types import Processor
@@ -62,7 +63,7 @@ def get_logger(name: str, request_id: Optional[str] = None) -> structlog.BoundLo
     if request_id:
         logger = logger.bind(request_id=request_id)
 
-    return logger
+    return logger  # type: ignore[no-any-return]
 
 
 def bind_context(logger: structlog.BoundLogger, **kwargs: Any) -> structlog.BoundLogger:

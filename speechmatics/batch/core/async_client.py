@@ -10,10 +10,13 @@ from __future__ import annotations
 import asyncio
 import os
 import uuid
+from typing import Any
 from typing import BinaryIO
+from typing import Optional
+from typing import Union
 
 from .exceptions import AuthenticationError, BatchError, ConfigurationError, JobError, TimeoutError
-from .helpers import prepare_file_data
+from .helpers import prepare_audio_file
 from .logging import get_logger
 from .models import (
     ConnectionConfig,
@@ -80,9 +83,9 @@ class AsyncClient:
     def __init__(
         self,
         *,
-        api_key: str | None = None,
-        url: str | None = None,
-        conn_config: ConnectionConfig | None = None,
+        api_key: Optional[str] = None,
+        url: Optional[str] = None,
+        conn_config: Optional[ConnectionConfig] = None,
     ) -> None:
         """
         Initialize the AsyncClient.
@@ -124,7 +127,7 @@ class AsyncClient:
         """
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """
         Async context manager exit with automatic cleanup.
 
@@ -140,10 +143,10 @@ class AsyncClient:
 
     async def submit_job(
         self,
-        audio_file: str | BinaryIO,
+        audio_file: Union[str, BinaryIO],
         *,
-        config: JobConfig | None = None,
-        transcription_config: TranscriptionConfig | None = None,
+        config: Optional[JobConfig] = None,
+        transcription_config: Optional[TranscriptionConfig] = None,
     ) -> JobDetails:
         """
         Submit a new transcription job.
@@ -186,44 +189,36 @@ class AsyncClient:
             transcription_config = transcription_config or TranscriptionConfig()
             config = JobConfig(type=JobType.TRANSCRIPTION, transcription_config=transcription_config)
 
-        # Prepare file data
+        # Prepare file data using async context manager
         try:
-            filename, file_data = prepare_file_data(audio_file)
-        except Exception as e:
-            raise BatchError(f"Failed to prepare audio file: {e}") from e
+            async with prepare_audio_file(audio_file) as (filename, file_data):
+                # Prepare multipart form data
+                multipart_data = {
+                    "config": config.to_dict(),
+                    "data_file": (filename, file_data, "audio/wav"),
+                }
 
-        # Prepare multipart form data
-        multipart_data = {
-            "config": config.to_dict(),
-            "data_file": (filename, file_data, "audio/wav"),
-        }
+                response = await self._transport.post("/jobs", multipart_data=multipart_data)
 
-        try:
-            response = await self._transport.post("/jobs", multipart_data=multipart_data)
+                # Extract job info from response
+                job_id = response.get("id")
+                if not job_id:
+                    raise BatchError("No job ID returned from server")
 
-            # Extract job info from response
-            job_id = response.get("id")
-            if not job_id:
-                raise BatchError("No job ID returned from server")
+                self._logger.info("job_submitted", job_id=job_id)
 
-            self._logger.info("job_submitted", job_id=job_id)
-
-            return JobDetails(
-                id=job_id,
-                status=JobStatus.RUNNING,  # Assume running initially
-                created_at=response.get("created_at", ""),
-                data_name=filename,
-                config=config,
-            )
+                return JobDetails(
+                    id=job_id,
+                    status=JobStatus.RUNNING,  # Assume running initially
+                    created_at=response.get("created_at", ""),
+                    data_name=filename,
+                    config=config,
+                )
 
         except Exception as e:
             if isinstance(e, (AuthenticationError, BatchError)):
                 raise
             raise BatchError(f"Failed to submit job: {e}") from e
-        finally:
-            # Close file if we opened it
-            if isinstance(audio_file, str) and hasattr(file_data, "close"):
-                file_data.close()
 
     async def get_job_info(self, job_id: str) -> JobDetails:
         """
@@ -259,9 +254,9 @@ class AsyncClient:
     async def list_jobs(
         self,
         *,
-        limit: int | None = None,
-        created_before: str | None = None,
-        created_after: str | None = None,
+        limit: Optional[int] = None,
+        created_before: Optional[str] = None,
+        created_after: Optional[str] = None,
     ) -> list[JobDetails]:
         """
         List jobs with optional filtering.
@@ -325,7 +320,7 @@ class AsyncClient:
                 raise
             raise JobError(f"Failed to delete job: {e}") from e
 
-    async def get_transcript(self, job_id: str, *, format_type: str = "json") -> Transcript | str:
+    async def get_transcript(self, job_id: str, *, format_type: str = "json") -> Union[Transcript, str]:
         """
         Get the transcript for a completed job.
 
@@ -357,12 +352,27 @@ class AsyncClient:
                 return Transcript.from_dict(response)
             else:
                 # Return plain text for other formats
-                return response.get("content", "")
+                return response.get("content", "")  # type: ignore[no-any-return]
 
         except Exception as e:
             if isinstance(e, AuthenticationError):
                 raise
             raise JobError(f"Failed to get transcript: {e}") from e
+
+    async def _poll_job_status(self, job_id: str, polling_interval: float) -> None:
+        """Poll job status until completion or failure."""
+        while True:
+            job_info = await self.get_job_info(job_id)
+
+            if job_info.status == JobStatus.DONE:
+                return
+            elif job_info.status == JobStatus.REJECTED:
+                raise JobError(f"Job {job_id} was rejected")
+            elif job_info.status == JobStatus.RUNNING:
+                self._logger.debug("job_polling", job_id=job_id, status=job_info.status)
+                await asyncio.sleep(polling_interval)
+            else:
+                raise JobError(f"Job {job_id} has unknown status: {job_info.status}")
 
     async def wait_for_completion(
         self,
@@ -370,8 +380,8 @@ class AsyncClient:
         *,
         format_type: str = "json",
         polling_interval: float = 5.0,
-        timeout: float | None = None,
-    ) -> Transcript | str:
+        timeout: Optional[float] = None,
+    ) -> Union[Transcript, str]:
         """
         Wait for a job to complete and return the result.
 
@@ -403,45 +413,23 @@ class AsyncClient:
             ...     timeout=300.0
             ... )
         """
-        start_time = asyncio.get_event_loop().time()
+        try:
+            await asyncio.wait_for(self._poll_job_status(job_id, polling_interval), timeout=timeout)
 
-        while True:
-            # Check timeout
-            if timeout:
-                elapsed = asyncio.get_event_loop().time() - start_time
-                if elapsed > timeout:
-                    raise TimeoutError(f"Job {job_id} did not complete within {timeout} seconds")
+            return await self.get_transcript(job_id, format_type=format_type)
 
-            # Get current job status
-            job_info = await self.get_job_info(job_id)
-
-            if job_info.status == JobStatus.DONE:
-                # Job completed successfully, get transcript
-                result = await self.get_transcript(job_id, format_type=format_type)
-                if isinstance(result, (Transcript, str)):
-                    return result
-                else:
-                    raise JobError(f"Unexpected transcript format for job {job_id}")
-            elif job_info.status == JobStatus.REJECTED:
-                # Job failed
-                raise JobError(f"Job {job_id} was rejected")
-            elif job_info.status == JobStatus.RUNNING:
-                # Still running, continue polling
-                self._logger.debug("job_polling", job_id=job_id, status=job_info.status)
-                await asyncio.sleep(polling_interval)
-            else:
-                # Unknown status
-                raise JobError(f"Job {job_id} has unknown status: {job_info.status}")
+        except asyncio.TimeoutError:
+            raise TimeoutError(f"Job {job_id} did not complete within {timeout} seconds") from None
 
     async def transcribe(
         self,
-        audio_file: str | BinaryIO,
+        audio_file: Union[str, BinaryIO],
         *,
-        config: JobConfig | None = None,
-        transcription_config: TranscriptionConfig | None = None,
+        config: Optional[JobConfig] = None,
+        transcription_config: Optional[TranscriptionConfig] = None,
         polling_interval: float = 5.0,
-        timeout: float | None = None,
-    ) -> Transcript | str:
+        timeout: Optional[float] = None,
+    ) -> Union[Transcript, str]:
         """
         Complete transcription workflow: submit job and wait for completion.
 

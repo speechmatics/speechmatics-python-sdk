@@ -24,7 +24,7 @@ pip install speechmatics-batch
 
 ```python
 import asyncio
-from speechmatics_batch import AsyncClient
+from speechmatics.batch import AsyncClient
 
 async def main():
     # Create a client using environment variable SPEECHMATICS_API_KEY
@@ -40,7 +40,7 @@ asyncio.run(main())
 
 ```python
 import asyncio
-from speechmatics_batch import AsyncClient, JobConfig, JobType, TranscriptionConfig
+from speechmatics.batch import AsyncClient, JobConfig, JobType, TranscriptionConfig
 
 async def main():
     # Create client with explicit API key
@@ -78,7 +78,7 @@ asyncio.run(main())
 
 ```python
 import asyncio
-from speechmatics_batch import (
+from speechmatics.batch import (
     AsyncClient,
     JobConfig,
     JobType,
@@ -122,7 +122,7 @@ asyncio.run(main())
 
 ```python
 import asyncio
-from speechmatics_batch import AsyncClient, JobStatus
+from speechmatics.batch import AsyncClient, JobStatus
 
 async def main():
     async with AsyncClient() as client:
@@ -153,7 +153,7 @@ asyncio.run(main())
 
 ```python
 import asyncio
-from speechmatics_batch import AsyncClient
+from speechmatics.batch import AsyncClient
 
 async def main():
     async with AsyncClient() as client:
@@ -178,7 +178,7 @@ asyncio.run(main())
 
 ```python
 import asyncio
-from speechmatics_batch import (
+from speechmatics.batch import (
     AsyncClient,
     BatchError,
     AuthenticationError,
@@ -210,7 +210,7 @@ asyncio.run(main())
 
 ```python
 import asyncio
-from speechmatics_batch import AsyncClient, ConnectionConfig
+from speechmatics.batch import AsyncClient, ConnectionConfig
 
 async def main():
     # Custom connection settings
@@ -233,7 +233,7 @@ asyncio.run(main())
 The client supports the following environment variables:
 
 - `SPEECHMATICS_API_KEY`: Your Speechmatics API key
-- `SPEECHMATICS_BATCH_URL`: Custom API endpoint URL (optional)
+- `speechmatics.batch_URL`: Custom API endpoint URL (optional)
 
 ## Models
 
