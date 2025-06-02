@@ -104,7 +104,6 @@ class AsyncClient(EventEmitter):
         """
         super().__init__()
 
-        # Set up configuration
         if conn_config:
             self._conn_config = conn_config
         else:
@@ -158,7 +157,7 @@ class AsyncClient(EventEmitter):
         audio_format: Optional[AudioFormat] = None,
         translation_config: Optional[TranslationConfig] = None,
         audio_events_config: Optional[AudioEventsConfig] = None,
-        headers: Optional[dict[str, str]] = None,
+        ws_headers: Optional[dict] = None,
         timeout: Optional[float] = None,
     ) -> None:
         """
@@ -183,7 +182,7 @@ class AsyncClient(EventEmitter):
             audio_format: Audio format specification including encoding, sample rate,
                          and chunk size. Uses default (PCM 16-bit LE, 44.1kHz) if
                          not provided.
-            headers: Additional HTTP headers to include in the WebSocket handshake.
+            ws_headers: Additional HTTP headers to include in the WebSocket handshake.
             timeout: Maximum time in seconds to wait for transcription completion.
                     Uses connection default if not provided.
 
@@ -231,7 +230,6 @@ class AsyncClient(EventEmitter):
 
         transcription_config = transcription_config or TranscriptionConfig()
         audio_format = audio_format or AudioFormat(encoding=AudioEncoding.PCM_S16LE)
-        timeout = timeout or self._conn_config.operation_timeout
 
         self._session.is_running = False
         self._recognition_started.clear()
@@ -246,7 +244,7 @@ class AsyncClient(EventEmitter):
                     audio_format,
                     translation_config,
                     audio_events_config,
-                    headers,
+                    ws_headers,
                 ),
                 timeout=timeout,
             )
@@ -281,12 +279,12 @@ class AsyncClient(EventEmitter):
             if not self._end_of_stream_sent:
                 await self._send_end_of_stream()
         except Exception:
-            pass  # Best effort cleanup
+            pass
 
         try:
             await self._transport.close()
         except Exception:
-            pass  # Best effort cleanup
+            pass
 
         self.remove_all_listeners()
 
@@ -297,7 +295,7 @@ class AsyncClient(EventEmitter):
         audio_format: AudioFormat,
         translation_config: Optional[TranslationConfig],
         audio_events_config: Optional[AudioEventsConfig],
-        headers: Optional[dict[str, str]],
+        ws_headers: Optional[dict],
     ) -> None:
         """
         This internal method orchestrates the entire transcription process:
@@ -312,9 +310,9 @@ class AsyncClient(EventEmitter):
             audio_format: Audio format specification.
             translation_config: Optional translation configuration.
             audio_events_config: Optional audio events configuration.
-            headers: Additional WebSocket headers.
+            ws_headers: Additional WebSocket headers.
         """
-        await self._transport.connect(headers)
+        await self._transport.connect(ws_headers)
 
         await self._start_recognition(
             transcription_config,
@@ -468,7 +466,6 @@ class AsyncClient(EventEmitter):
             self._logger.warning("unknown_message_type", message_type=message_type)
             return
 
-        # Handle session control messages
         if server_msg_type == ServerMessageType.RECOGNITION_STARTED:
             self._session.session_id = message.get("id")
             self._recognition_started.set()
@@ -487,7 +484,6 @@ class AsyncClient(EventEmitter):
             self._logger.error("transcription_error", session_id=self._session.session_id, error=message["reason"])
             raise TranscriptionError(message["reason"])
 
-        # Emit event for event handlers
         try:
             self.emit(server_msg_type, message)
         except ForceEndSession:

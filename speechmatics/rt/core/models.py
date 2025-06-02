@@ -400,11 +400,6 @@ class ConnectionConfig:
     Attributes:
         url: WebSocket endpoint URL (e.g., "wss://eu2.rt.speechmatics.com/v2").
         api_key: Speechmatics API key for authentication.
-        connect_timeout: Timeout in seconds for connection establishment.
-        operation_timeout: Default timeout for transcription operations.
-        ping_timeout: Timeout for WebSocket ping/pong heartbeat.
-        buffer_size: Maximum number of messages to buffer.
-        semaphore_timeout: Timeout for buffer semaphore acquisition.
         generate_temp_token: Whether to generate temporary tokens for enhanced security.
 
     Raises:
@@ -418,30 +413,16 @@ class ConnectionConfig:
             ...     api_key="your-api-key"
             ... )
 
-        High-throughput configuration:
-            >>> config = ConnectionConfig(
-            ...     url="wss://eu2.rt.speechmatics.com/v2",
-            ...     api_key="your-api-key",
-            ...     buffer_size=2048,
-            ...     operation_timeout=600.0
-            ... )
-
-        Secure configuration with temporary tokens:
+        Configuration with temporary tokens:
             >>> config = ConnectionConfig(
             ...     url="wss://eu2.rt.speechmatics.com/v2",
             ...     api_key="your-main-api-key",
             ...     generate_temp_token=True,
-            ...     connect_timeout=60.0
             ... )
     """
 
     url: str
     api_key: str
-    connect_timeout: float = 30.0
-    operation_timeout: float = 300.0
-    ping_timeout: float = 60.0
-    buffer_size: int = 512
-    semaphore_timeout: float = 120.0
     generate_temp_token: bool = False
 
 

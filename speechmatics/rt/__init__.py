@@ -14,7 +14,6 @@ from .core import EndOfTranscriptError
 from .core import ForceEndSession
 from .core import ServerMessageType
 from .core import SessionError
-from .core import SpeechmaticsError
 from .core import TimeoutError
 from .core import TranscriptionConfig
 from .core import TranscriptionError
