@@ -10,36 +10,260 @@ pip install speechmatics-batch
 
 ## Features
 
-- Async and sync API clients
-- Comprehensive error handling and input validation
+- Async API client with comprehensive error handling
 - Type hints throughout for better IDE support
 - Environment variable support for credentials
 - Easy-to-use interface for submitting, monitoring, and retrieving transcription jobs
+- Full job configuration support with all Speechmatics features
+- Intelligent transcript formatting with speaker diarization
+- Support for multiple output formats (JSON, TXT, SRT)
 
 ## Usage
 
+### Quick Start
+
 ```python
-from batch.client import BatchClient
+import asyncio
+from speechmatics.batch import AsyncClient
 
-# Create a client
-client = BatchClient(api_key="your-api-key")
+async def main():
+    # Create a client using environment variable SPEECHMATICS_API_KEY
+    async with AsyncClient() as client:
+        # Simple transcription
+        result = await client.transcribe("audio.wav")
+        print(result.transcript_text)
 
-# Submit a transcription job
-job_id = client.submit_job(
-    audio_file="path/to/audio.wav",
-    language="en",
-)
-
-# Wait for job to complete
-client.wait_for_completion(job_id)
-
-# Get the results
-results = client.get_results(job_id)
-print(results.transcript)
+asyncio.run(main())
 ```
 
+### Basic Job Workflow
+
+```python
+import asyncio
+from speechmatics.batch import AsyncClient, JobConfig, JobType, TranscriptionConfig
+
+async def main():
+    # Create client with explicit API key
+    async with AsyncClient(api_key="your-api-key") as client:
+
+        # Configure transcription
+        config = JobConfig(
+            type=JobType.TRANSCRIPTION,
+            transcription_config=TranscriptionConfig(
+                language="en",
+                enable_entities=True,
+                diarization="speaker"
+            )
+        )
+
+        # Submit job
+        job = await client.submit_job("audio.wav", config=config)
+        print(f"Job submitted: {job.id}")
+
+        # Wait for completion
+        result = await client.wait_for_completion(
+            job.id,
+            polling_interval=2.0,
+            timeout=300.0
+        )
+
+        # Access results
+        print(f"Transcript: {result.transcript_text}")
+        print(f"Confidence: {result.confidence}")
+
+asyncio.run(main())
+```
+
+### Advanced Configuration
+
+```python
+import asyncio
+from speechmatics.batch import (
+    AsyncClient,
+    JobConfig,
+    JobType,
+    OperatingPoint,
+    TranscriptionConfig,
+    TranslationConfig,
+    SummarizationConfig,
+    NotificationConfig
+)
+
+async def main():
+    async with AsyncClient(api_key="your-api-key") as client:
+
+        # Advanced job configuration
+        config = JobConfig(
+            type=JobType.TRANSCRIPTION,
+            transcription_config=TranscriptionConfig(
+                language="en",
+                operating_point=OperatingPoint.ENHANCED,
+                enable_entities=True,
+                diarization="speaker",
+            ),
+            translation_config=TranslationConfig(target_languages=["es", "fr"]),
+            summarization_config=SummarizationConfig(
+                content_type="conversational", summary_length="brief"
+            ),
+        )
+
+        result = await client.transcribe("audio.wav", config=config)
+
+        # Access advanced features
+        if result.summary:
+            print(f"Summary: {result.summary}")
+        if result.translations:
+            print(f"Translations: {result.translations}")
+
+asyncio.run(main())
+```
+
+### Manual Job Management
+
+```python
+import asyncio
+from speechmatics.batch import AsyncClient, JobStatus
+
+async def main():
+    async with AsyncClient() as client:
+
+        # Submit job
+        job = await client.submit_job("audio.wav")
+
+        # Check job status
+        job_details = await client.get_job_info(job.id)
+        print(f"Status: {job_details.status}")
+
+        # Wait for completion manually
+        while job_details.status == JobStatus.RUNNING:
+            await asyncio.sleep(5)
+            job_details = await client.get_job_info(job.id)
+
+        if job_details.status == JobStatus.DONE:
+            # Get transcript
+            transcript = await client.get_transcript(job.id)
+            print(transcript.transcript_text)
+        else:
+            print(f"Job failed with status: {job_details.status}")
+
+asyncio.run(main())
+```
+
+### Different Output Formats
+
+```python
+import asyncio
+from speechmatics.batch import AsyncClient
+
+async def main():
+    async with AsyncClient() as client:
+        job = await client.submit_job("audio.wav")
+
+        # Get JSON format (default)
+        json_result = await client.get_transcript(job.id, format_type="json")
+        print(json_result.transcript_text)
+
+        # Get plain text
+        txt_result = await client.get_transcript(job.id, format_type="txt")
+        print(txt_result)
+
+        # Get SRT subtitles
+        srt_result = await client.get_transcript(job.id, format_type="srt")
+        print(srt_result)
+
+asyncio.run(main())
+```
+
+### Error Handling
+
+```python
+import asyncio
+from speechmatics.batch import (
+    AsyncClient,
+    BatchError,
+    AuthenticationError,
+    JobError,
+    TimeoutError
+)
+
+async def main():
+    try:
+        async with AsyncClient() as client:
+            result = await client.transcribe("audio.wav", timeout=120.0)
+            print(result.transcript_text)
+
+    except AuthenticationError:
+        print("Invalid API key")
+    except BatchError as e:
+        print(f"Job submission failed: {e}")
+    except JobError as e:
+        print(f"Job processing failed: {e}")
+    except TimeoutError as e:
+        print(f"Job timed out: {e}")
+    except FileNotFoundError:
+        print("Audio file not found")
+
+asyncio.run(main())
+```
+
+### Connection Configuration
+
+```python
+import asyncio
+from speechmatics.batch import AsyncClient, ConnectionConfig
+
+async def main():
+    # Custom connection settings
+    config = ConnectionConfig(
+        url="https://asr.api.speechmatics.com/v2",
+        api_key="your-api-key",
+        connect_timeout=30.0,
+        operation_timeout=600.0
+    )
+
+    async with AsyncClient(conn_config=config) as client:
+        result = await client.transcribe("audio.wav")
+        print(result.transcript_text)
+
+asyncio.run(main())
+```
+
+## Environment Variables
+
+The client supports the following environment variables:
+
+- `SPEECHMATICS_API_KEY`: Your Speechmatics API key
+- `speechmatics.batch_URL`: Custom API endpoint URL (optional)
+
+## Models
+
+### JobConfig
+
+Complete job configuration with support for:
+
+- Transcription settings (language, operating point, diarization)
+- Translation to multiple languages
+- Summarization with different styles
+- Sentiment analysis and topic detection
+- Audio event detection
+- Webhook notifications
+
+### Transcript
+
+Rich transcript object containing:
+
+- Formatted transcript text with speaker labels
+- Recognition results with timing and confidence
+- Optional translations, summaries, and analysis
+- Job metadata and processing information
+
+### JobDetails
+
+Job management information including:
+
+- Job status and timestamps
+- Configuration used
+- Error information
+- Audio file metadata
+
 For more detailed examples, see the examples directory in the repository.
-
-## License
-
-MIT

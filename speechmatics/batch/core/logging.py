@@ -22,6 +22,7 @@ def setup_logging(log_level: str = "WARNING") -> None:
         structlog.processors.format_exc_info,
     ]
 
+    # Set different processors for different environments
     if sys.stderr.isatty():
         # Development: pretty console output
         processors = shared_processors + [structlog.dev.ConsoleRenderer(colors=True, sort_keys=False)]
@@ -32,6 +33,7 @@ def setup_logging(log_level: str = "WARNING") -> None:
             structlog.processors.JSONRenderer(),
         ]
 
+    # Configure structlog
     structlog.configure(
         processors=processors,
         context_class=dict,
@@ -40,6 +42,7 @@ def setup_logging(log_level: str = "WARNING") -> None:
         cache_logger_on_first_use=True,
     )
 
+    # Set the log level
     logging.basicConfig(level=getattr(logging, log_level.upper(), logging.INFO))
 
 
@@ -56,6 +59,7 @@ def get_logger(name: str, request_id: Optional[str] = None) -> structlog.BoundLo
     """
     logger = structlog.get_logger(name)
 
+    # Add request_id to context if provided
     if request_id:
         logger = logger.bind(request_id=request_id)
 
@@ -76,4 +80,5 @@ def bind_context(logger: structlog.BoundLogger, **kwargs: Any) -> structlog.Boun
     return logger.bind(**kwargs)
 
 
+# Set up logging with default configuration
 setup_logging()

@@ -14,6 +14,7 @@ import os
 import uuid
 from typing import Any
 from typing import Optional
+from typing import Union
 from urllib.parse import parse_qsl
 from urllib.parse import urlencode
 from urllib.parse import urlparse
@@ -33,7 +34,7 @@ try:
 
     WS_HEADERS_KEY = "additional_headers"
 except ImportError:
-    from websockets.legacy.client import WebSocketClientProtocol as ClientConnection  # type: ignore
+    from websockets.legacy.client import WebSocketClientProtocol
     from websockets.legacy.client import connect  # type: ignore
 
     WS_HEADERS_KEY = "extra_headers"
@@ -84,7 +85,7 @@ class Transport:
         """
         self._config = config
         self._request_id = request_id or str(uuid.uuid4())
-        self._websocket: Optional[ClientConnection] = None
+        self._websocket: Optional[Union[ClientConnection, WebSocketClientProtocol]] = None
         self._closed = False
         self._logger = get_logger(__name__, self._request_id)
 
@@ -203,7 +204,7 @@ class Transport:
 
         try:
             raw_message = await self._websocket.recv()
-            return json.loads(raw_message)
+            return json.loads(raw_message)  # type: ignore[no-any-return]
         except json.JSONDecodeError as e:
             self._logger.error("invalid_json_received", error=str(e))
             raise TransportError(f"Invalid JSON received: {e}")
@@ -358,7 +359,7 @@ class Transport:
                             f"Failed to get temporary token: HTTP {response.status}: {response.reason} - {error_content}"
                         )
                     key_object = await response.json()
-                    return key_object["key_value"]
+                    return key_object["key_value"]  # type: ignore[no-any-return]
         except Exception as e:
             self._logger.error("temp_token_fetch_failed", error=str(e))
             raise TransportError(f"Failed to get temporary token: {e}") from e
