@@ -288,15 +288,13 @@ class Transport:
         Raises:
             TransportError: If temporary token generation fails.
         """
-        headers = {}
-        headers["X-Request-Id"] = self._request_id
+        headers = {"X-Request-Id": self._request_id}
 
         if self._config.api_key:
+            headers["Authorization"] = f"Bearer {self._config.api_key}"
             if self._config.generate_temp_token:
                 temp_token = await self._get_temp_token(self._config.api_key)
                 headers["Authorization"] = f"Bearer {temp_token}"
-            else:
-                headers["Authorization"] = f"Bearer {self._config.api_key}"
 
         if extra_headers:
             headers.update(extra_headers)
@@ -337,7 +335,7 @@ class Transport:
         mp_api_url = os.getenv("SM_MANAGEMENT_PLATFORM_URL", "https://mp.speechmatics.com")
         endpoint = f"{mp_api_url}/v1/api_keys"
 
-        params = {"type": "rt", "sm-sdk": f"python-{version}"}
+        params = {"type": "rt", "sm-sdk": f"python-rt-sdk/{version}"}
         endpoint_with_params = f"{endpoint}?{urlencode(params)}"
 
         headers = {
@@ -354,12 +352,11 @@ class Transport:
                     timeout=10,
                 ) as response:
                     if response.status != 201:
-                        error_content = await response.text()
                         raise TransportError(
-                            f"Failed to get temporary token: HTTP {response.status}: {response.reason} - {error_content}"
+                            f"Failed to get temporary token: HTTP {response.status}: {response.reason}"
                         )
                     key_object = await response.json()
                     return key_object["key_value"]  # type: ignore[no-any-return]
         except Exception as e:
-            self._logger.error("temp_token_fetch_failed", error=str(e))
-            raise TransportError(f"Failed to get temporary token: {e}") from e
+            self._logger.error("get_temp_token_failure", error=str(e))
+            raise TransportError(e)

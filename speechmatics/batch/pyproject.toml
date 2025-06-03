@@ -7,9 +7,8 @@ name = "speechmatics-batch"
 dynamic = ["version"]
 description = "Speechmatics Batch API Client"
 readme = "README.md"
-authors = [
-    {name = "Speechmatics", email = "support@speechmatics.com"}
-]
+authors = [{ name = "Speechmatics", email = "support@speechmatics.com" }]
+license = "MIT"
 requires-python = ">=3.9"
 dependencies = [
     "requests>=2.28.0",
@@ -18,14 +17,13 @@ dependencies = [
     "aiofiles>=23.0.0",
 ]
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Topic :: Multimedia :: Sound/Audio :: Speech",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -51,10 +49,10 @@ documentation = "https://github.com/speechmatics/speechmatics-python-sdk#readme"
 repository = "https://github.com/speechmatics/speechmatics-python-sdk"
 
 [tool.setuptools]
-package-dir = {"" = "."}
+package-dir = { "" = "." }
 
 [tool.setuptools.dynamic]
-version = {file = "VERSION"}
+version = { file = "VERSION" }
 
 [tool.setuptools.packages.find]
 where = ["."]
