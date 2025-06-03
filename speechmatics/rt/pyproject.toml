@@ -5,13 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "speechmatics-rt"
 dynamic = ["version"]
-description = "Speechmatics Real-Time SDK"
+description = "Speechmatics Real-Time API Client"
 readme = "README.md"
 authors = [{ name = "Speechmatics", email = "support@speechmatics.com" }]
 license = "MIT"
 requires-python = ">=3.9"
 dependencies = ["websockets>=10.0", "aiohttp>=3.8.3", "structlog>=23.0.0"]
 classifiers = [
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",

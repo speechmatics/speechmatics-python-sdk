@@ -259,7 +259,7 @@ class Transport:
         """
         headers = {
             "Authorization": f"Bearer {self._config.api_key}",
-            "User-Agent": f"speechmatics-python-batch/{get_version()}",
+            "User-Agent": f"python-batch-sdk/{get_version()}",
             "X-Request-Id": self._request_id,
         }
         return headers
