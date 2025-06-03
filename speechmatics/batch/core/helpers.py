@@ -3,8 +3,6 @@ Utility functions for the Speechmatics Batch SDK.
 """
 
 from __future__ import annotations
-
-import importlib.metadata
 import io
 import os
 from contextlib import asynccontextmanager
@@ -14,6 +12,8 @@ from typing import Union
 
 import aiofiles  # type: ignore[import-untyped]
 
+from speechmatics.shared.version import get_version as _get_version
+
 
 def get_version() -> str:
     """
@@ -22,16 +22,7 @@ def get_version() -> str:
     Returns:
         Version string
     """
-    try:
-        return importlib.metadata.version("speechmatics-batch")
-    except importlib.metadata.PackageNotFoundError:
-        # Fall back to VERSION file for development
-        version_path = os.path.join(os.path.dirname(__file__), "VERSION")
-        try:
-            with open(version_path, encoding="utf-8") as f:
-                return f.read().strip()
-        except FileNotFoundError:
-            return "unknown"
+    return _get_version("speechmatics-batch", os.path.dirname(__file__))
 
 
 @asynccontextmanager
