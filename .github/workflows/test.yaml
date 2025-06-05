@@ -11,9 +11,6 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
-    defaults:
-      run:
-        working-directory: speechmatics/rt
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -22,17 +19,15 @@ jobs:
       - name: Test and build RT SDK
         run: |
           make install-dev
-          make lint
-          make test
+          make build-rt
+          make lint-rt
+          make test-rt
 
   test-batch:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
-    defaults:
-      run:
-        working-directory: speechmatics/batch
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -41,5 +36,6 @@ jobs:
       - name: Test and build Batch SDK
         run: |
           make install-dev
-          make lint
-          make test
+          make build-batch
+          make lint-batch
+          make test-batch

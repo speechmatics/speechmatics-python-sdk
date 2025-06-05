@@ -24,7 +24,6 @@ from .exceptions import TimeoutError
 from .exceptions import TranscriptionError
 from .helpers import read_audio_chunks
 from .logging import get_logger
-from .models import AudioEncoding
 from .models import AudioEventsConfig
 from .models import AudioFormat
 from .models import ClientMessageType
@@ -58,7 +57,7 @@ class AsyncClient(EventEmitter):
     Examples:
         Basic usage with event handlers:
             >>> async with AsyncClient(api_key="your-key") as client:
-            ...     @client.on(ServerMessageType.ADD_TRANSCRIPT)
+            ...     @client.on(ServerMessageType.AddTranscript)
             ...     def handle_transcript(message):
             ...         result = TranscriptResult.from_message(message)
             ...         print(f"Final: {result.transcript}")
@@ -199,7 +198,7 @@ class AsyncClient(EventEmitter):
         Examples:
             Basic transcription:
                 >>> async with AsyncClient(api_key="key") as client:
-                ...     @client.on(ServerMessageType.ADD_TRANSCRIPT)
+                ...     @client.on(ServerMessageType.AddTranscript)
                 ...     def handle_result(message):
                 ...         result = TranscriptResult.from_message(message)
                 ...         print(result.transcript)
@@ -229,7 +228,7 @@ class AsyncClient(EventEmitter):
             raise AudioError("Audio stream cannot be None")
 
         transcription_config = transcription_config or TranscriptionConfig()
-        audio_format = audio_format or AudioFormat(encoding=AudioEncoding.PCM_S16LE)
+        audio_format = audio_format or AudioFormat()
 
         self._session.is_running = False
         self._recognition_started.clear()
@@ -351,7 +350,7 @@ class AsyncClient(EventEmitter):
             TransportError: If sending the message fails.
         """
         start_message = {
-            "message": ClientMessageType.START_RECOGNITION,
+            "message": ClientMessageType.StartRecognition,
             "audio_format": audio_format.to_dict(),
             "transcription_config": transcription_config.to_dict(),
         }
@@ -466,20 +465,20 @@ class AsyncClient(EventEmitter):
             self._logger.warning("unknown_message_type", message_type=message_type)
             return
 
-        if server_msg_type == ServerMessageType.RECOGNITION_STARTED:
+        if server_msg_type == ServerMessageType.RecognitionStarted:
             self._session.session_id = message.get("id")
             self._recognition_started.set()
             self._logger.info("recognition_started", session_id=self._session.session_id)
 
-        elif server_msg_type == ServerMessageType.END_OF_TRANSCRIPT:
+        elif server_msg_type == ServerMessageType.EndOfTranscript:
             self._session.is_running = False
             self._logger.info("transcription_completed", session_id=self._session.session_id)
             raise EndOfTranscriptError("Transcription completed")
 
-        elif server_msg_type == ServerMessageType.WARNING:
+        elif server_msg_type == ServerMessageType.Warning:
             self._logger.warning("session_warning", session_id=self._session.session_id, warning=message["reason"])
 
-        elif server_msg_type == ServerMessageType.ERROR:
+        elif server_msg_type == ServerMessageType.Error:
             self._session.is_running = False
             self._logger.error("transcription_error", session_id=self._session.session_id, error=message["reason"])
             raise TranscriptionError(message["reason"])
@@ -510,7 +509,7 @@ class AsyncClient(EventEmitter):
             return
 
         end_message = {
-            "message": ClientMessageType.END_OF_STREAM,
+            "message": ClientMessageType.EndOfStream,
             "last_seq_no": self._seq_no,
         }
         await self._transport.send_message(end_message)

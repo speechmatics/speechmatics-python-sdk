@@ -1,21 +1,16 @@
 [build-system]
-requires = ["setuptools>=61.0.0", "wheel>=0.37.0"]
+requires = ["setuptools>=61.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "speechmatics-batch"
 dynamic = ["version"]
 description = "Speechmatics Batch API Client"
-readme = "README.md"
+readme = "speechmatics/batch/README.md"
 authors = [{ name = "Speechmatics", email = "support@speechmatics.com" }]
 license = "MIT"
 requires-python = ">=3.9"
-dependencies = [
-    "requests>=2.28.0",
-    "pydantic>=2.0.0",
-    "aiohttp>=3.8.0",
-    "aiofiles>=23.0.0",
-]
+dependencies = ["requests", "aiohttp", "aiofiles"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -31,33 +26,33 @@ classifiers = [
 
 [project.optional-dependencies]
 dev = [
-    "black>=23.0.0",
-    "ruff>=0.1.0",
-    "mypy>=1.5.0",
-    "types-aiofiles>=23.0.0",
-    "pre-commit>=3.0.0",
-    "pytest>=7.0.0",
-    "pytest-asyncio>=0.21.0",
-    "pytest-cov>=4.0.0",
-    "pytest-mock>=3.10.0",
-    "build>=1.2.0",
+    "black",
+    "ruff",
+    "mypy",
+    "types-aiofiles",
+    "pre-commit",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "pytest-mock",
+    "build",
 ]
 
 [project.urls]
 homepage = "https://github.com/speechmatics/speechmatics-python-sdk"
 documentation = "https://github.com/speechmatics/speechmatics-python-sdk#readme"
 repository = "https://github.com/speechmatics/speechmatics-python-sdk"
-
-[tool.setuptools]
-package-dir = { "" = "." }
+changelog = "https://github.com/speechmatics/speechmatics-python-sdk/blob/main/CHANGELOG.md"
+issues = "https://github.com/speechmatics/speechmatics-python-sdk/issues"
 
 [tool.setuptools.dynamic]
-version = { file = "VERSION" }
+version = { attr = "speechmatics.batch.__version__" }
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["batch*"]
-
-# Package-specific ruff overrides if needed
-[tool.ruff.lint.isort]
-known-first-party = ["batch"]
+[tool.setuptools]
+packages = [
+    "speechmatics.batch",
+    "speechmatics.batch.core",
+    "speechmatics.shared",
+]
+package-dir = { "speechmatics.batch" = "speechmatics/batch", "speechmatics.batch.core" = "speechmatics/batch/core", "speechmatics.shared" = "speechmatics/shared" }
+include-package-data = true

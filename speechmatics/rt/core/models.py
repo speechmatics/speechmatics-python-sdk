@@ -47,35 +47,35 @@ class ClientMessageType(str, Enum):
     client can send to the Speechmatics RT API during a transcription session.
 
     Attributes:
-        START_RECOGNITION: Initiates a new transcription session with
+        StartRecognition: Initiates a new transcription session with
             configuration parameters.
-        ADD_AUDIO: Indicates that audio data follows (not used in message
+        AddAudio: Indicates that audio data follows (not used in message
             headers, audio is sent as binary data).
-        END_OF_STREAM: Signals that no more audio data will be sent.
-        SET_RECOGNITION_CONFIG: Updates transcription configuration during
+        EndOfStream: Signals that no more audio data will be sent.
+        SetRecognitionConfig: Updates transcription configuration during
             an active session (advanced use).
-        GET_SPEAKERS: Internal, Speechmatics only message. Allows the client to request speaker data.
+        GetSpeakers: Internal, Speechmatics only message. Allows the client to request speaker data.
 
     Examples:
         >>> # Starting a recognition session
         >>> message = {
-        ...     "message": ClientMessageType.START_RECOGNITION,
+        ...     "message": ClientMessageType.StartRecognition,
         ...     "audio_format": audio_format.to_dict(),
         ...     "transcription_config": config.to_dict()
         ... }
         >>>
         >>> # Ending the session
         >>> end_message = {
-        ...     "message": ClientMessageType.END_OF_STREAM,
+        ...     "message": ClientMessageType.EndOfStream,
         ...     "last_seq_no": sequence_number
         ... }
     """
 
-    START_RECOGNITION = "StartRecognition"
-    ADD_AUDIO = "AddAudio"
-    END_OF_STREAM = "EndOfStream"
-    SET_RECOGNITION_CONFIG = "SetRecognitionConfig"
-    GET_SPEAKERS = "GetSpeakers"
+    StartRecognition = "StartRecognition"
+    AddAudio = "AddAudio"
+    EndOfStream = "EndOfStream"
+    SetRecognitionConfig = "SetRecognitionConfig"
+    GetSpeakers = "GetSpeakers"
 
 
 class ServerMessageType(str, Enum):
@@ -86,24 +86,25 @@ class ServerMessageType(str, Enum):
     Speechmatics RT API can send to the client.
 
     Attributes:
-        RECOGNITION_STARTED: Server response to 'StartRecognition',
+        RecognitionStarted: Server response to 'StartRecognition',
             acknowledging that a recognition session has started.
-        AUDIO_ADDED: Server response to 'AddAudio', indicating
+        AudioAdded: Server response to 'AddAudio', indicating
             that audio has been added successfully.
-        ADD_PARTIAL_TRANSCRIPT: Indicates a partial transcript, which is an incomplete transcript that
+        AddPartialTranscript: Indicates a partial transcript, which is an incomplete transcript that
             is immediately produced and may change as more context becomes available.
-        ADD_TRANSCRIPT: Indicates the final transcript that will not change for the given audio segment.
-        END_OF_UTTERANCE: Signals that an utterance has ended, based on silence.
-        AUDIO_EVENT_STARTED: Signals the start of an audio event.
-        AUDIO_EVENT_ENDED: Signals the end of an audio event.
-        ADD_TRANSLATION: Provides final translation results that will not
+        AddTranscript: Indicates the final transcript that will not change for the given audio segment.
+        EndOfTranscript: Indicates the server has finished sending all messages.
+        EndOfUtterance: Signals that an utterance has ended, based on silence.
+        AudioEventStarted: Signals the start of an audio event.
+        AudioEventEnded: Signals the end of an audio event.
+        AddTranslation: Provides final translation results that will not
             change for the given audio segment.
-        ADD_PARTIAL_TRANSLATION: Provides interim translation results that
+        AddPartialTranslation: Provides interim translation results that
             may change as more context becomes available.
-        SPEAKER_RESULT: Internal, Speechmatics only message containing the speakers data.
-        INFO: Informational messages from the server.
-        WARNING: Warning messages that don't stop transcription.
-        ERROR: Error messages indicating transcription failure.
+        SpeakerResult: Internal, Speechmatics only message containing the speakers data.
+        Info: Informational messages from the server.
+        Warning: Warning messages that don't stop transcription.
+        Error: Error messages indicating transcription failure.
 
     Examples:
         >>> # Register event handlers for different message types
@@ -120,20 +121,20 @@ class ServerMessageType(str, Enum):
         ...     print(f"Error: {message['reason']}")
     """
 
-    RECOGNITION_STARTED = "RecognitionStarted"
-    AUDIO_ADDED = "AudioAdded"
-    ADD_PARTIAL_TRANSCRIPT = "AddPartialTranscript"
-    ADD_TRANSCRIPT = "AddTranscript"
-    END_OF_TRANSCRIPT = "EndOfTranscript"
-    END_OF_UTTERANCE = "EndOfUtterance"
-    AUDIO_EVENT_STARTED = "AudioEventStarted"
-    AUDIO_EVENT_ENDED = "AudioEventEnded"
-    ADD_TRANSLATION = "AddTranslation"
-    ADD_PARTIAL_TRANSLATION = "AddPartialTranslation"
-    SPEAKERS_RESULT = "SpeakersResult"
-    INFO = "Info"
-    WARNING = "Warning"
-    ERROR = "Error"
+    RecognitionStarted = "RecognitionStarted"
+    AudioAdded = "AudioAdded"
+    AddPartialTranscript = "AddPartialTranscript"
+    AddTranscript = "AddTranscript"
+    EndOfTranscript = "EndOfTranscript"
+    EndOfUtterance = "EndOfUtterance"
+    AudioEventStarted = "AudioEventStarted"
+    AudioEventEnded = "AudioEventEnded"
+    AddTranslation = "AddTranslation"
+    AddPartialTranslation = "AddPartialTranslation"
+    SpeakersResult = "SpeakersResult"
+    Info = "Info"
+    Warning = "Warning"
+    Error = "Error"
 
 
 @dataclass
@@ -535,7 +536,7 @@ class TranscriptResult:
         metadata = message.get("metadata", {})
         return cls(
             transcript=metadata.get("transcript", ""),
-            is_final=message.get("message") == ServerMessageType.ADD_TRANSCRIPT,
+            is_final=message.get("message") == ServerMessageType.AddTranscript,
             confidence=metadata.get("confidence"),
             start_time=metadata.get("start_time"),
             end_time=metadata.get("end_time"),

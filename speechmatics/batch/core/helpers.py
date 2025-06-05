@@ -3,10 +3,11 @@ Utility functions for the Speechmatics Batch SDK.
 """
 
 from __future__ import annotations
+
 import io
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 from typing import BinaryIO
 from typing import Union
 
@@ -57,26 +58,3 @@ async def prepare_audio_file(audio_file: Union[str, BinaryIO]) -> AsyncGenerator
         if hasattr(filename, "split"):
             filename = os.path.basename(filename)
         yield filename, audio_file
-
-
-def prepare_file_data(file_path_or_data: Union[str, BinaryIO]) -> tuple[str, BinaryIO]:
-    """
-    Prepare file data for upload (synchronous version for backward compatibility).
-
-    Args:
-        file_path_or_data: Either a file path string or a file-like object
-
-    Returns:
-        Tuple of (filename, file_data)
-    """
-    if isinstance(file_path_or_data, str):
-        # It's a file path
-        filename = os.path.basename(file_path_or_data)
-        file_data = open(file_path_or_data, "rb")
-        return filename, file_data
-    else:
-        # It's a file-like object
-        filename = getattr(file_path_or_data, "name", "audio.wav")
-        if hasattr(filename, "split"):
-            filename = filename.split("/")[-1]  # Get basename
-        return filename, file_path_or_data

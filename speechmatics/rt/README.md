@@ -1,16 +1,11 @@
 # Speechmatics Real-Time API Client
 
-A modern, async-first Python client for the Speechmatics Real-Time Speech Recognition API.
+Async Python client for the Speechmatics Real-Time API.
 
 ## Installation
 
 ```bash
 pip install speechmatics-rt
-```
-
-For development dependencies:
-```bash
-pip install speechmatics-rt[dev]
 ```
 
 ## Features
@@ -20,38 +15,27 @@ pip install speechmatics-rt[dev]
 - **Type hints throughout** for excellent IDE support and code safety
 - **Environment variable support** for secure credential management
 - **Event-driven architecture** for real-time transcript processing
-- **Middleware support** for custom message processing and filtering
 - **Structured logging** with request tracing for debugging
 - **Simple connection management** with clear error reporting
 
 ## Quick Start
 
-### Async Usage
-
 ```python
 import asyncio
-
-from speechmatics.rt import AsyncClient
+from speechmatics.rt import AsyncClient, ServerMessageType
 
 
 async def main():
-    # Initialize client with API key
-    client = AsyncClient(api_key="your-api-key")
+    # Create a client using environment variable SPEECHMATICS_API_KEY
+    async with AsyncClient() as client:
+        # Register event handlers
+        @client.on(ServerMessageType.AddTranscript)
+        def handle_final_transcript(msg):
+            print(f"Final: {msg['metadata']['transcript']}")
 
-    # Register event handlers
-    @client.on(ServerMessageType.AddTranscript)
-    def handle_final_transcript(msg):
-        print(f"Final: {msg['metadata']['transcript']}")
-
-    @client.on(ServerMessageType.AddPartialTranscript)
-    def handle_partial_transcript(msg):
-        print(f"Partial: {msg['metadata']['transcript']}")
-
-    # Transcribe audio file
-    with open("audio.wav", "rb") as audio_file:
-        await client.transcribe(audio_file)
-
-    await client.close()
+        # Transcribe audio file
+        with open("audio.wav", "rb") as audio_file:
+            await client.transcribe(audio_file)
 
 # Run the async function
 asyncio.run(main())
