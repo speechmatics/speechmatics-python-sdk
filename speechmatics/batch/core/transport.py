@@ -15,7 +15,9 @@ from typing import Optional
 
 import aiohttp
 
-from .exceptions import AuthenticationError, ConnectionError, TransportError
+from .exceptions import AuthenticationError
+from .exceptions import ConnectionError
+from .exceptions import TransportError
 from .helpers import get_version
 from .logging import get_logger
 from .models import ConnectionConfig

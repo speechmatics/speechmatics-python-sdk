@@ -20,8 +20,6 @@ from urllib.parse import urlencode
 from urllib.parse import urlparse
 from urllib.parse import urlunparse
 
-import aiohttp
-
 from .exceptions import ConnectionError
 from .exceptions import TransportError
 from .helpers import get_version
@@ -293,7 +291,7 @@ class Transport:
         if self._config.api_key:
             headers["Authorization"] = f"Bearer {self._config.api_key}"
             if self._config.generate_temp_token:
-                temp_token = await self._get_temp_token(self._config.api_key)
+                temp_token = await self._get_temp_token()
                 headers["Authorization"] = f"Bearer {temp_token}"
 
         if extra_headers:
@@ -301,7 +299,7 @@ class Transport:
 
         return headers
 
-    async def _get_temp_token(self, api_key: str) -> str:
+    async def _get_temp_token(self) -> str:
         """
         Generate a temporary token from the Speechmatics management platform API.
 
@@ -310,9 +308,6 @@ class Transport:
 
         The function makes an HTTP POST request to the management platform to
         generate the temporary token with appropriate metadata for tracking.
-
-        Args:
-            api_key: The main Speechmatics API key used to generate the temporary token.
 
         Returns:
             A temporary token string that can be used for RT API authentication.
@@ -330,6 +325,7 @@ class Transport:
             Temporary tokens have a 60-second TTL and are intended for single-use
             RT sessions. They should not be cached or reused across sessions.
         """
+        import aiohttp
 
         version = get_version()
         mp_api_url = os.getenv("SM_MANAGEMENT_PLATFORM_URL", "https://mp.speechmatics.com")
@@ -338,9 +334,12 @@ class Transport:
         params = {"type": "rt", "sm-sdk": f"python-rt-sdk/{version}"}
         endpoint_with_params = f"{endpoint}?{urlencode(params)}"
 
+        assert self._config.api_key is not None, "API key is required"
+
         headers = {
-            "Authorization": f"Bearer {api_key}",
+            "Authorization": f"Bearer {self._config.api_key}",
             "Content-Type": "application/json",
+            "X-Request-Id": self._request_id,
         }
 
         try:

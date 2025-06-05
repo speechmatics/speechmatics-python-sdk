@@ -1,0 +1,3 @@
+aiohttp
+structlog
+websockets>=10.0

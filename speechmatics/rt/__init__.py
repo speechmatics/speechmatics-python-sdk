@@ -37,7 +37,6 @@ __all__ = [
     "ClientMessageType",
     "ServerMessageType",
     # Exceptions
-    "SpeechmaticsError",
     "ConfigurationError",
     "AuthenticationError",
     "ConnectionError",

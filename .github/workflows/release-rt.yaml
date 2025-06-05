@@ -19,18 +19,17 @@ jobs:
         run: sed -i 's/0.0.0/${{ github.event.release.tag_name }}/g' ./speechmatics/rt/__init__.py
 
       - name: Build dist
-        working-directory: speechmatics/rt
         run: |
           make install-dev
-          make test
-          make lint
-          make build
+          make test-rt
+          make lint-rt
+          make build-rt
 
       - name: Upload dist
         uses: actions/upload-artifact@v4
         with:
           name: release-dist
-          path: speechmatics/rt/dist/
+          path: dist/
 
   pypi-publish:
     runs-on: ubuntu-latest
@@ -47,9 +46,9 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: release-dist
-          path: speechmatics/rt/dist/
+          path: dist/
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          package-dir: speechmatics/rt/dist/
+          package-dir: dist/

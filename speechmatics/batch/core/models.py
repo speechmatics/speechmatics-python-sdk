@@ -9,7 +9,8 @@ result handling based on the official Speechmatics API schema.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 from typing import Optional

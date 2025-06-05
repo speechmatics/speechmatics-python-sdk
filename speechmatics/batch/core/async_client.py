@@ -15,18 +15,20 @@ from typing import BinaryIO
 from typing import Optional
 from typing import Union
 
-from .exceptions import AuthenticationError, BatchError, ConfigurationError, JobError, TimeoutError
+from .exceptions import AuthenticationError
+from .exceptions import BatchError
+from .exceptions import ConfigurationError
+from .exceptions import JobError
+from .exceptions import TimeoutError
 from .helpers import prepare_audio_file
 from .logging import get_logger
-from .models import (
-    ConnectionConfig,
-    JobConfig,
-    JobDetails,
-    JobStatus,
-    JobType,
-    Transcript,
-    TranscriptionConfig,
-)
+from .models import ConnectionConfig
+from .models import JobConfig
+from .models import JobDetails
+from .models import JobStatus
+from .models import JobType
+from .models import Transcript
+from .models import TranscriptionConfig
 from .transport import Transport
 
 
