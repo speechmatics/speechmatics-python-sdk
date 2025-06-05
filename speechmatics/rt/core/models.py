@@ -390,44 +390,6 @@ class TranslationConfig:
 
 
 @dataclass
-class ConnectionConfig:
-    """
-    Configuration for WebSocket connection parameters.
-
-    This class defines all connection-related settings including URL,
-    authentication, timeouts, and advanced features like temporary
-    token generation.
-
-    Attributes:
-        url: WebSocket endpoint URL (e.g., "wss://eu2.rt.speechmatics.com/v2").
-        api_key: Speechmatics API key for authentication.
-        generate_temp_token: Whether to generate temporary tokens for enhanced security.
-
-    Raises:
-        ValueError: If URL format is invalid, API key is empty, timeouts are
-                   not positive, or buffer_size is out of range.
-
-    Examples:
-        Basic configuration:
-            >>> config = ConnectionConfig(
-            ...     url="wss://eu2.rt.speechmatics.com/v2",
-            ...     api_key="your-api-key"
-            ... )
-
-        Configuration with temporary tokens:
-            >>> config = ConnectionConfig(
-            ...     url="wss://eu2.rt.speechmatics.com/v2",
-            ...     api_key="your-main-api-key",
-            ...     generate_temp_token=True,
-            ... )
-    """
-
-    url: str
-    api_key: str
-    generate_temp_token: bool = False
-
-
-@dataclass
 class SessionInfo:
     """
     Information about the current transcription session.

@@ -32,7 +32,7 @@ keywords = [
 ]
 
 [project.optional-dependencies]
-jwt = ["aiohttp"]
+jwt = ["requests"]
 dev = [
     "black",
     "ruff",

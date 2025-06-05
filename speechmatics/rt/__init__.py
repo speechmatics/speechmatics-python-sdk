@@ -8,7 +8,6 @@ from .core import AudioFormat
 from .core import AuthenticationError
 from .core import ClientMessageType
 from .core import ConfigurationError
-from .core import ConnectionConfig
 from .core import ConnectionError
 from .core import EndOfTranscriptError
 from .core import ForceEndSession
@@ -30,7 +29,6 @@ __all__ = [
     "AudioEncoding",
     "TranscriptionConfig",
     "TranslationConfig",
-    "ConnectionConfig",
     # Data models
     "TranscriptResult",
     # Message types

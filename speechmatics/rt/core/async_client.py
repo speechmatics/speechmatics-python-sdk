@@ -27,7 +27,6 @@ from .logging import get_logger
 from .models import AudioEventsConfig
 from .models import AudioFormat
 from .models import ClientMessageType
-from .models import ConnectionConfig
 from .models import ServerMessageType
 from .models import SessionInfo
 from .models import TranscriptionConfig
@@ -65,13 +64,8 @@ class AsyncClient(EventEmitter):
             ...     with open("audio.wav", "rb") as audio:
             ...         await client.transcribe(audio)
 
-        With custom configuration:
-            >>> config = ConnectionConfig(
-            ...     url="wss://eu2.rt.speechmatics.com/v2",
-            ...     api_key="your-key",
-            ... )
-            >>> async with AsyncClient(conn_config=config) as client:
-            ...     # Use client with custom settings
+        With JWT authentication:
+            >>> async with AsyncClient.with_jwt() as client:
             ...     pass
 
         Manual resource management:
@@ -87,48 +81,94 @@ class AsyncClient(EventEmitter):
         *,
         api_key: Optional[str] = None,
         url: Optional[str] = None,
-        conn_config: Optional[ConnectionConfig] = None,
+        use_jwt: bool = False,
     ) -> None:
         """
         Initialize the AsyncClient.
 
         Args:
-            api_key: Speechmatics API key. If None, uses SPEECHMATICS_API_KEY env var.
+            api_key: Speechmatics API key or JWT token for authentication.
             url: WebSocket endpoint URL. If None, uses SPEECHMATICS_RT_URL env var
                  or defaults to EU endpoint.
-            conn_config: Complete connection configuration. Overrides api_key and url.
+            use_jwt: Use JWT for authentication.
+
+        Raises:
+            ConfigurationError: If API key is not provided and not found in environment.
+            TransportError: If JWT generation fails (when use_jwt=True).
+        """
+        api_key = api_key or os.environ.get("SPEECHMATICS_API_KEY")
+        if not api_key:
+            raise ConfigurationError("API key required: provide api_key parameter or set SPEECHMATICS_API_KEY")
+
+        self._api_key = api_key
+        self._url = url or os.environ.get("SPEECHMATICS_RT_URL", "wss://eu2.rt.speechmatics.com/v2")
+        self.use_jwt = use_jwt
+
+        self._recognition_started = asyncio.Event()
+        self._seq_no = 0
+
+        self._logger = get_logger(__name__)
+        self._session = SessionInfo(request_id=str(uuid.uuid4()))
+        self._logger = self._logger.bind(request_id=self._session.request_id)
+
+        if self.use_jwt:
+            self._logger.info("Generating JWT token for authentication...")
+            self._temp_token = self._generate_temp_token()
+            self._api_key = self._temp_token
+            self._logger.info("JWT token generated successfully")
+
+        self._transport = Transport(
+            url=self._url,  # type: ignore[arg-type]
+            api_key=self._api_key,
+            request_id=self._session.request_id,
+        )
+
+        super().__init__()
+
+    @classmethod
+    def with_jwt(
+        cls,
+        *,
+        api_key: Optional[str] = None,
+        url: Optional[str] = None,
+    ) -> AsyncClient:
+        """
+        Create an AsyncClient that will generate a temporary token for authentication.
+
+        Temporary tokens allow end-users to start a websocket connection with Speechmatics directly,
+        without exposing the long-lived API key.
+        This will reduce the latency of transcription as well as development effort.
+
+        Args:
+            api_key: Main Speechmatics API key for JWT generation. If None,
+                    uses SPEECHMATICS_API_KEY environment variable.
+            url: WebSocket endpoint URL. If None, uses SPEECHMATICS_RT_URL env var
+                 or defaults to EU endpoint.
+
+        Returns:
+            AsyncClient instance configured for JWT authentication
 
         Raises:
             ConfigurationError: If API key is not provided and not found in environment.
         """
-        super().__init__()
-
-        if conn_config:
-            self._conn_config = conn_config
-        else:
-            api_key = api_key or os.environ.get("SPEECHMATICS_API_KEY")
-            if not api_key:
-                raise ConfigurationError("API key required: provide api_key parameter or set SPEECHMATICS_API_KEY")
-
-            url = url or os.environ.get("SPEECHMATICS_RT_URL", "wss://eu2.rt.speechmatics.com/v2")
-            self._conn_config = ConnectionConfig(url=url, api_key=api_key)  # type: ignore[arg-type]
-
-        self._session = SessionInfo(request_id=str(uuid.uuid4()))
-        self._transport = Transport(self._conn_config, self._session.request_id)
-        self._logger = get_logger(__name__)
-        self._recognition_started = asyncio.Event()
-        self._seq_no = 0
-        self._logger = self._logger.bind(request_id=self._session.request_id)
+        return cls(api_key=api_key, url=url, use_jwt=True)
 
     async def __aenter__(self) -> AsyncClient:
         """
         Async context manager entry.
 
+        Transport and JWT are already initialized, so this just returns self.
+
         Returns:
             Self for use in async with statements.
 
         Examples:
+            >>> # Direct API key authentication
             >>> async with AsyncClient(api_key="key") as client:
+            ...     await client.transcribe(audio_stream)
+
+            >>> # JWT authentication (explicit)
+            >>> async with AsyncClient.with_jwt(api_key="api-key") as client:
             ...     await client.transcribe(audio_stream)
         """
         return self
@@ -147,6 +187,62 @@ class AsyncClient(EventEmitter):
             exc_tb: Exception traceback if an exception occurred.
         """
         await self.close()
+
+    def _generate_temp_token(self) -> str:
+        """
+        Generate a temporary JWT token from the Speechmatics management platform API.
+
+        This method exchanges the API key for a short-lived temporary token
+        that can be used for RT API authentication.
+
+        Returns:
+            A temporary token string that can be used for RT API authentication.
+
+        Raises:
+            TransportError: If the temporary token generation fails due to network
+                        errors, authentication failures, or server errors.
+
+        Note:
+            Temporary tokens have a 60-second TTL and are intended for single-use
+            RT sessions. They should not be cached or reused across sessions.
+        """
+        from urllib.parse import urlencode
+
+        import requests
+
+        from .exceptions import TransportError
+        from .helpers import get_version
+
+        version = get_version()
+        mp_api_url = os.getenv("SM_MANAGEMENT_PLATFORM_URL", "https://mp.speechmatics.com")
+        endpoint = f"{mp_api_url}/v1/api_keys"
+
+        params = {"type": "rt", "sm-sdk": f"python-rt-sdk/{version}"}
+        endpoint_with_params = f"{endpoint}?{urlencode(params)}"
+
+        headers = {
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": "application/json",
+            "X-Request-Id": self._session.request_id,
+        }
+
+        try:
+            response = requests.post(
+                endpoint_with_params,
+                json={"ttl": 60},
+                headers=headers,
+                timeout=10.0,
+            )
+
+            if response.status_code != 201:
+                raise TransportError(f"Failed to get temporary token: HTTP {response.status_code}: {response.reason}")
+
+            key_object = response.json()
+            return key_object["key_value"]  # type: ignore[no-any-return]
+
+        except Exception as e:
+            self._logger.error("get_temp_token_failure", error=str(e))
+            raise TransportError(f"JWT token generation failed: {e}")
 
     async def transcribe(
         self,

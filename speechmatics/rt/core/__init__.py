@@ -20,7 +20,6 @@ from .models import AudioEncoding
 from .models import AudioEventsConfig
 from .models import AudioFormat
 from .models import ClientMessageType
-from .models import ConnectionConfig
 from .models import ServerMessageType
 from .models import SessionInfo
 from .models import TranscriptionConfig
@@ -37,7 +36,6 @@ __all__ = [
     "AudioEventsConfig",
     "TranscriptionConfig",
     "TranslationConfig",
-    "ConnectionConfig",
     # Data models
     "SessionInfo",
     "TranscriptResult",
