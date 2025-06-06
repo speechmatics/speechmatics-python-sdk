@@ -23,6 +23,7 @@ from .exceptions import TimeoutError
 from .helpers import prepare_audio_file
 from .logging import get_logger
 from .models import ConnectionConfig
+from .models import FormatType
 from .models import JobConfig
 from .models import JobDetails
 from .models import JobStatus
@@ -322,13 +323,13 @@ class AsyncClient:
                 raise
             raise JobError(f"Failed to delete job: {e}") from e
 
-    async def get_transcript(self, job_id: str, *, format_type: str = "json") -> Union[Transcript, str]:
+    async def get_transcript(self, job_id: str, *, format_type: FormatType = FormatType.JSON) -> Union[Transcript, str]:
         """
         Get the transcript for a completed job.
 
         Args:
             job_id: The unique job identifier.
-            format_type: Output format ("json", "txt", "srt"). Defaults to "json".
+            format_type: Output format (FormatType.JSON, FormatType.TXT, FormatType.SRT). Defaults to FormatType.JSON.
 
         Returns:
             Transcript object for JSON format, or string for text/SRT formats.
@@ -342,15 +343,15 @@ class AsyncClient:
             >>> print(result.transcript)
 
             >>> # Get plain text transcript
-            >>> text = await client.get_transcript("12345", format_type="txt")
+            >>> text = await client.get_transcript("12345", format_type=FormatType.TXT)
             >>> print(text)
         """
-        params = {"format": format_type} if format_type != "json" else None
+        params = {"format": format_type.value} if format_type != FormatType.JSON else None
 
         try:
             response = await self._transport.get(f"/jobs/{job_id}/transcript", params=params)
 
-            if format_type == "json":
+            if format_type == FormatType.JSON:
                 return Transcript.from_dict(response)
             else:
                 # Return plain text for other formats
@@ -380,7 +381,7 @@ class AsyncClient:
         self,
         job_id: str,
         *,
-        format_type: str = "json",
+        format_type: FormatType = FormatType.JSON,
         polling_interval: float = 5.0,
         timeout: Optional[float] = None,
     ) -> Union[Transcript, str]:
@@ -392,11 +393,12 @@ class AsyncClient:
 
         Args:
             job_id: The unique job identifier.
+            format_type: Output format (FormatType.JSON, FormatType.TXT, FormatType.SRT). Defaults to FormatType.JSON.
             polling_interval: Time in seconds between status checks.
             timeout: Maximum time in seconds to wait for completion.
 
         Returns:
-            Transcript object containing the transcript and metadata.
+            Transcript object for JSON format, or string for text/SRT formats.
 
         Raises:
             TimeoutError: If job doesn't complete within timeout.
@@ -408,9 +410,10 @@ class AsyncClient:
             >>> result = await client.wait_for_completion(job.id)
             >>> print(f"Transcript: {result.transcript}")
 
-            >>> # With custom timeout
+            >>> # With custom timeout and format
             >>> result = await client.wait_for_completion(
             ...     job.id,
+            ...     format_type=FormatType.TXT,
             ...     polling_interval=2.0,
             ...     timeout=300.0
             ... )

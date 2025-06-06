@@ -28,6 +28,13 @@ class AudioEncoding(str, Enum):
     MULAW = "mulaw"
 
 
+class OperatingPoint(str, Enum):
+    """Operating point options for transcription."""
+
+    ENHANCED = "enhanced"
+    STANDARD = "standard"
+
+
 @dataclass
 class AudioEventsConfig:
     types: Optional[list[str]] = None
@@ -71,11 +78,11 @@ class ClientMessageType(str, Enum):
         ... }
     """
 
-    StartRecognition = "StartRecognition"
-    AddAudio = "AddAudio"
-    EndOfStream = "EndOfStream"
-    SetRecognitionConfig = "SetRecognitionConfig"
-    GetSpeakers = "GetSpeakers"
+    START_RECOGNITION = "StartRecognition"
+    ADD_AUDIO = "AddAudio"
+    END_OF_STREAM = "EndOfStream"
+    SET_RECOGNITION_CONFIG = "SetRecognitionConfig"
+    GET_SPEAKERS = "GetSpeakers"
 
 
 class ServerMessageType(str, Enum):
@@ -121,20 +128,20 @@ class ServerMessageType(str, Enum):
         ...     print(f"Error: {message['reason']}")
     """
 
-    RecognitionStarted = "RecognitionStarted"
-    AudioAdded = "AudioAdded"
-    AddPartialTranscript = "AddPartialTranscript"
-    AddTranscript = "AddTranscript"
-    EndOfTranscript = "EndOfTranscript"
-    EndOfUtterance = "EndOfUtterance"
-    AudioEventStarted = "AudioEventStarted"
-    AudioEventEnded = "AudioEventEnded"
-    AddTranslation = "AddTranslation"
-    AddPartialTranslation = "AddPartialTranslation"
-    SpeakersResult = "SpeakersResult"
-    Info = "Info"
-    Warning = "Warning"
-    Error = "Error"
+    RECOGNITION_STARTED = "RecognitionStarted"
+    AUDIO_ADDED = "AudioAdded"
+    ADD_PARTIAL_TRANSCRIPT = "AddPartialTranscript"
+    ADD_TRANSCRIPT = "AddTranscript"
+    END_OF_TRANSCRIPT = "EndOfTranscript"
+    END_OF_UTTERANCE = "EndOfUtterance"
+    AUDIO_EVENT_STARTED = "AudioEventStarted"
+    AUDIO_EVENT_ENDED = "AudioEventEnded"
+    ADD_TRANSLATION = "AddTranslation"
+    ADD_PARTIAL_TRANSLATION = "AddPartialTranslation"
+    SPEAKERS_RESULT = "SpeakersResult"
+    INFO = "Info"
+    WARNING = "Warning"
+    ERROR = "Error"
 
 
 @dataclass
@@ -318,7 +325,7 @@ class TranscriptionConfig:
     """
 
     language: str = "en"
-    operating_point: str = "enhanced"
+    operating_point: OperatingPoint = OperatingPoint.ENHANCED
     output_locale: Optional[str] = None
     diarization: Optional[str] = None
     additional_vocab: Optional[dict] = None
@@ -536,7 +543,7 @@ class TranscriptResult:
         metadata = message.get("metadata", {})
         return cls(
             transcript=metadata.get("transcript", ""),
-            is_final=message.get("message") == ServerMessageType.AddTranscript,
+            is_final=message.get("message") == ServerMessageType.ADD_TRANSCRIPT,
             confidence=metadata.get("confidence"),
             start_time=metadata.get("start_time"),
             end_time=metadata.get("end_time"),

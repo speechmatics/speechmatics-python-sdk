@@ -1,6 +1,6 @@
 # Speechmatics Batch API Client
 
-A Python client for Speechmatics Batch Automatic Speech Recognition (ASR) API.
+Async Python client for Speechmatics Batch Automatic Speech Recognition (ASR) API.
 
 ## Installation
 
@@ -85,8 +85,7 @@ from speechmatics.batch import (
     OperatingPoint,
     TranscriptionConfig,
     TranslationConfig,
-    SummarizationConfig,
-    NotificationConfig
+    SummarizationConfig
 )
 
 async def main():
@@ -153,22 +152,22 @@ asyncio.run(main())
 
 ```python
 import asyncio
-from speechmatics.batch import AsyncClient
+from speechmatics.batch import AsyncClient, FormatType
 
 async def main():
     async with AsyncClient() as client:
         job = await client.submit_job("audio.wav")
 
         # Get JSON format (default)
-        json_result = await client.get_transcript(job.id, format_type="json")
+        json_result = await client.get_transcript(job.id, format_type=FormatType.JSON)
         print(json_result.transcript_text)
 
         # Get plain text
-        txt_result = await client.get_transcript(job.id, format_type="txt")
+        txt_result = await client.get_transcript(job.id, format_type=FormatType.TXT)
         print(txt_result)
 
         # Get SRT subtitles
-        srt_result = await client.get_transcript(job.id, format_type="srt")
+        srt_result = await client.get_transcript(job.id, format_type=FormatType.SRT)
         print(srt_result)
 
 asyncio.run(main())
@@ -233,37 +232,4 @@ asyncio.run(main())
 The client supports the following environment variables:
 
 - `SPEECHMATICS_API_KEY`: Your Speechmatics API key
-- `speechmatics.batch_URL`: Custom API endpoint URL (optional)
-
-## Models
-
-### JobConfig
-
-Complete job configuration with support for:
-
-- Transcription settings (language, operating point, diarization)
-- Translation to multiple languages
-- Summarization with different styles
-- Sentiment analysis and topic detection
-- Audio event detection
-- Webhook notifications
-
-### Transcript
-
-Rich transcript object containing:
-
-- Formatted transcript text with speaker labels
-- Recognition results with timing and confidence
-- Optional translations, summaries, and analysis
-- Job metadata and processing information
-
-### JobDetails
-
-Job management information including:
-
-- Job status and timestamps
-- Configuration used
-- Error information
-- Audio file metadata
-
-For more detailed examples, see the examples directory in the repository.
+- `SPEECHMATICS_BATCH_URL`: Custom API endpoint URL (optional)

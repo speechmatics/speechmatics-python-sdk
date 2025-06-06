@@ -21,6 +21,7 @@ from .models import AudioEventsConfig
 from .models import AudioFormat
 from .models import ClientMessageType
 from .models import ConnectionConfig
+from .models import OperatingPoint
 from .models import ServerMessageType
 from .models import SessionInfo
 from .models import TranscriptionConfig
@@ -45,6 +46,7 @@ __all__ = [
     "AudioEncoding",
     "ClientMessageType",
     "ServerMessageType",
+    "OperatingPoint",
     # Exceptions
     "ConfigurationError",
     "AuthenticationError",

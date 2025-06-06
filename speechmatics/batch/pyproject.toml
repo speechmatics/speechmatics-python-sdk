@@ -23,6 +23,13 @@ classifiers = [
     "Topic :: Multimedia :: Sound/Audio :: Speech",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
+keywords = [
+    "speechmatics",
+    "speech-to-text",
+    "batch",
+    "transcription",
+    "api",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -40,7 +47,7 @@ dev = [
 
 [project.urls]
 homepage = "https://github.com/speechmatics/speechmatics-python-sdk"
-documentation = "https://github.com/speechmatics/speechmatics-python-sdk#readme"
+documentation = "https://docs.speechmatics.com/"
 repository = "https://github.com/speechmatics/speechmatics-python-sdk"
 changelog = "https://github.com/speechmatics/speechmatics-python-sdk/blob/main/CHANGELOG.md"
 issues = "https://github.com/speechmatics/speechmatics-python-sdk/issues"

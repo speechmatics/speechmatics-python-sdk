@@ -19,7 +19,7 @@ async def main() -> None:
     # Initialize client with API key from environment
     async with AsyncClient() as client:
         # Register a callback using the on() method as decorator
-        @client.on(ServerMessageType.AddTranscript)
+        @client.on(ServerMessageType.ADD_TRANSCRIPT)
         def handle_final_transcript(message):
             result = TranscriptResult.from_message(message)
             print(f"Final: {result.transcript}")
@@ -30,7 +30,7 @@ async def main() -> None:
             print(f"Partial: {result.transcript}")
 
         # Register a callback using the on() method directly
-        client.on(ServerMessageType.AddPartialTranscript, handle_partial_transcript)
+        client.on(ServerMessageType.ADD_PARTIAL_TRANSCRIPT, handle_partial_transcript)
 
         try:
             with open(audio_file, "rb") as audio:

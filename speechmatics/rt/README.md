@@ -29,7 +29,7 @@ async def main():
     # Create a client using environment variable SPEECHMATICS_API_KEY
     async with AsyncClient() as client:
         # Register event handlers
-        @client.on(ServerMessageType.AddTranscript)
+        @client.on(ServerMessageType.ADD_TRANSCRIPT)
         def handle_final_transcript(msg):
             print(f"Final: {msg['metadata']['transcript']}")
 
@@ -45,9 +45,7 @@ asyncio.run(main())
 
 ### Environment Variables
 
-Set these environment variables to avoid passing credentials in code:
+The client supports the following environment variables:
 
-```bash
-export SPEECHMATICS_API_KEY="your-api-key"
-export SPEECHMATICS_RT_URL="wss://eu2.rt.speechmatics.com/v2"  # Default
-```
+- `SPEECHMATICS_API_KEY`: Your Speechmatics API key
+- `SPEECHMATICS_BATCH_URL`: Custom API endpoint URL (optional)

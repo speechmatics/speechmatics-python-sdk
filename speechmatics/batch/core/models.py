@@ -52,6 +52,14 @@ class NotificationContents(str, Enum):
     DETAILED = "detailed"
 
 
+class FormatType(str, Enum):
+    """Output format types for transcript retrieval."""
+
+    JSON = "json"
+    TXT = "txt"
+    SRT = "srt"
+
+
 @dataclass
 class TranscriptionConfig:
     """
