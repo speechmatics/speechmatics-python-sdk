@@ -29,19 +29,22 @@ pip install speechmatics-batch
 
 ```
 speechmatics-python-sdk/
-├── speechmatics/
+├── sdk/
 │   ├── batch/
 │   │   ├── pyproject.toml
-│   │   ├── requirements.txt
-│   │   ├── VERSION
 │   │   └── README.md
 │   │
-│   ├── rt/
-│   │   ├── pyproject.toml
-│   │   ├── requirements.txt
-│   │   ├── VERSION
-│   │   └── README.md
-│   │
+│   └── rt/
+│       ├── pyproject.toml
+│       └── README.md
+│
+├── tests/
+│   ├── batch/
+│   └── rt/
+│
+├── examples/
+├── Makefile
+├── pyproject.toml
 └── LICENSE
 ```
 
@@ -54,7 +57,8 @@ cd speechmatics-python-sdk
 python -m venv .venv
 source .venv/bin/activate
 
-pip install -r requirements-dev.txt
+# Install development dependencies for both SDKs
+make install-dev
 ```
 
 On Windows:

@@ -15,8 +15,8 @@ jobs:
         with:
           python-version: "3.x"
 
-      - name: Update package version in speechmatics/rt/__init__.py
-        run: sed -i 's/0.0.0/${{ github.event.release.tag_name }}/g' ./speechmatics/rt/__init__.py
+      - name: Update package version in sdk/rt/speechmatics/rt/__init__.py
+        run: sed -i 's/0.0.0/${{ github.event.release.tag_name }}/g' ./sdk/rt/speechmatics/rt/__init__.py
 
       - name: Build dist
         run: |
@@ -29,7 +29,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-dist
-          path: dist/
+          path: sdk/rt/dist/
 
   pypi-publish:
     runs-on: ubuntu-latest

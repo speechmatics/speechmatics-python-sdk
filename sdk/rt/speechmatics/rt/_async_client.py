@@ -14,25 +14,25 @@ from typing import Any
 from typing import BinaryIO
 from typing import Optional
 
-from .events import EventEmitter
-from .exceptions import AudioError
-from .exceptions import ConfigurationError
-from .exceptions import EndOfTranscriptError
-from .exceptions import ForceEndSession
-from .exceptions import SessionError
-from .exceptions import TimeoutError
-from .exceptions import TranscriptionError
-from .helpers import read_audio_chunks
-from .logging import get_logger
-from .models import AudioEventsConfig
-from .models import AudioFormat
-from .models import ClientMessageType
-from .models import ConnectionConfig
-from .models import ServerMessageType
-from .models import SessionInfo
-from .models import TranscriptionConfig
-from .models import TranslationConfig
-from .transport import Transport
+from ._events import EventEmitter
+from ._exceptions import AudioError
+from ._exceptions import ConfigurationError
+from ._exceptions import EndOfTranscriptError
+from ._exceptions import ForceEndSession
+from ._exceptions import SessionError
+from ._exceptions import TimeoutError
+from ._exceptions import TranscriptionError
+from ._helpers import read_audio_chunks
+from ._logging import get_logger
+from ._models import AudioEventsConfig
+from ._models import AudioFormat
+from ._models import ClientMessageType
+from ._models import ConnectionConfig
+from ._models import ServerMessageType
+from ._models import SessionInfo
+from ._models import TranscriptionConfig
+from ._models import TranslationConfig
+from ._transport import Transport
 
 
 class AsyncClient(EventEmitter):
@@ -118,7 +118,8 @@ class AsyncClient(EventEmitter):
         self._logger = get_logger(__name__)
         self._recognition_started = asyncio.Event()
         self._seq_no = 0
-        self._logger = self._logger.bind(request_id=self._session.request_id)
+
+        self._logger.debug("AsyncClient initialized with request_id=%s", self._session.request_id)
 
     async def __aenter__(self) -> AsyncClient:
         """
@@ -235,6 +236,8 @@ class AsyncClient(EventEmitter):
         self._end_of_stream_sent = False
         self._seq_no = 0
 
+        self._logger.info("Starting transcription (language=%s, timeout=%s)", transcription_config.language, timeout)
+
         try:
             await asyncio.wait_for(
                 self._run_transcription(
@@ -251,6 +254,7 @@ class AsyncClient(EventEmitter):
             raise TimeoutError(f"Transcription timed out after {timeout} seconds")
         except (EndOfTranscriptError, ForceEndSession):
             # Normal completion
+            self._logger.info("Transcription completed successfully")
             pass
         finally:
             self._session.is_running = False
@@ -311,8 +315,10 @@ class AsyncClient(EventEmitter):
             audio_events_config: Optional audio events configuration.
             ws_headers: Additional WebSocket headers.
         """
+        self._logger.debug("Establishing WebSocket connection")
         await self._transport.connect(ws_headers)
 
+        self._logger.debug("Starting recognition session")
         await self._start_recognition(
             transcription_config,
             audio_format,
@@ -361,6 +367,7 @@ class AsyncClient(EventEmitter):
         if audio_events_config:
             start_message["audio_events_config"] = audio_events_config.to_dict()
 
+        self._logger.debug("Sending StartRecognition message for language=%s", transcription_config.language)
         await self._transport.send_message(start_message)
         self._session.is_running = True
 
@@ -378,18 +385,32 @@ class AsyncClient(EventEmitter):
             AudioError: If audio reading or sending fails.
         """
         await self._recognition_started.wait()
+        self._logger.debug("Recognition started, beginning audio streaming (chunk_size=%d)", audio_format.chunk_size)
+
         try:
+            chunk_count = 0
+            last_log_time = 0
+            import time
+
             async for chunk in read_audio_chunks(audio_stream, audio_format.chunk_size):
                 if not self._session.is_running:
                     break
 
                 self._seq_no += 1
+                chunk_count += 1
                 await self._transport.send_message(chunk)
 
+                # Log progress every 5 seconds instead of every 100 chunks
+                current_time = time.time()
+                if current_time - last_log_time >= 5.0:
+                    self._logger.debug("Audio streaming progress (chunks=%d, seq_no=%d)", chunk_count, self._seq_no)
+                    last_log_time = current_time
+
+            self._logger.debug("Audio streaming complete (%d chunks total)", chunk_count)
             await self._send_end_of_stream()
 
         except Exception as e:
-            self._logger.error(f"Audio sender error: {e}")
+            self._logger.error("Audio sender error: %s", e)
             self._session.is_running = False
             raise AudioError(f"Failed to send audio: {e}")
 
@@ -430,7 +451,7 @@ class AsyncClient(EventEmitter):
             raise
 
         except Exception as e:
-            self._logger.error("session_error", error=str(e))
+            self._logger.error("Message receiver error: %s", e)
             self._session.is_running = False
             raise SessionError(f"Message receiver error: {e}")
 
@@ -461,39 +482,43 @@ class AsyncClient(EventEmitter):
         try:
             server_msg_type = ServerMessageType(message_type)
         except ValueError:
-            self._logger.warning("unknown_message_type", message_type=message_type)
+            self._logger.warning("Unknown message type: %s", message_type)
             return
 
         if server_msg_type == ServerMessageType.RECOGNITION_STARTED:
             self._session.session_id = message.get("id")
             self._recognition_started.set()
-            self._logger.info("recognition_started", session_id=self._session.session_id)
+            self._logger.info("Recognition session started (session_id=%s)", self._session.session_id)
 
         elif server_msg_type == ServerMessageType.END_OF_TRANSCRIPT:
             self._session.is_running = False
-            self._logger.info("transcription_completed", session_id=self._session.session_id)
+            self._logger.info("End of transcript received (session_id=%s)", self._session.session_id)
             raise EndOfTranscriptError("Transcription completed")
 
         elif server_msg_type == ServerMessageType.WARNING:
-            self._logger.warning("session_warning", session_id=self._session.session_id, warning=message["reason"])
+            self._logger.warning(
+                "Session warning (session_id=%s): %s", self._session.session_id, message.get("reason", "Unknown")
+            )
 
         elif server_msg_type == ServerMessageType.ERROR:
             self._session.is_running = False
-            self._logger.error("transcription_error", session_id=self._session.session_id, error=message["reason"])
-            raise TranscriptionError(message["reason"])
+            self._logger.error(
+                "Transcription error (session_id=%s): %s",
+                self._session.session_id,
+                message.get("reason", "Unknown error"),
+            )
+            raise TranscriptionError(message.get("reason", "Unknown error"))
 
         try:
             self.emit(server_msg_type, message)
         except ForceEndSession:
             self._logger.warning(
-                "force_end_session",
-                session_id=self._session.session_id,
-                warning="Session was ended forcefully by an event handler.",
+                "Session was ended forcefully by an event handler (session_id=%s)", self._session.session_id
             )
             self._session.is_running = False
             raise
         except Exception as e:
-            self._logger.warning("event_handler_error", error=str(e))
+            self._logger.warning("Event handler error: %s", e)
 
     async def _send_end_of_stream(self) -> None:
         """
@@ -511,5 +536,6 @@ class AsyncClient(EventEmitter):
             "message": ClientMessageType.END_OF_STREAM,
             "last_seq_no": self._seq_no,
         }
+        self._logger.debug("Sending EndOfStream message (last_seq_no=%d)", self._seq_no)
         await self._transport.send_message(end_message)
         self._end_of_stream_sent = True

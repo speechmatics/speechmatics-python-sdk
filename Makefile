@@ -1,6 +1,6 @@
 # Makefile for Speechmatics Python SDKs
 
-.PHONY: help install-dev
+.PHONY: help
 .PHONY: test-all test-rt test-batch
 .PHONY: format-all format-rt format-batch
 .PHONY: lint-all lint-rt lint-batch
@@ -11,7 +11,6 @@
 help:
 	@echo "Available commands:"
 	@echo "  help              Display this help message"
-	@echo "  install-dev       Install development dependencies"
 	@echo "Testing:"
 	@echo "  test-all          Run tests for both RT and Batch SDKs"
 	@echo "  test-rt           Run tests for RT SDK"
@@ -43,9 +42,6 @@ help:
 	@echo "  clean-rt          Clean RT SDK build artifacts"
 	@echo "  clean-batch       Clean Batch SDK build artifacts"
 
-install-dev:
-	pip install -r requirements-dev.txt
-
 # Testing targets
 test-all: test-rt test-batch
 
@@ -59,50 +55,59 @@ test-batch:
 format-all: format-rt format-batch
 
 format-rt:
-	cd speechmatics/rt && black .
-	cd speechmatics/rt && ruff check --fix .
+	cd sdk/rt/speechmatics && black .
+	cd sdk/rt/speechmatics && ruff check --fix .
 
 format-batch:
-	cd speechmatics/batch && black .
-	cd speechmatics/batch && ruff check --fix .
+	cd sdk/batch/speechmatics && black .
+	cd sdk/batch/speechmatics && ruff check --fix .
 
 # Linting targets
 lint-all: lint-rt lint-batch
 
 lint-rt:
-	cd speechmatics/rt && ruff check .
+	cd sdk/rt/speechmatics && ruff check .
 
 lint-batch:
-	cd speechmatics/batch && ruff check .
+	cd sdk/batch/speechmatics && ruff check .
 
 # Type checking targets
 type-check-all: type-check-rt type-check-batch
 
 type-check-rt:
-	cd speechmatics/rt && mypy .
+	cd sdk/rt/speechmatics && mypy .
 
 type-check-batch:
-	cd speechmatics/batch && mypy .
+	cd sdk/batch/speechmatics && mypy .
+
+# Installation targets
+install-dev:
+	python -m pip install --upgrade pip
+	python -m pip install -e sdk/rt[dev]
+	python -m pip install -e sdk/batch[dev]
+
+install-build:
+	python -m pip install --upgrade build
 
 # Building targets
 build-all: build-rt build-batch
 
-build-rt: clean-rt
-	pip install build
-	python build.py rt
+build-rt: install-build
+	cd sdk/rt && python -m build
 
-build-batch: clean-batch
-	pip install build
-	python build.py batch
+build-batch: install-build
+	cd sdk/batch && python -m build
 
 # Cleaning targets
-clean-all: clean-dist clean-rt clean-batch
+clean-all: clean-rt clean-batch
 
 clean-dist:
-	rm -rf dist/ build/
+	rm -rf dist/
 
 clean-rt:
-	find speechmatics/rt -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	rm -rf sdk/rt/dist sdk/rt/build sdk/rt/*.egg-info
+	find sdk/rt -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 
 clean-batch:
-	find speechmatics/batch -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	rm -rf sdk/batch/dist sdk/batch/build sdk/batch/*.egg-info
+	find sdk/batch -name __pycache__ -exec rm -rf {} + 2>/dev/null || true

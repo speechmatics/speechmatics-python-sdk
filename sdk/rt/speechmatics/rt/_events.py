@@ -9,8 +9,8 @@ from typing import Any
 from typing import Callable
 from typing import Optional
 
-from .logging import get_logger
-from .models import ServerMessageType
+from ._logging import get_logger
+from ._models import ServerMessageType
 
 
 class EventEmitter:
@@ -98,7 +98,7 @@ class EventEmitter:
                 callback(message)
             except Exception as e:
                 # Log error but don't stop other handlers
-                self._logger.warning("event_handler_error", error=str(e), event=str(event), exc_info=True)
+                self._logger.warning("Event handler error (%s): %s", event, e, exc_info=True)
 
         # Call one-time handlers and remove them
         once_handlers = self._once_handlers.get(event, set()).copy()
@@ -108,12 +108,7 @@ class EventEmitter:
                 try:
                     callback(message)
                 except Exception as e:
-                    self._logger.warning(
-                        "once_event_handler_error",
-                        error=str(e),
-                        event=str(event),
-                        exc_info=True,
-                    )
+                    self._logger.warning("One-time event handler error (%s): %s", event, e, exc_info=True)
 
     def remove_all_listeners(self, event: Optional[ServerMessageType] = None) -> None:
         """

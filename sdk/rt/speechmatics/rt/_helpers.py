@@ -5,14 +5,13 @@ Simplified and focused utility functions for the Speechmatics RT SDK.
 from __future__ import annotations
 
 import asyncio
+import importlib.metadata
 import inspect
 import os
 from collections.abc import AsyncGenerator
 from typing import Any
 from typing import BinaryIO
 from typing import Union
-
-from speechmatics.shared.version import get_version as _get_version
 
 
 async def read_audio_chunks(stream: Union[BinaryIO, Any], chunk_size: int) -> AsyncGenerator[Union[bytes, Any], None]:
@@ -54,9 +53,17 @@ async def read_audio_chunks(stream: Union[BinaryIO, Any], chunk_size: int) -> As
 
 def get_version() -> str:
     """
-    Get SDK version from package metadata or VERSION file.
+    Get SDK version from package metadata or version file.
 
     Returns:
         Version string
     """
-    return _get_version("speechmatics-rt", os.path.dirname(__file__))
+    try:
+        return importlib.metadata.version("speechmatics-rt")
+    except importlib.metadata.PackageNotFoundError:
+        version_path = os.path.join("_version")
+        try:
+            with open(version_path, encoding="utf-8") as f:
+                return f.read().strip()
+        except FileNotFoundError:
+            return "0.0.0"

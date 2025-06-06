@@ -3,14 +3,14 @@ requires = ["setuptools>=61.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "speechmatics-rt"
+name = "speechmatics-batch"
 dynamic = ["version"]
-description = "Speechmatics Real-Time API Client"
-readme = "speechmatics/rt/README.md"
+description = "Speechmatics Batch API Client"
+readme = "README.md"
 authors = [{ name = "Speechmatics", email = "support@speechmatics.com" }]
 license = "MIT"
 requires-python = ">=3.9"
-dependencies = ["websockets>=10.0", "structlog"]
+dependencies = ["requests", "aiohttp", "aiofiles"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -23,16 +23,9 @@ classifiers = [
     "Topic :: Multimedia :: Sound/Audio :: Speech",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-keywords = [
-    "speechmatics",
-    "speech-to-text",
-    "real-time",
-    "transcription",
-    "websocket",
-]
+keywords = ["speechmatics", "speech-to-text", "batch", "transcription", "api"]
 
 [project.optional-dependencies]
-jwt = ["aiohttp"]
 dev = [
     "black",
     "ruff",
@@ -54,9 +47,7 @@ changelog = "https://github.com/speechmatics/speechmatics-python-sdk/blob/main/C
 issues = "https://github.com/speechmatics/speechmatics-python-sdk/issues"
 
 [tool.setuptools.dynamic]
-version = { attr = "speechmatics.rt.__version__" }
+version = { attr = "speechmatics.batch.__version__" }
 
-[tool.setuptools]
-packages = ["speechmatics.rt", "speechmatics.rt.core", "speechmatics.shared"]
-package-dir = { "speechmatics.rt" = "speechmatics/rt", "speechmatics.rt.core" = "speechmatics/rt/core", "speechmatics.shared" = "speechmatics/shared" }
-include-package-data = true
+[tool.setuptools.packages.find]
+where = ["."]
