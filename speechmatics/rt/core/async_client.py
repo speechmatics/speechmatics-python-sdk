@@ -57,7 +57,7 @@ class AsyncClient(EventEmitter):
     Examples:
         Basic usage with event handlers:
             >>> async with AsyncClient(api_key="your-key") as client:
-            ...     @client.on(ServerMessageType.AddTranscript)
+            ...     @client.on(ServerMessageType.ADD_TRANSCRIPT)
             ...     def handle_transcript(message):
             ...         result = TranscriptResult.from_message(message)
             ...         print(f"Final: {result.transcript}")
@@ -198,7 +198,7 @@ class AsyncClient(EventEmitter):
         Examples:
             Basic transcription:
                 >>> async with AsyncClient(api_key="key") as client:
-                ...     @client.on(ServerMessageType.AddTranscript)
+                ...     @client.on(ServerMessageType.ADD_TRANSCRIPT)
                 ...     def handle_result(message):
                 ...         result = TranscriptResult.from_message(message)
                 ...         print(result.transcript)
@@ -350,7 +350,7 @@ class AsyncClient(EventEmitter):
             TransportError: If sending the message fails.
         """
         start_message = {
-            "message": ClientMessageType.StartRecognition,
+            "message": ClientMessageType.START_RECOGNITION,
             "audio_format": audio_format.to_dict(),
             "transcription_config": transcription_config.to_dict(),
         }
@@ -464,20 +464,20 @@ class AsyncClient(EventEmitter):
             self._logger.warning("unknown_message_type", message_type=message_type)
             return
 
-        if server_msg_type == ServerMessageType.RecognitionStarted:
+        if server_msg_type == ServerMessageType.RECOGNITION_STARTED:
             self._session.session_id = message.get("id")
             self._recognition_started.set()
             self._logger.info("recognition_started", session_id=self._session.session_id)
 
-        elif server_msg_type == ServerMessageType.EndOfTranscript:
+        elif server_msg_type == ServerMessageType.END_OF_TRANSCRIPT:
             self._session.is_running = False
             self._logger.info("transcription_completed", session_id=self._session.session_id)
             raise EndOfTranscriptError("Transcription completed")
 
-        elif server_msg_type == ServerMessageType.Warning:
+        elif server_msg_type == ServerMessageType.WARNING:
             self._logger.warning("session_warning", session_id=self._session.session_id, warning=message["reason"])
 
-        elif server_msg_type == ServerMessageType.Error:
+        elif server_msg_type == ServerMessageType.ERROR:
             self._session.is_running = False
             self._logger.error("transcription_error", session_id=self._session.session_id, error=message["reason"])
             raise TranscriptionError(message["reason"])
@@ -508,7 +508,7 @@ class AsyncClient(EventEmitter):
             return
 
         end_message = {
-            "message": ClientMessageType.EndOfStream,
+            "message": ClientMessageType.END_OF_STREAM,
             "last_seq_no": self._seq_no,
         }
         await self._transport.send_message(end_message)

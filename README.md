@@ -17,7 +17,7 @@ pip install speechmatics-rt
 
 ### 2. (Beta) Batch API Client (`speechmatics-batch`)
 
-A Python client for Speechmatics Batch ASR API.
+An async Python client for Speechmatics Batch ASR API.
 
 ```bash
 pip install speechmatics-batch
@@ -73,17 +73,23 @@ pre-commit install
 
 ### Real-Time API Client
 
-- Async-first design with sync wrappers
-- Comprehensive error handling
-- Type hints throughout for better IDE support
-- Environment variable support for credentials
-- Event-driven architecture for handling transcription results
+- Async-first design with synchronous wrappers for compatibility
+- Comprehensive error handling with detailed error messages
+- Type hints throughout for excellent IDE support and code safety
+- Environment variable support for secure credential management
+- Event-driven architecture for real-time transcript processing
+- Structured logging with request tracing for debugging
+- Simple connection management with clear error reporting
 
 ### Batch API Client
 
-- Async and sync API clients
-- Full support for all Batch API features
+- Async API client with comprehensive error handling
+- Type hints throughout for better IDE support
+- Environment variable support for credentials
 - Easy-to-use interface for submitting, monitoring, and retrieving transcription jobs
+- Full job configuration support with all Speechmatics features
+- Intelligent transcript formatting with speaker diarization
+- Support for multiple output formats (JSON, TXT, SRT)
 
 ## Installation
 

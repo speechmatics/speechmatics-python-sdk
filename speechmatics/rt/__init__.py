@@ -12,6 +12,7 @@ from .core import ConnectionConfig
 from .core import ConnectionError
 from .core import EndOfTranscriptError
 from .core import ForceEndSession
+from .core import OperatingPoint
 from .core import ServerMessageType
 from .core import SessionError
 from .core import TimeoutError
@@ -31,6 +32,7 @@ __all__ = [
     "TranscriptionConfig",
     "TranslationConfig",
     "ConnectionConfig",
+    "OperatingPoint",
     # Data models
     "TranscriptResult",
     # Message types
