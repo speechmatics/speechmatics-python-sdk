@@ -379,13 +379,12 @@ class AsyncClient(EventEmitter):
         """
         await self._recognition_started.wait()
         try:
-            while self._session.is_running:
-                async for chunk in read_audio_chunks(audio_stream, audio_format.chunk_size):
-                    self._seq_no += 1
-                    await self._transport.send_message(chunk)
+            async for chunk in read_audio_chunks(audio_stream, audio_format.chunk_size):
+                if not self._session.is_running:
+                    break
 
-                # Break out of the loop when EOF is reached
-                break
+                self._seq_no += 1
+                await self._transport.send_message(chunk)
 
             await self._send_end_of_stream()
 
