@@ -28,7 +28,7 @@ class JobStatus(str, Enum):
     Status values for batch transcription jobs.
 
     These enum values represent the different states a job can be in
-    during the batch transcription workflow.
+    during the batch transcription.
     """
 
     RUNNING = "running"

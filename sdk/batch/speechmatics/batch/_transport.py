@@ -15,12 +15,12 @@ from typing import Optional
 
 import aiohttp
 
-from .exceptions import AuthenticationError
-from .exceptions import ConnectionError
-from .exceptions import TransportError
-from .helpers import get_version
-from .logging import get_logger
-from .models import ConnectionConfig
+from ._exceptions import AuthenticationError
+from ._exceptions import ConnectionError
+from ._exceptions import TransportError
+from ._helpers import get_version
+from ._logging import get_logger
+from ._models import ConnectionConfig
 
 
 class Transport:
@@ -65,7 +65,9 @@ class Transport:
         self._request_id = request_id or str(uuid.uuid4())
         self._session: Optional[aiohttp.ClientSession] = None
         self._closed = False
-        self._logger = get_logger(__name__, self._request_id)
+        self._logger = get_logger(__name__)
+
+        self._logger.debug("Transport initialized (request_id=%s, url=%s)", self._request_id, config.url)
 
     async def __aenter__(self) -> Transport:
         """Async context manager entry."""
@@ -146,8 +148,10 @@ class Transport:
         transport as closed. It's safe to call multiple times.
         """
         if self._session:
+            self._logger.debug("Closing HTTP session")
             try:
                 await self._session.close()
+                self._logger.info("HTTP session closed successfully")
             except Exception:
                 pass  # Best effort cleanup
             finally:
@@ -167,6 +171,11 @@ class Transport:
     async def _ensure_session(self) -> None:
         """Ensure HTTP session is created."""
         if self._session is None and not self._closed:
+            self._logger.debug(
+                "Creating HTTP session (connect_timeout=%.1fs, operation_timeout=%.1fs)",
+                self._config.connect_timeout,
+                self._config.operation_timeout,
+            )
             timeout = aiohttp.ClientTimeout(total=self._config.operation_timeout, connect=self._config.connect_timeout)
             self._session = aiohttp.ClientSession(timeout=timeout)
 
@@ -206,6 +215,14 @@ class Transport:
         url = f"{self._config.url.rstrip('/')}{path}"
         headers = self._prepare_headers()
 
+        self._logger.debug(
+            "Sending HTTP request %s %s (json=%s, multipart=%s)",
+            method,
+            url,
+            json_data is not None,
+            multipart_data is not None,
+        )
+
         # Override timeout if specified
         if timeout:
             request_timeout = aiohttp.ClientTimeout(total=timeout)
@@ -240,16 +257,17 @@ class Transport:
                 kwargs["data"] = form_data
 
             async with self._session.request(method, url, **kwargs) as response:
+                self._logger.debug("HTTP response received %s %d %s", method, response.status, response.content_type)
                 return await self._handle_response(response)
 
         except asyncio.TimeoutError:
-            self._logger.error("request_timeout", method=method, path=path)
+            self._logger.error("Request timeout %s %s (timeout=%.1fs)", method, path, self._config.operation_timeout)
             raise TransportError(f"Request timeout for {method} {path}") from None
         except aiohttp.ClientError as e:
-            self._logger.error("request_failed", method=method, path=path, error=str(e))
+            self._logger.error("Request failed %s %s: %s", method, path, e)
             raise ConnectionError(f"Request failed: {e}") from e
         except Exception as e:
-            self._logger.error("unexpected_error", method=method, path=path, error=str(e))
+            self._logger.error("Unexpected error %s %s: %s", method, path, e)
             raise TransportError(f"Unexpected error: {e}") from e
 
     def _prepare_headers(self) -> dict[str, str]:
@@ -287,7 +305,7 @@ class Transport:
                 raise AuthenticationError("Access forbidden - check API key permissions")
             elif response.status >= 400:
                 error_text = await response.text()
-                self._logger.error("http_error", status=response.status, reason=response.reason, body=error_text)
+                self._logger.error("HTTP error %d %s: %s", response.status, response.reason, error_text)
                 raise TransportError(f"HTTP {response.status}: {response.reason} - {error_text}")
 
             # Try to parse JSON response
@@ -295,15 +313,17 @@ class Transport:
                 response.content_type == "application/json"
                 or response.content_type == "application/vnd.speechmatics.v2+json"
             ):
+                self._logger.debug("Parsing JSON response")
                 return await response.json()  # type: ignore[no-any-return]
             else:
                 # For non-JSON responses (like plain text transcripts)
+                self._logger.debug("Parsing text response (content_type=%s)", response.content_type)
                 text = await response.text()
                 return {"content": text, "content_type": response.content_type}
 
         except aiohttp.ContentTypeError as e:
-            self._logger.error("json_parse_error", error=str(e))
+            self._logger.error("Failed to parse JSON response: %s", e)
             raise TransportError(f"Failed to parse response: {e}") from e
         except Exception as e:
-            self._logger.error("response_handling_error", error=str(e))
+            self._logger.error("Error handling response: %s", e)
             raise TransportError(f"Error handling response: {e}") from e

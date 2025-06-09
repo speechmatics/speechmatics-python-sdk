@@ -15,22 +15,22 @@ from typing import BinaryIO
 from typing import Optional
 from typing import Union
 
-from .exceptions import AuthenticationError
-from .exceptions import BatchError
-from .exceptions import ConfigurationError
-from .exceptions import JobError
-from .exceptions import TimeoutError
-from .helpers import prepare_audio_file
-from .logging import get_logger
-from .models import ConnectionConfig
-from .models import FormatType
-from .models import JobConfig
-from .models import JobDetails
-from .models import JobStatus
-from .models import JobType
-from .models import Transcript
-from .models import TranscriptionConfig
-from .transport import Transport
+from ._exceptions import AuthenticationError
+from ._exceptions import BatchError
+from ._exceptions import ConfigurationError
+from ._exceptions import JobError
+from ._exceptions import TimeoutError
+from ._helpers import prepare_audio_file
+from ._logging import get_logger
+from ._models import ConnectionConfig
+from ._models import FormatType
+from ._models import JobConfig
+from ._models import JobDetails
+from ._models import JobStatus
+from ._models import JobType
+from ._models import Transcript
+from ._models import TranscriptionConfig
+from ._transport import Transport
 
 
 class AsyncClient:
@@ -115,7 +115,9 @@ class AsyncClient:
 
         self._request_id = str(uuid.uuid4())
         self._transport = Transport(self._conn_config, self._request_id)
-        self._logger = get_logger(__name__, self._request_id)
+        self._logger = get_logger(__name__)
+
+        self._logger.debug("AsyncClient initialized (request_id=%s, url=%s)", self._request_id, self._conn_config.url)
 
     async def __aenter__(self) -> AsyncClient:
         """
@@ -208,7 +210,7 @@ class AsyncClient:
                 if not job_id:
                     raise BatchError("No job ID returned from server")
 
-                self._logger.info("job_submitted", job_id=job_id)
+                self._logger.info("Job submitted successfully (job_id=%s, data_name=%s)", job_id, filename)
 
                 return JobDetails(
                     id=job_id,
@@ -244,6 +246,7 @@ class AsyncClient:
             >>> print(f"Job status: {job_info.status}")
         """
         try:
+            self._logger.debug("Retrieving job info for job_id=%s", job_id)
             response = await self._transport.get(f"/jobs/{job_id}")
             job = response.get("job")
             if job is None:
@@ -290,8 +293,10 @@ class AsyncClient:
             params["created_after"] = created_after
 
         try:
+            self._logger.debug("Listing jobs (limit=%s)", limit)
             response = await self._transport.get("/jobs", params=params or None)
             jobs_data = response.get("jobs", [])
+            self._logger.info("Jobs retrieved (%d jobs)", len(jobs_data))
             return [JobDetails.from_dict(job) for job in jobs_data]
         except Exception as e:
             if isinstance(e, AuthenticationError):
@@ -316,8 +321,9 @@ class AsyncClient:
             >>> await client.delete_job("12345")
         """
         try:
+            self._logger.debug("Deleting job_id=%s", job_id)
             await self._transport.delete(f"/jobs/{job_id}")
-            self._logger.info("job_deleted", job_id=job_id)
+            self._logger.info("Job deleted successfully (job_id=%s)", job_id)
         except Exception as e:
             if isinstance(e, AuthenticationError):
                 raise
@@ -349,6 +355,7 @@ class AsyncClient:
         params = {"format": format_type.value} if format_type != FormatType.JSON else None
 
         try:
+            self._logger.debug("Retrieving transcript for job_id=%s (format=%s)", job_id, format_type.value)
             response = await self._transport.get(f"/jobs/{job_id}/transcript", params=params)
 
             if format_type == FormatType.JSON:
@@ -364,17 +371,30 @@ class AsyncClient:
 
     async def _poll_job_status(self, job_id: str, polling_interval: float) -> None:
         """Poll job status until completion or failure."""
+        self._logger.debug("Starting job status polling for job_id=%s (interval=%.1fs)", job_id, polling_interval)
+        poll_count = 0
+        last_log_time = 0.0
+        import time
+
         while True:
+            poll_count += 1
             job_info = await self.get_job_info(job_id)
 
             if job_info.status == JobStatus.DONE:
+                self._logger.info("Job completed (job_id=%s, polls=%d)", job_id, poll_count)
                 return
             elif job_info.status == JobStatus.REJECTED:
+                self._logger.warning("Job was rejected (job_id=%s)", job_id)
                 raise JobError(f"Job {job_id} was rejected")
             elif job_info.status == JobStatus.RUNNING:
-                self._logger.debug("job_polling", job_id=job_id, status=job_info.status)
+                # Log progress every 30 seconds
+                current_time: float = time.time()
+                if current_time - last_log_time >= 30.0:
+                    self._logger.debug("Job still running (job_id=%s, polls=%d)", job_id, poll_count)
+                    last_log_time = current_time
                 await asyncio.sleep(polling_interval)
             else:
+                self._logger.error("Job has unknown status (job_id=%s, status=%s)", job_id, job_info.status)
                 raise JobError(f"Job {job_id} has unknown status: {job_info.status}")
 
     async def wait_for_completion(
@@ -470,6 +490,7 @@ class AsyncClient:
             ... )
         """
         # Submit the job
+        self._logger.info("Starting transcription job")
         job = await self.submit_job(
             audio_file,
             config=config,
@@ -477,11 +498,14 @@ class AsyncClient:
         )
 
         # Wait for completion and return result
-        return await self.wait_for_completion(
+        self._logger.debug("Waiting for job completion (job_id=%s)", job.id)
+        result = await self.wait_for_completion(
             job.id,
             polling_interval=polling_interval,
             timeout=timeout,
         )
+        self._logger.info("Transcription job completed successfully (job_id=%s)", job.id)
+        return result
 
     async def close(self) -> None:
         """

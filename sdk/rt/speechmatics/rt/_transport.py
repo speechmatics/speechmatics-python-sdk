@@ -20,11 +20,11 @@ from urllib.parse import urlencode
 from urllib.parse import urlparse
 from urllib.parse import urlunparse
 
-from .exceptions import ConnectionError
-from .exceptions import TransportError
-from .helpers import get_version
-from .logging import get_logger
-from .models import ConnectionConfig
+from ._exceptions import ConnectionError
+from ._exceptions import TransportError
+from ._helpers import get_version
+from ._logging import get_logger
+from ._models import ConnectionConfig
 
 try:
     from websockets.asyncio.client import ClientConnection
@@ -85,7 +85,9 @@ class Transport:
         self._request_id = request_id or str(uuid.uuid4())
         self._websocket: Optional[Union[ClientConnection, WebSocketClientProtocol]] = None
         self._closed = False
-        self._logger = get_logger(__name__, self._request_id)
+        self._logger = get_logger(__name__)
+
+        self._logger.debug("Transport initialized (request_id=%s, url=%s)", self._request_id, config.url)
 
     async def connect(self, ws_headers: Optional[dict] = None) -> None:
         """
@@ -120,6 +122,8 @@ class Transport:
         url_with_params = self._prepare_url()
         ws_headers = await self._prepare_headers(ws_headers)
 
+        self._logger.info("Connecting to WebSocket: %s", url_with_params)
+
         try:
             ws_kwargs: dict = {
                 WS_HEADERS_KEY: ws_headers,
@@ -129,11 +133,12 @@ class Transport:
                 url_with_params,
                 **ws_kwargs,
             )
+            self._logger.info("WebSocket connection established")
         except asyncio.TimeoutError as e:
-            self._logger.error("connection_timeout", error=str(e))
+            self._logger.error("WebSocket connection timeout: %s", e)
             raise TimeoutError(f"WebSocket connection timeout: {str(e)}")
         except Exception as e:
-            self._logger.error("connection_error", error=str(e))
+            self._logger.error("WebSocket connection error: %s", e)
             raise ConnectionError(f"WebSocket connection error: {str(e)}")
 
     async def send_message(self, message: Any) -> None:
@@ -166,12 +171,15 @@ class Transport:
         try:
             if isinstance(message, (dict, list)):
                 data = json.dumps(message)
+                # Only log non-audio messages to reduce spam
+                if isinstance(message, dict) and message.get("message") != "AddAudio":
+                    self._logger.debug("Sending JSON message (type=%s)", message.get("message", "unknown"))
             else:
                 data = message
 
             await self._websocket.send(data)
         except Exception as e:
-            self._logger.error("send_failed", error=str(e))
+            self._logger.error("Send message failed: %s", e)
             raise TransportError(f"Send message failed: {e}")
 
     async def receive_message(self) -> dict:
@@ -202,12 +210,17 @@ class Transport:
 
         try:
             raw_message = await self._websocket.recv()
-            return json.loads(raw_message)  # type: ignore[no-any-return]
+            parsed_message = json.loads(raw_message)
+            # Only log important message types to reduce spam
+            message_type = parsed_message.get("message") if isinstance(parsed_message, dict) else "unknown"
+            if message_type not in ["AddPartialTranscript", "AudioAdded"]:
+                self._logger.debug("Received message (type=%s)", message_type)
+            return parsed_message  # type: ignore[no-any-return]
         except json.JSONDecodeError as e:
-            self._logger.error("invalid_json_received", error=str(e))
+            self._logger.error("Invalid JSON received: %s", e)
             raise TransportError(f"Invalid JSON received: {e}")
         except Exception as e:
-            self._logger.error("receive_failed", error=str(e))
+            self._logger.error("Receive message failed: %s", e)
             raise TransportError(f"Receive message failed: {e}")
 
     async def close(self) -> None:
@@ -227,8 +240,10 @@ class Transport:
             >>> # Connection is now closed and transport cannot be used
         """
         if self._websocket:
+            self._logger.debug("Closing WebSocket connection")
             try:
                 await self._websocket.close()
+                self._logger.info("WebSocket connection closed successfully")
             except Exception:
                 pass
             finally:
@@ -291,8 +306,10 @@ class Transport:
         if self._config.api_key:
             headers["Authorization"] = f"Bearer {self._config.api_key}"
             if self._config.generate_temp_token:
+                self._logger.debug("Generating temporary token for authentication")
                 temp_token = await self._get_temp_token()
                 headers["Authorization"] = f"Bearer {temp_token}"
+                self._logger.info("Using temporary token for authentication")
 
         if extra_headers:
             headers.update(extra_headers)
@@ -342,20 +359,23 @@ class Transport:
             "X-Request-Id": self._request_id,
         }
 
+        self._logger.debug("Requesting temporary token from management platform: %s", endpoint_with_params)
+
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
                     endpoint_with_params,
                     json={"ttl": 60},
                     headers=headers,
-                    timeout=10,
+                    timeout=aiohttp.ClientTimeout(total=10),
                 ) as response:
                     if response.status != 201:
                         raise TransportError(
                             f"Failed to get temporary token: HTTP {response.status}: {response.reason}"
                         )
                     key_object = await response.json()
+                    self._logger.info("Temporary token obtained successfully")
                     return key_object["key_value"]  # type: ignore[no-any-return]
         except Exception as e:
-            self._logger.error("get_temp_token_failure", error=str(e))
+            self._logger.error("Get temporary token failed: %s", e)
             raise TransportError(e)
