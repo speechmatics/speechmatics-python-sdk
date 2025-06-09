@@ -389,7 +389,7 @@ class AsyncClient(EventEmitter):
 
         try:
             chunk_count = 0
-            last_log_time = 0
+            last_log_time = 0.0
             import time
 
             async for chunk in read_audio_chunks(audio_stream, audio_format.chunk_size):
@@ -400,8 +400,8 @@ class AsyncClient(EventEmitter):
                 chunk_count += 1
                 await self._transport.send_message(chunk)
 
-                # Log progress every 5 seconds instead of every 100 chunks
-                current_time = time.time()
+                # Log progress every 5 seconds
+                current_time: float = time.time()
                 if current_time - last_log_time >= 5.0:
                     self._logger.debug("Audio streaming progress (chunks=%d, seq_no=%d)", chunk_count, self._seq_no)
                     last_log_time = current_time

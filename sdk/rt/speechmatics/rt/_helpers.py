@@ -53,7 +53,7 @@ async def read_audio_chunks(stream: Union[BinaryIO, Any], chunk_size: int) -> As
 
 def get_version() -> str:
     """
-    Get SDK version from package metadata or version file.
+    Get SDK version from package metadata or __init__.py file.
 
     Returns:
         Version string
@@ -61,9 +61,20 @@ def get_version() -> str:
     try:
         return importlib.metadata.version("speechmatics-rt")
     except importlib.metadata.PackageNotFoundError:
-        version_path = os.path.join("_version")
         try:
-            with open(version_path, encoding="utf-8") as f:
-                return f.read().strip()
-        except FileNotFoundError:
-            return "0.0.0"
+            # Import from the same package
+            from . import __version__
+
+            return __version__
+        except ImportError:
+            # Fallback: read __init__.py file directly
+            try:
+                init_path = os.path.join(os.path.dirname(__file__), "__init__.py")
+                with open(init_path, encoding="utf-8") as f:
+                    for line in f:
+                        if line.strip().startswith("__version__"):
+                            # Extract version string from __version__ = "x.x.x"
+                            return line.split("=")[1].strip().strip('"').strip("'")
+            except (FileNotFoundError, IndexError, AttributeError):
+                pass
+        return "0.0.0"

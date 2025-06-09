@@ -373,7 +373,7 @@ class AsyncClient:
         """Poll job status until completion or failure."""
         self._logger.debug("Starting job status polling for job_id=%s (interval=%.1fs)", job_id, polling_interval)
         poll_count = 0
-        last_log_time = 0
+        last_log_time = 0.0
         import time
 
         while True:
@@ -387,8 +387,8 @@ class AsyncClient:
                 self._logger.warning("Job was rejected (job_id=%s)", job_id)
                 raise JobError(f"Job {job_id} was rejected")
             elif job_info.status == JobStatus.RUNNING:
-                # Log progress every 30 seconds instead of every 10 polls
-                current_time = time.time()
+                # Log progress every 30 seconds
+                current_time: float = time.time()
                 if current_time - last_log_time >= 30.0:
                     self._logger.debug("Job still running (job_id=%s, polls=%d)", job_id, poll_count)
                     last_log_time = current_time

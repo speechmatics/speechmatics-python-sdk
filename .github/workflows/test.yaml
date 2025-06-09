@@ -1,12 +1,17 @@
 name: Test and Build
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
   test-rt:
+    name: Test RT SDK
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -16,14 +21,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Test and build RT SDK
-        run: |
-          make install-dev
-          make build-rt
-          make lint-rt
-          make test-rt
+      - name: Install dependencies
+        run: make install-dev
+      - name: Lint RT SDK
+        run: make lint-rt
+      - name: Test RT SDK
+        run: make test-rt
+      - name: Build RT SDK
+        run: make build-rt
 
   test-batch:
+    name: Test Batch SDK
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -33,9 +41,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Test and build Batch SDK
-        run: |
-          make install-dev
-          make build-batch
-          make lint-batch
-          make test-batch
+      - name: Install dependencies
+        run: make install-dev
+      - name: Lint Batch SDK
+        run: make lint-batch
+      - name: Test Batch SDK
+        run: make test-batch
+      - name: Build Batch SDK
+        run: make build-batch
