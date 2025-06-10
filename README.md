@@ -1,26 +1,41 @@
 # Speechmatics Python SDK
 
-A collection of Python clients for Speechmatics APIs packaged as separate installable packages.
-NOTE: These packages are released as Beta versions and may change frequently.
+[![PyPI](https://img.shields.io/pypi/v/speechmatics-rt)](https://pypi.org/project/speechmatics-rt/)
+[![PyPI](https://img.shields.io/pypi/v/speechmatics-batch)](https://pypi.org/project/speechmatics-batch/)
+[![License](https://img.shields.io/badge/license-MIT-yellow.svg)](https://github.com/speechmatics/speechmatics-python-sdk/blob/master/LICENSE)
+![PythonSupport](https://img.shields.io/badge/Python-3.9%2B-green)
+
+
+A collection of Python clients for Speechmatics APIs packaged as separate installable packages. These packages replace the old [speechmatics-python](https://pypi.org/project/speechmatics-python) package, which will be deprecated soon.
+
+Each client targets a specific Speechmatics API (e.g. real-time, batch transcription), making it easier to install only what you need and keep dependencies minimal.
 
 ## Packages
 
 This repository contains the following packages:
 
-### 1. (Beta) Real-Time API Client (`speechmatics-rt`)
+### (Beta) Real-Time Client (`speechmatics-rt`)
 
-A Python client for Speechmatics Real-Time ASR API.
+A Python client for Speechmatics Real-Time API.
 
 ```bash
 pip install speechmatics-rt
 ```
 
-### 2. (Beta) Batch API Client (`speechmatics-batch`)
+### (Beta) Batch Client (`speechmatics-batch`)
 
-An async Python client for Speechmatics Batch ASR API.
+An async Python client for Speechmatics Batch API.
 
 ```bash
 pip install speechmatics-batch
+```
+
+### (Coming soon) Flow Client (`speechmatics-flow`)
+
+An async Python client for Speechmatics Flow API.
+
+```bash
+pip install speechmatics-flow
 ```
 
 ## Development
@@ -73,28 +88,6 @@ On Windows:
 pre-commit install
 ```
 
-## Features
-
-### Real-Time API Client
-
-- Async-first design with synchronous wrappers for compatibility
-- Comprehensive error handling with detailed error messages
-- Type hints throughout for excellent IDE support and code safety
-- Environment variable support for secure credential management
-- Event-driven architecture for real-time transcript processing
-- Structured logging with request tracing for debugging
-- Simple connection management with clear error reporting
-
-### Batch API Client
-
-- Async API client with comprehensive error handling
-- Type hints throughout for better IDE support
-- Environment variable support for credentials
-- Easy-to-use interface for submitting, monitoring, and retrieving transcription jobs
-- Full job configuration support with all Speechmatics features
-- Intelligent transcript formatting with speaker diarization
-- Support for multiple output formats (JSON, TXT, SRT)
-
 ## Installation
 
 Each package can be installed separately:
@@ -104,6 +97,10 @@ pip install speechmatics-rt
 pip install speechmatics-batch
 ```
 
+## Docs
+
+The Speechmatics API and product documentation can be found at https://docs.speechmatics.com
+
 ## License
 
-MIT
+[MIT](LICENSE)

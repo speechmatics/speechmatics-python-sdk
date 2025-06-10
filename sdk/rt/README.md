@@ -2,12 +2,6 @@
 
 Async Python client for the Speechmatics Real-Time API.
 
-## Installation
-
-```bash
-pip install speechmatics-rt
-```
-
 ## Features
 
 - **Async-first design** with synchronous wrappers for compatibility
@@ -15,9 +9,14 @@ pip install speechmatics-rt
 - **Type hints throughout** for excellent IDE support and code safety
 - **Environment variable support** for secure credential management
 - **Event-driven architecture** for real-time transcript processing
-- **Structured logging** with request tracing for debugging
 - **Simple connection management** with clear error reporting
 
+## Installation
+
+```bash
+pip install speechmatics-rt
+
+```
 ## Quick Start
 
 ```python
@@ -41,11 +40,26 @@ async def main():
 asyncio.run(main())
 ```
 
-## Configuration
+## Logging
+
+The client supports logging with job id tracing for debugging. To increase logging verbosity, set `DEBUG` level in your example code:
+
+```python
+import logging
+import sys
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+```
 
 ### Environment Variables
 
 The client supports the following environment variables:
 
 - `SPEECHMATICS_API_KEY`: Your Speechmatics API key
-- `SPEECHMATICS_BATCH_URL`: Custom API endpoint URL (optional)
+- `SPEECHMATICS_RT_URL`: Custom API endpoint URL (optional)

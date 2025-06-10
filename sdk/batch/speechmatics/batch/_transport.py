@@ -148,10 +148,8 @@ class Transport:
         transport as closed. It's safe to call multiple times.
         """
         if self._session:
-            self._logger.debug("Closing HTTP session")
             try:
                 await self._session.close()
-                self._logger.info("HTTP session closed successfully")
             except Exception:
                 pass  # Best effort cleanup
             finally:
@@ -257,7 +255,6 @@ class Transport:
                 kwargs["data"] = form_data
 
             async with self._session.request(method, url, **kwargs) as response:
-                self._logger.debug("HTTP response received %s %d %s", method, response.status, response.content_type)
                 return await self._handle_response(response)
 
         except asyncio.TimeoutError:
@@ -313,7 +310,6 @@ class Transport:
                 response.content_type == "application/json"
                 or response.content_type == "application/vnd.speechmatics.v2+json"
             ):
-                self._logger.debug("Parsing JSON response")
                 return await response.json()  # type: ignore[no-any-return]
             else:
                 # For non-JSON responses (like plain text transcripts)
