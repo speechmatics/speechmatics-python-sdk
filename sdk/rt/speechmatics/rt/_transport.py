@@ -122,7 +122,7 @@ class Transport:
         url_with_params = self._prepare_url()
         ws_headers = await self._prepare_headers(ws_headers)
 
-        self._logger.info("Connecting to WebSocket: %s", url_with_params)
+        self._logger.debug("Connecting to WebSocket: %s", url_with_params)
 
         try:
             ws_kwargs: dict = {
@@ -133,7 +133,6 @@ class Transport:
                 url_with_params,
                 **ws_kwargs,
             )
-            self._logger.info("WebSocket connection established")
         except asyncio.TimeoutError as e:
             self._logger.error("WebSocket connection timeout: %s", e)
             raise TimeoutError(f"WebSocket connection timeout: {str(e)}")
@@ -243,7 +242,6 @@ class Transport:
             self._logger.debug("Closing WebSocket connection")
             try:
                 await self._websocket.close()
-                self._logger.info("WebSocket connection closed successfully")
             except Exception:
                 pass
             finally:
@@ -309,7 +307,6 @@ class Transport:
                 self._logger.debug("Generating temporary token for authentication")
                 temp_token = await self._get_temp_token()
                 headers["Authorization"] = f"Bearer {temp_token}"
-                self._logger.info("Using temporary token for authentication")
 
         if extra_headers:
             headers.update(extra_headers)
@@ -374,7 +371,6 @@ class Transport:
                             f"Failed to get temporary token: HTTP {response.status}: {response.reason}"
                         )
                     key_object = await response.json()
-                    self._logger.info("Temporary token obtained successfully")
                     return key_object["key_value"]  # type: ignore[no-any-return]
         except Exception as e:
             self._logger.error("Get temporary token failed: %s", e)

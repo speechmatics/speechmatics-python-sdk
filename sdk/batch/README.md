@@ -1,12 +1,6 @@
 # Speechmatics Batch API Client
 
-Async Python client for Speechmatics Batch Automatic Speech Recognition (ASR) API.
-
-## Installation
-
-```bash
-pip install speechmatics-batch
-```
+Async Python client for Speechmatics Batch API.
 
 ## Features
 
@@ -17,6 +11,12 @@ pip install speechmatics-batch
 - Full job configuration support with all Speechmatics features
 - Intelligent transcript formatting with speaker diarization
 - Support for multiple output formats (JSON, TXT, SRT)
+
+## Installation
+
+```bash
+pip install speechmatics-batch
+```
 
 ## Usage
 
@@ -225,6 +225,23 @@ async def main():
         print(result.transcript_text)
 
 asyncio.run(main())
+```
+
+## Logging
+
+The client supports logging with job id tracing for debugging. To increase logging verbosity, set `DEBUG` level in your example code:
+
+```python
+import logging
+import sys
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
 ```
 
 ## Environment Variables

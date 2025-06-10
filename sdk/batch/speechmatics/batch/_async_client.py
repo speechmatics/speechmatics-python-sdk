@@ -210,7 +210,7 @@ class AsyncClient:
                 if not job_id:
                     raise BatchError("No job ID returned from server")
 
-                self._logger.info("Job submitted successfully (job_id=%s, data_name=%s)", job_id, filename)
+                self._logger.debug("Job submitted successfully (job_id=%s, filename=%s)", job_id, filename)
 
                 return JobDetails(
                     id=job_id,
@@ -296,7 +296,7 @@ class AsyncClient:
             self._logger.debug("Listing jobs (limit=%s)", limit)
             response = await self._transport.get("/jobs", params=params or None)
             jobs_data = response.get("jobs", [])
-            self._logger.info("Jobs retrieved (%d jobs)", len(jobs_data))
+            self._logger.debug("Jobs retrieved (%d jobs)", len(jobs_data))
             return [JobDetails.from_dict(job) for job in jobs_data]
         except Exception as e:
             if isinstance(e, AuthenticationError):
@@ -323,7 +323,7 @@ class AsyncClient:
         try:
             self._logger.debug("Deleting job_id=%s", job_id)
             await self._transport.delete(f"/jobs/{job_id}")
-            self._logger.info("Job deleted successfully (job_id=%s)", job_id)
+            self._logger.debug("Job deleted successfully (job_id=%s)", job_id)
         except Exception as e:
             if isinstance(e, AuthenticationError):
                 raise
@@ -490,7 +490,6 @@ class AsyncClient:
             ... )
         """
         # Submit the job
-        self._logger.info("Starting transcription job")
         job = await self.submit_job(
             audio_file,
             config=config,

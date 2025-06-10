@@ -236,7 +236,11 @@ class AsyncClient(EventEmitter):
         self._end_of_stream_sent = False
         self._seq_no = 0
 
-        self._logger.info("Starting transcription (language=%s, timeout=%s)", transcription_config.language, timeout)
+        self._logger.debug(
+            "Starting transcription (transcription_config=%s, audio_format=%s)",
+            transcription_config.to_dict(),
+            audio_format.to_dict(),
+        )
 
         try:
             await asyncio.wait_for(
@@ -254,7 +258,6 @@ class AsyncClient(EventEmitter):
             raise TimeoutError(f"Transcription timed out after {timeout} seconds")
         except (EndOfTranscriptError, ForceEndSession):
             # Normal completion
-            self._logger.info("Transcription completed successfully")
             pass
         finally:
             self._session.is_running = False
@@ -488,11 +491,9 @@ class AsyncClient(EventEmitter):
         if server_msg_type == ServerMessageType.RECOGNITION_STARTED:
             self._session.session_id = message.get("id")
             self._recognition_started.set()
-            self._logger.info("Recognition session started (session_id=%s)", self._session.session_id)
 
         elif server_msg_type == ServerMessageType.END_OF_TRANSCRIPT:
             self._session.is_running = False
-            self._logger.info("End of transcript received (session_id=%s)", self._session.session_id)
             raise EndOfTranscriptError("Transcription completed")
 
         elif server_msg_type == ServerMessageType.WARNING:

@@ -49,7 +49,6 @@ dev = [
 homepage = "https://github.com/speechmatics/speechmatics-python-sdk"
 documentation = "https://docs.speechmatics.com/"
 repository = "https://github.com/speechmatics/speechmatics-python-sdk"
-changelog = "https://github.com/speechmatics/speechmatics-python-sdk/blob/main/CHANGELOG.md"
 issues = "https://github.com/speechmatics/speechmatics-python-sdk/issues"
 
 [tool.setuptools.dynamic]

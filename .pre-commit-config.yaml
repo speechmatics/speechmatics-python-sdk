@@ -39,11 +39,10 @@ repos:
       - id: mypy
         name: mypy
         files: ^sdk/.*/speechmatics/.*/.*\.py$
-        exclude: ^(tests/|examples/|setup\.py)
         args:
           [--ignore-missing-imports, --warn-unused-configs, --show-error-codes]
         additional_dependencies:
-          [types-requests, websockets, aiohttp, structlog, types-aiofiles]
+          [websockets, aiohttp, structlog, types-aiofiles]
 
   - repo: https://github.com/pycqa/bandit
     rev: 1.7.5
@@ -51,7 +50,6 @@ repos:
       - id: bandit
         files: ^sdk/.*/speechmatics/
         args: [-r, -f, json, -ll]
-        exclude: ^(tests/|examples/)
 
   - repo: https://github.com/pre-commit/pygrep-hooks
     rev: v1.10.0

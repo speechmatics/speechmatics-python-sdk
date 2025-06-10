@@ -68,7 +68,7 @@ warn_no_return = true
 warn_unreachable = true
 strict_equality = true
 show_error_codes = true
-exclude = ["tests/", "examples/", "build/", "dist/"]
+exclude = ["tests/", "build/", "dist/"]
 
 [[tool.mypy.overrides]]
 module = "websockets.*"
@@ -77,16 +77,16 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = "-ra -q --strict-markers --strict-config"
-testpaths = ["tests", "speechmatics/*/tests"]
+testpaths = ["tests", "sdk/speechmatics/*/tests"]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
 ]
 
 [tool.coverage.run]
-source = ["speechmatics"]
+source = ["sdk/speechmatics"]
 branch = true
-omit = ["*/tests/*", "*/examples/*"]
+omit = ["*/tests/*"]
 
 [tool.coverage.report]
 exclude_lines = [
