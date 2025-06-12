@@ -36,6 +36,25 @@ async def main():
 asyncio.run(main())
 ```
 
+## JWT Authentication
+
+For enhanced security, use temporary JWT tokens instead of static API keys.
+JWTs are short-lived (60 seconds default) and automatically refreshed:
+
+```python
+from speechmatics.batch import AsyncClient, JWTAuth
+
+auth = JWTAuth("your-api-key", ttl=60)
+
+async with AsyncClient(auth=auth) as client:
+    # Tokens are cached and auto-refreshed automatically
+    result = await client.transcribe("audio.wav")
+    print(result.transcript_text)
+```
+
+Ideal for long-running applications or when minimizing API key exposure.
+See the [authentication documentation](https://docs.speechmatics.com/introduction/authentication) for more details.
+
 ### Basic Job Workflow
 
 ```python

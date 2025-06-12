@@ -15,9 +15,10 @@ from typing import BinaryIO
 from typing import Optional
 from typing import Union
 
+from ._auth import AuthBase
+from ._auth import StaticKeyAuth
 from ._exceptions import AuthenticationError
 from ._exceptions import BatchError
-from ._exceptions import ConfigurationError
 from ._exceptions import JobError
 from ._exceptions import TimeoutError
 from ._helpers import prepare_audio_file
@@ -48,12 +49,13 @@ class AsyncClient:
     4. Proper cleanup and error handling
 
     Args:
-        api_key: Speechmatics API key for authentication. If not provided,
-                uses the SPEECHMATICS_API_KEY environment variable.
+        auth: Authentication instance. If not provided, uses StaticKeyAuth
+              with api_key parameter or SPEECHMATICS_API_KEY environment variable.
+        api_key: Speechmatics API key (used only if auth not provided).
         url: REST API endpoint URL. If not provided, uses SPEECHMATICS_BATCH_URL
              environment variable or defaults to production endpoint.
         conn_config: Complete connection configuration object. If provided, overrides
-               api_key and url parameters.
+               other parameters.
 
     Raises:
         ConfigurationError: If required configuration is missing or invalid.
@@ -65,26 +67,17 @@ class AsyncClient:
             ...     result = await client.wait_for_completion(job.id)
             ...     print(result.transcript)
 
-        With custom configuration:
-            >>> config = ConnectionConfig(
-            ...     url="https://asr.api.speechmatics.com/v2",
-            ...     api_key="your-key",
-            ... )
-            >>> async with AsyncClient(conn_config=config) as client:
-            ...     # Use client with custom settings
+        With JWT authentication:
+            >>> from speechmatics.batch import JWTAuth
+            >>> auth = JWTAuth("your-api-key", ttl=3600)
+            >>> async with AsyncClient(auth=auth) as client:
+            ...     # Use client with JWT auth
             ...     pass
-
-        Manual resource management:
-            >>> client = AsyncClient(api_key="your-key")
-            >>> try:
-            ...     job = await client.submit_job("audio.wav")
-            ...     result = await client.wait_for_completion(job.id)
-            ... finally:
-            ...     await client.close()
     """
 
     def __init__(
         self,
+        auth: Optional[AuthBase] = None,
         *,
         api_key: Optional[str] = None,
         url: Optional[str] = None,
@@ -94,30 +87,24 @@ class AsyncClient:
         Initialize the AsyncClient.
 
         Args:
+            auth: Authentication method, it can be StaticKeyAuth or JWTAuth.
+                If None, creates StaticKeyAuth with the api_key.
             api_key: Speechmatics API key. If None, uses SPEECHMATICS_API_KEY env var.
             url: REST API endpoint URL. If None, uses SPEECHMATICS_BATCH_URL env var
                  or defaults to production endpoint.
-            conn_config: Complete connection configuration. Overrides api_key and url.
+            conn_config: Complete connection configuration.
 
         Raises:
-            ConfigurationError: If API key is not provided and not found in environment.
+            ConfigurationError: If auth is None and API key is not provided/found.
         """
-        # Set up configuration
-        if conn_config:
-            self._conn_config = conn_config
-        else:
-            api_key = api_key or os.environ.get("SPEECHMATICS_API_KEY")
-            if not api_key:
-                raise ConfigurationError("API key required: provide api_key parameter or set SPEECHMATICS_API_KEY")
-
-            final_url = url or os.environ.get("SPEECHMATICS_BATCH_URL") or "https://asr.api.speechmatics.com/v2"
-            self._conn_config = ConnectionConfig(url=final_url, api_key=api_key)
-
+        self._auth = auth or StaticKeyAuth(api_key)
+        self._url = url or os.environ.get("SPEECHMATICS_BATCH_URL") or "https://asr.api.speechmatics.com/v2"
+        self._conn_config = conn_config or ConnectionConfig()
         self._request_id = str(uuid.uuid4())
-        self._transport = Transport(self._conn_config, self._request_id)
-        self._logger = get_logger(__name__)
+        self._transport = Transport(self._url, self._conn_config, self._auth, self._request_id)
 
-        self._logger.debug("AsyncClient initialized (request_id=%s, url=%s)", self._request_id, self._conn_config.url)
+        self._logger = get_logger(__name__)
+        self._logger.debug("AsyncClient initialized (request_id=%s, url=%s)", self._request_id, self._url)
 
     async def __aenter__(self) -> AsyncClient:
         """
