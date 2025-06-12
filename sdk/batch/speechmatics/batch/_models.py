@@ -737,17 +737,12 @@ class ConnectionConfig:
     """
     Configuration for HTTP connection parameters.
 
-    This class defines all connection-related settings including URL,
-    authentication, and timeouts.
+    This class defines connection-related settings and timeouts.
 
     Attributes:
-        url: Base URL for the Speechmatics Batch API.
-        api_key: Speechmatics API key for authentication.
         connect_timeout: Timeout in seconds for connection establishment.
         operation_timeout: Default timeout for API operations.
     """
 
-    url: str = "https://asr.api.speechmatics.com/v2"
-    api_key: str = ""
     connect_timeout: float = 30.0
     operation_timeout: float = 300.0

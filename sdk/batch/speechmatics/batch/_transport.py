@@ -9,12 +9,14 @@ request/response handling, and authentication.
 from __future__ import annotations
 
 import asyncio
+import sys
 import uuid
 from typing import Any
 from typing import Optional
 
 import aiohttp
 
+from ._auth import AuthBase
 from ._exceptions import AuthenticationError
 from ._exceptions import ConnectionError
 from ._exceptions import TransportError
@@ -32,42 +34,51 @@ class Transport:
     authentication, and response handling.
 
     Args:
-        config: Connection configuration including URL, API key, and timeouts.
+        url: Base URL for the Speechmatics Batch API.
+        conn_config: Connection configuration including URL and timeouts.
+        auth: Authentication instance for handling credentials.
         request_id: Optional unique identifier for request tracking. Generated
                    automatically if not provided.
 
     Attributes:
-        config: The connection configuration object.
+        conn_config: The connection configuration object.
         request_id: Unique identifier for this transport instance.
 
     Examples:
         Basic usage:
-            >>> config = ConnectionConfig(
-            ...     url="https://asr.api.speechmatics.com/v2",
-            ...     api_key="your-api-key"
-            ... )
-            >>> transport = Transport(config)
+            >>> from ._auth import StaticKeyAuth
+            >>> conn_config = ConnectionConfig()
+            >>> auth = StaticKeyAuth("your-api-key")
+            >>> transport = Transport(conn_config, auth)
             >>> response = await transport.get("/jobs")
             >>> await transport.close()
     """
 
-    def __init__(self, config: ConnectionConfig, request_id: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        url: str,
+        conn_config: ConnectionConfig,
+        auth: AuthBase,
+        request_id: Optional[str] = None,
+    ) -> None:
         """
         Initialize the transport with connection configuration.
 
         Args:
-            config: Connection configuration object containing URL, API key,
-                   timeouts, and other connection parameters.
+            conn_config: Connection configuration object containing connection parameters.
+            auth: Authentication instance for handling credentials.
             request_id: Optional unique identifier for request tracking.
-                       Generated automatically if not provided.
+                Generated automatically if not provided.
         """
-        self._config = config
+        self._url = url
+        self._conn_config = conn_config
+        self._auth = auth
         self._request_id = request_id or str(uuid.uuid4())
         self._session: Optional[aiohttp.ClientSession] = None
         self._closed = False
         self._logger = get_logger(__name__)
 
-        self._logger.debug("Transport initialized (request_id=%s, url=%s)", self._request_id, config.url)
+        self._logger.debug("Transport initialized (request_id=%s, url=%s)", self._request_id, self._url)
 
     async def __aenter__(self) -> Transport:
         """Async context manager entry."""
@@ -171,10 +182,13 @@ class Transport:
         if self._session is None and not self._closed:
             self._logger.debug(
                 "Creating HTTP session (connect_timeout=%.1fs, operation_timeout=%.1fs)",
-                self._config.connect_timeout,
-                self._config.operation_timeout,
+                self._conn_config.connect_timeout,
+                self._conn_config.operation_timeout,
             )
-            timeout = aiohttp.ClientTimeout(total=self._config.operation_timeout, connect=self._config.connect_timeout)
+            timeout = aiohttp.ClientTimeout(
+                total=self._conn_config.operation_timeout,
+                connect=self._conn_config.connect_timeout,
+            )
             self._session = aiohttp.ClientSession(timeout=timeout)
 
     async def _request(
@@ -210,8 +224,8 @@ class Transport:
         if self._session is None:
             raise ConnectionError("Failed to create HTTP session")
 
-        url = f"{self._config.url.rstrip('/')}{path}"
-        headers = self._prepare_headers()
+        url = f"{self._url.rstrip('/')}{path}"
+        headers = await self._prepare_headers()
 
         self._logger.debug(
             "Sending HTTP request %s %s (json=%s, multipart=%s)",
@@ -258,7 +272,9 @@ class Transport:
                 return await self._handle_response(response)
 
         except asyncio.TimeoutError:
-            self._logger.error("Request timeout %s %s (timeout=%.1fs)", method, path, self._config.operation_timeout)
+            self._logger.error(
+                "Request timeout %s %s (timeout=%.1fs)", method, path, self._conn_config.operation_timeout
+            )
             raise TransportError(f"Request timeout for {method} {path}") from None
         except aiohttp.ClientError as e:
             self._logger.error("Request failed %s %s: %s", method, path, e)
@@ -267,19 +283,22 @@ class Transport:
             self._logger.error("Unexpected error %s %s: %s", method, path, e)
             raise TransportError(f"Unexpected error: {e}") from e
 
-    def _prepare_headers(self) -> dict[str, str]:
+    async def _prepare_headers(self) -> dict[str, str]:
         """
         Prepare HTTP headers for requests.
 
         Returns:
             Headers dictionary with authentication and tracking info
         """
-        headers = {
-            "Authorization": f"Bearer {self._config.api_key}",
-            "User-Agent": f"python-batch-sdk/{get_version()}",
-            "X-Request-Id": self._request_id,
-        }
-        return headers
+        auth_headers = await self._auth.get_auth_headers()
+        auth_headers[
+            "User-Agent"
+        ] = f"speechmatics-batch-v{get_version()} python/{sys.version_info.major}.{sys.version_info.minor}"
+
+        if self._request_id:
+            auth_headers["X-Request-Id"] = self._request_id
+
+        return auth_headers
 
     async def _handle_response(self, response: aiohttp.ClientResponse) -> dict[str, Any]:
         """
