@@ -14,9 +14,10 @@ from typing import Any
 from typing import BinaryIO
 from typing import Optional
 
+from ._auth import AuthBase
+from ._auth import StaticKeyAuth
 from ._events import EventEmitter
 from ._exceptions import AudioError
-from ._exceptions import ConfigurationError
 from ._exceptions import EndOfTranscriptError
 from ._exceptions import ForceEndSession
 from ._exceptions import SessionError
@@ -44,8 +45,9 @@ class AsyncClient(EventEmitter):
     comprehensive error management.
 
     Args:
-        api_key: Speechmatics API key for authentication. If not provided,
-                uses the SPEECHMATICS_API_KEY environment variable.
+        auth: Authentication instance. If not provided, uses StaticKeyAuth
+              with api_key parameter or SPEECHMATICS_API_KEY environment variable.
+        api_key: Speechmatics API key (used only if auth not provided).
         url: WebSocket endpoint URL. If not provided, uses SPEECHMATICS_RT_URL
              environment variable or defaults to EU endpoint.
         conn_config: Complete connection configuration object. If provided, overrides
@@ -65,12 +67,10 @@ class AsyncClient(EventEmitter):
             ...     with open("audio.wav", "rb") as audio:
             ...         await client.transcribe(audio)
 
-        With custom configuration:
-            >>> config = ConnectionConfig(
-            ...     url="wss://eu2.rt.speechmatics.com/v2",
-            ...     api_key="your-key",
-            ... )
-            >>> async with AsyncClient(conn_config=config) as client:
+        With JWT authentication:
+            >>> from speechmatics.rt import JWTAuth
+            >>> auth = JWTAuth("your-api-key", ttl=300)
+            >>> async with AsyncClient(auth=auth) as client:
             ...     # Use client with custom settings
             ...     pass
 
@@ -84,6 +84,7 @@ class AsyncClient(EventEmitter):
 
     def __init__(
         self,
+        auth: Optional[AuthBase] = None,
         *,
         api_key: Optional[str] = None,
         url: Optional[str] = None,
@@ -93,28 +94,24 @@ class AsyncClient(EventEmitter):
         Initialize the AsyncClient.
 
         Args:
+            auth: Authentication method, it can be StaticKeyAuth or JWTAuth.
+                If None, creates StaticKeyAuth with the api_key.
             api_key: Speechmatics API key. If None, uses SPEECHMATICS_API_KEY env var.
             url: WebSocket endpoint URL. If None, uses SPEECHMATICS_RT_URL env var
-                 or defaults to EU endpoint.
-            conn_config: Complete connection configuration. Overrides api_key and url.
+                or defaults to EU endpoint.
+            conn_config: Complete connection configuration.
 
         Raises:
-            ConfigurationError: If API key is not provided and not found in environment.
+            ConfigurationError: If auth is None and API key is not provided/found.
         """
         super().__init__()
 
-        if conn_config:
-            self._conn_config = conn_config
-        else:
-            api_key = api_key or os.environ.get("SPEECHMATICS_API_KEY")
-            if not api_key:
-                raise ConfigurationError("API key required: provide api_key parameter or set SPEECHMATICS_API_KEY")
-
-            url = url or os.environ.get("SPEECHMATICS_RT_URL", "wss://eu2.rt.speechmatics.com/v2")
-            self._conn_config = ConnectionConfig(url=url, api_key=api_key)  # type: ignore[arg-type]
-
+        self._auth = auth or StaticKeyAuth(api_key)
+        self._url = url or os.environ.get("SPEECHMATICS_RT_URL") or "wss://eu2.rt.speechmatics.com/v2"
+        self._conn_config = conn_config or ConnectionConfig()
         self._session = SessionInfo(request_id=str(uuid.uuid4()))
-        self._transport = Transport(self._conn_config, self._session.request_id)
+        self._transport = Transport(self._url, self._conn_config, self._auth, self._session.request_id)
+
         self._logger = get_logger(__name__)
         self._recognition_started = asyncio.Event()
         self._seq_no = 0
