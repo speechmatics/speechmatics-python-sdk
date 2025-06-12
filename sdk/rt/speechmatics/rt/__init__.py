@@ -1,6 +1,9 @@
 __version__ = "0.0.0"
 
 from ._async_client import AsyncClient
+from ._auth import AuthBase
+from ._auth import JWTAuth
+from ._auth import StaticKeyAuth
 from ._events import EventEmitter
 from ._exceptions import AudioError
 from ._exceptions import AuthenticationError
@@ -26,6 +29,9 @@ from ._models import TranslationConfig
 
 __all__ = [
     "AsyncClient",
+    "AuthBase",
+    "JWTAuth",
+    "StaticKeyAuth",
     "EventEmitter",
     "AudioFormat",
     "AudioEventsConfig",

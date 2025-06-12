@@ -3,14 +3,13 @@ Transport layer for Speechmatics RT WebSocket communication.
 
 This module provides the Transport class that handles low-level WebSocket
 communication with the Speechmatics RT API, including connection management,
-message sending/receiving, and temporary token authentication.
+message sending/receiving, and authentication.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
-import os
 import uuid
 from typing import Any
 from typing import Optional
@@ -20,7 +19,9 @@ from urllib.parse import urlencode
 from urllib.parse import urlparse
 from urllib.parse import urlunparse
 
+from ._auth import AuthBase
 from ._exceptions import ConnectionError
+from ._exceptions import TimeoutError
 from ._exceptions import TransportError
 from ._helpers import get_version
 from ._logging import get_logger
@@ -44,50 +45,46 @@ class Transport:
 
     This class handles all low-level WebSocket communication with the Speechmatics
     RT API, including connection establishment, message serialization/deserialization,
-    authentication (including temporary tokens), and connection lifecycle management.
+    authentication, and connection lifecycle management.
 
     The transport supports both modern and legacy websockets library versions and
     handles SSL/TLS connections automatically for secure endpoints.
 
     Args:
-        config: Connection configuration including URL, API key, and timeouts.
-        request_id: Optional unique identifier for request tracking. Generated
-                   automatically if not provided.
-
-    Attributes:
-        config: The connection configuration object.
-        request_id: Unique identifier for this transport instance.
-
-    Examples:
-        Basic usage:
-            >>> config = ConnectionConfig(
-            ...     url="wss://eu2.rt.speechmatics.com/v2",
-            ...     api_key="your-api-key"
-            ... )
-            >>> transport = Transport(config)
-            >>> await transport.connect()
-            >>> await transport.send_message({"message": "test"})
-            >>> response = await transport.receive_message()
-            >>> await transport.close()
+        url: The WebSocket URL to connect to.
+        config: Connection configuration and timeouts.
+        auth: Authentication mechanism for the connection.
+        request_id: Optional unique identifier for request tracking.
+            Generated automatically if not provided.
     """
 
-    def __init__(self, config: ConnectionConfig, request_id: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        url: str,
+        conn_config: ConnectionConfig,
+        auth: AuthBase,
+        request_id: Optional[str] = None,
+    ) -> None:
         """
         Initialize the transport with connection configuration.
 
         Args:
-            config: Connection configuration object containing URL, API key,
-                   timeouts, and other connection parameters.
+            url: The base URL for the Speechmatics RT API.
+            conn_config: Connection configuration object containing timeouts, max_size,
+                and other websocket connection parameters.
+            auth: Authentication object containing credentials.
             request_id: Optional unique identifier for request tracking.
-                       Generated automatically if not provided.
+                Generated automatically if not provided.
         """
-        self._config = config
+        self._url = url
+        self._auth = auth
+        self._conn_config = conn_config
         self._request_id = request_id or str(uuid.uuid4())
         self._websocket: Optional[Union[ClientConnection, WebSocketClientProtocol]] = None
         self._closed = False
         self._logger = get_logger(__name__)
 
-        self._logger.debug("Transport initialized (request_id=%s, url=%s)", self._request_id, config.url)
+        self._logger.debug("Transport initialized (request_id=%s, url=%s)", self._request_id, self._url)
 
     async def connect(self, ws_headers: Optional[dict] = None) -> None:
         """
@@ -97,17 +94,13 @@ class Transport:
         and authentication credentials. It handles SSL/TLS for secure connections
         and includes proper timeout handling.
 
-        If temporary token generation is enabled, it will automatically generate
-        a temporary token using the main API key before establishing the connection.
-
         Args:
             ws_headers: Optional additional HTTP headers to include in the WebSocket
-                    handshake request.
+                handshake request.
 
         Raises:
             ConnectionError: If the connection cannot be established within the
-                           specified timeout or if the server rejects the connection.
-            TransportError: If temporary token generation fails (when enabled).
+                specified timeout or if the server rejects the connection.
 
         Examples:
             >>> await transport.connect()
@@ -120,13 +113,16 @@ class Transport:
             return
 
         url_with_params = self._prepare_url()
-        ws_headers = await self._prepare_headers(ws_headers)
-
         self._logger.debug("Connecting to WebSocket: %s", url_with_params)
+
+        if ws_headers is None:
+            ws_headers = {}
+        ws_headers.update(await self._auth.get_auth_headers())
 
         try:
             ws_kwargs: dict = {
                 WS_HEADERS_KEY: ws_headers,
+                **self._conn_config.to_dict(),
             }
 
             self._websocket = await connect(
@@ -274,104 +270,9 @@ class Transport:
             The complete WebSocket URL with SDK version parameter.
         """
 
-        parsed = urlparse(self._config.url)
+        parsed = urlparse(self._url)
         query_params = dict(parse_qsl(parsed.query))
-        query_params["sm-sdk"] = f"python-{get_version()}"
+        query_params["sm-sdk"] = f"python-rt-sdk-v{get_version()}"
 
         updated_query = urlencode(query_params)
         return urlunparse(parsed._replace(query=updated_query))
-
-    async def _prepare_headers(self, extra_headers: Optional[dict] = None) -> dict:
-        """
-        Prepare HTTP headers for the WebSocket handshake with authentication.
-
-        This method constructs the headers dictionary including authentication
-        headers. If temporary token generation is enabled, it will generate a
-        temporary token using the API key. Otherwise, it uses the API key
-        directly.
-
-        Args:
-            extra_headers: Optional additional headers to include.
-
-        Returns:
-            Complete headers dictionary ready for WebSocket handshake.
-
-        Raises:
-            TransportError: If temporary token generation fails.
-        """
-        headers = {"X-Request-Id": self._request_id}
-
-        if self._config.api_key:
-            headers["Authorization"] = f"Bearer {self._config.api_key}"
-            if self._config.generate_temp_token:
-                self._logger.debug("Generating temporary token for authentication")
-                temp_token = await self._get_temp_token()
-                headers["Authorization"] = f"Bearer {temp_token}"
-
-        if extra_headers:
-            headers.update(extra_headers)
-
-        return headers
-
-    async def _get_temp_token(self) -> str:
-        """
-        Generate a temporary token from the Speechmatics management platform API.
-
-        This function exchanges a main API key for a short-lived temporary token
-        that can be used for RT API authentication.
-
-        The function makes an HTTP POST request to the management platform to
-        generate the temporary token with appropriate metadata for tracking.
-
-        Returns:
-            A temporary token string that can be used for RT API authentication.
-
-        Raises:
-            TransportError: If the temporary token generation fails due to network
-                        errors, authentication failures, or server errors.
-
-        Examples:
-            >>> temp_token = _get_temp_token("your-main-api-key")
-            >>> # Use temp_token for RT API authentication
-            >>> headers = {"Authorization": f"Bearer {temp_token}"}
-
-        Note:
-            Temporary tokens have a 60-second TTL and are intended for single-use
-            RT sessions. They should not be cached or reused across sessions.
-        """
-        import aiohttp
-
-        version = get_version()
-        mp_api_url = os.getenv("SM_MANAGEMENT_PLATFORM_URL", "https://mp.speechmatics.com")
-        endpoint = f"{mp_api_url}/v1/api_keys"
-
-        params = {"type": "rt", "sm-sdk": f"python-rt-sdk/{version}"}
-        endpoint_with_params = f"{endpoint}?{urlencode(params)}"
-
-        assert self._config.api_key is not None, "API key is required"
-
-        headers = {
-            "Authorization": f"Bearer {self._config.api_key}",
-            "Content-Type": "application/json",
-            "X-Request-Id": self._request_id,
-        }
-
-        self._logger.debug("Requesting temporary token from management platform: %s", endpoint_with_params)
-
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    endpoint_with_params,
-                    json={"ttl": 60},
-                    headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=10),
-                ) as response:
-                    if response.status != 201:
-                        raise TransportError(
-                            f"Failed to get temporary token: HTTP {response.status}: {response.reason}"
-                        )
-                    key_object = await response.json()
-                    return key_object["key_value"]  # type: ignore[no-any-return]
-        except Exception as e:
-            self._logger.error("Get temporary token failed: %s", e)
-            raise TransportError(e)

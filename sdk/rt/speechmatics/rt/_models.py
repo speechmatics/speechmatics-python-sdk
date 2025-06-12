@@ -401,37 +401,34 @@ class ConnectionConfig:
     """
     Configuration for WebSocket connection parameters.
 
-    This class defines all connection-related settings including URL,
-    authentication, timeouts, and advanced features like temporary
-    token generation.
+    This class defines WebSocket-specific settings like ping intervals,
+    message sizes, and connection timeouts.
 
     Attributes:
-        url: WebSocket endpoint URL (e.g., "wss://eu2.rt.speechmatics.com/v2").
-        api_key: Speechmatics API key for authentication.
-        generate_temp_token: Whether to generate temporary tokens for enhanced security.
+        open_timeout: Timeout for establishing WebSocket connection.
+        ping_interval: Interval for WebSocket ping frames.
+        ping_timeout: Timeout waiting for pong response.
+        close_timeout: Timeout for closing WebSocket connection.
+        max_size: Maximum message size in bytes.
+        max_queue: Maximum number of messages in receive queue.
+        read_limit: Maximum number of bytes to read from WebSocket.
+        write_limit: Maximum number of bytes to write to WebSocket.
 
-    Raises:
-        ValueError: If URL format is invalid, API key is empty, timeouts are
-                   not positive, or buffer_size is out of range.
-
-    Examples:
-        Basic configuration:
-            >>> config = ConnectionConfig(
-            ...     url="wss://eu2.rt.speechmatics.com/v2",
-            ...     api_key="your-api-key"
-            ... )
-
-        Configuration with temporary tokens:
-            >>> config = ConnectionConfig(
-            ...     url="wss://eu2.rt.speechmatics.com/v2",
-            ...     api_key="your-main-api-key",
-            ...     generate_temp_token=True,
-            ... )
+    Returns:
+        Websocket connection configuration as a dict while excluding None values.
     """
 
-    url: str
-    api_key: str
-    generate_temp_token: bool = False
+    open_timeout: Optional[float] = None
+    ping_interval: Optional[float] = None
+    ping_timeout: Optional[float] = 60
+    close_timeout: Optional[float] = None
+    max_size: Optional[int] = None
+    max_queue: Optional[int] = None
+    read_limit: Optional[int] = None
+    write_limit: Optional[int] = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self, dict_factory=lambda x: {k: v for (k, v) in x if v is not None})
 
 
 @dataclass

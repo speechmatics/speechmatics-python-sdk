@@ -4,7 +4,7 @@ Async Python client for the Speechmatics Real-Time API.
 
 ## Features
 
-- **Async-first design** with synchronous wrappers for compatibility
+- **Async-first design** with simpler interface
 - **Comprehensive error handling** with detailed error messages
 - **Type hints throughout** for excellent IDE support and code safety
 - **Environment variable support** for secure credential management
@@ -40,9 +40,28 @@ async def main():
 asyncio.run(main())
 ```
 
+## JWT Authentication
+
+For enhanced security, use temporary JWT tokens instead of static API keys.
+JWTs are short-lived (60 seconds by default).
+
+```python
+from speechmatics.rt import AsyncClient, JWTAuth
+
+# Create JWT auth (requires: pip install 'speechmatics-rt[jwt]')
+auth = JWTAuth("your-api-key", ttl=60)
+
+async with AsyncClient(auth=auth) as client:
+    pass
+```
+
+Ideal for browser applications or when minimizing API key exposure.
+See the [authentication documentation](https://docs.speechmatics.com/introduction/authentication) for more details.
+
 ## Logging
 
-The client supports logging with job id tracing for debugging. To increase logging verbosity, set `DEBUG` level in your example code:
+The client supports logging with job id tracing for debugging.
+To increase logging verbosity, set `DEBUG` level in your example code:
 
 ```python
 import logging
