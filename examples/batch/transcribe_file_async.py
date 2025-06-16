@@ -50,7 +50,7 @@ async def main() -> None:
             if isinstance(result, Transcript):
                 print(f"Transcript: {result.transcript_text}")
             else:
-                print("Transcript: {result}")
+                print(f"Transcript: {result}")
 
         except FileNotFoundError:
             print(f"Audio file not found: {audio_file}")
