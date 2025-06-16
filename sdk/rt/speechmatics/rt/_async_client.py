@@ -8,11 +8,14 @@ speech-to-text transcription using the Speechmatics RT API.
 from __future__ import annotations
 
 import asyncio
+import inspect
 import os
 import uuid
 from typing import Any
 from typing import BinaryIO
+from typing import Callable
 from typing import Optional
+from typing import Union
 
 from ._auth import AuthBase
 from ._auth import StaticKeyAuth
@@ -111,6 +114,10 @@ class AsyncClient(EventEmitter):
         self._conn_config = conn_config or ConnectionConfig()
         self._session = SessionInfo(request_id=str(uuid.uuid4()))
         self._transport = Transport(self._url, self._conn_config, self._auth, self._session.request_id)
+        self._middlewares: dict[Union[ClientMessageType, str], list[Callable]] = {
+            message_type: [] for message_type in ClientMessageType
+        }
+        self._middlewares["all"] = []
 
         self._logger = get_logger(__name__)
         self._recognition_started = asyncio.Event()
@@ -291,6 +298,101 @@ class AsyncClient(EventEmitter):
 
         self.remove_all_listeners()
 
+    def add_middleware(self, event: Union[ClientMessageType, str], middleware: Callable[[dict, bool], None]) -> None:
+        """
+        Add a middleware to handle outgoing messages sent to the server.
+        Middlewares are passed a reference to the outgoing message, which
+        they may alter in-place.
+        If `event` is set to 'all' then the handler will be added for
+        every event.
+
+        Args:
+            event: The name of the message for which a middleware is
+                being added. See ClientMessageType class definition for a list of valid
+                event names. Use 'all' to register for all message types.
+            middleware: A function to be called to process an outgoing
+                message of the given type. The function receives the message as
+                the first argument and a second, boolean argument indicating
+                whether or not the message is binary data (which implies it is an
+                AddAudio message).
+
+        Raises:
+            ValueError: If the given event name is not valid.
+
+        Examples:
+            >>> def log_middleware(message, is_binary):
+            ...     if not is_binary:
+            ...         print(f"Sending: {message.get('message')}")
+            >>> client.add_middleware('all', log_middleware)
+        """
+        if not callable(middleware):
+            raise ValueError("Middleware must be callable")
+
+        if event == "all":
+            for name in self._middlewares:
+                self._middlewares[name].append(middleware)
+        elif event not in self._middlewares:
+            raise ValueError(
+                f"Unknown event name: {event}, expected to be 'all' or one of {list(self._middlewares.keys())}."
+            )
+        else:
+            self._middlewares[event].append(middleware)
+
+    def remove_middleware(self, event: Union[ClientMessageType, str], middleware: Callable) -> bool:
+        """
+        Remove a specific middleware from the given event.
+
+        Args:
+            event: The event name from which to remove the middleware.
+            middleware: The middleware function to remove.
+
+        Returns:
+            True if the middleware was found and removed, False otherwise.
+
+        Examples:
+            >>> def my_middleware(message, is_binary):
+            ...     pass
+            >>> client.add_middleware('all', my_middleware)
+            >>> success = client.remove_middleware('all', my_middleware)
+        """
+        if event == "all":
+            try:
+                self._middlewares["all"].remove(middleware)
+                return True
+            except ValueError:
+                return False
+        elif event in self._middlewares:
+            try:
+                self._middlewares[event].remove(middleware)
+                return True
+            except ValueError:
+                return False
+        return False
+
+    async def _call_middleware(self, event: ClientMessageType, message: Any, is_binary: bool = False) -> None:
+        """
+        Call the middlewares attached to the client for the given event name.
+
+        Args:
+            event: The type of event being processed.
+            message: The message being sent (dict for JSON messages, bytes for audio).
+            is_binary: Whether the message is binary data (audio chunks).
+
+        Raises:
+            ForceEndSession: If this was raised by the user's middleware.
+        """
+        for middleware in self._middlewares[event]:
+            try:
+                if inspect.iscoroutinefunction(middleware):
+                    await middleware(message, is_binary)
+                else:
+                    loop = asyncio.get_event_loop()
+                    await loop.run_in_executor(None, middleware, message, is_binary)
+            except ForceEndSession:
+                middleware_name = getattr(middleware, "__name__", str(middleware))
+                self._logger.warning(f"Session was ended forcefully by middleware '{middleware_name}'")
+                raise
+
     async def _run_transcription(
         self,
         audio_stream: BinaryIO,
@@ -355,20 +457,21 @@ class AsyncClient(EventEmitter):
         Raises:
             TransportError: If sending the message fails.
         """
-        start_message = {
+        message = {
             "message": ClientMessageType.START_RECOGNITION,
             "audio_format": audio_format.to_dict(),
             "transcription_config": transcription_config.to_dict(),
         }
 
         if translation_config:
-            start_message["translation_config"] = translation_config.to_dict()
+            message["translation_config"] = translation_config.to_dict()
 
         if audio_events_config:
-            start_message["audio_events_config"] = audio_events_config.to_dict()
+            message["audio_events_config"] = audio_events_config.to_dict()
 
         self._logger.debug("Sending StartRecognition message for language=%s", transcription_config.language)
-        await self._transport.send_message(start_message)
+        await self._call_middleware(ClientMessageType.START_RECOGNITION, message, is_binary=False)
+        await self._transport.send_message(message)
         self._session.is_running = True
 
     async def _audio_producer(self, audio_stream: BinaryIO, audio_format: AudioFormat) -> None:
@@ -388,25 +491,15 @@ class AsyncClient(EventEmitter):
         self._logger.debug("Recognition started, beginning audio streaming (chunk_size=%d)", audio_format.chunk_size)
 
         try:
-            chunk_count = 0
-            last_log_time = 0.0
-            import time
-
             async for chunk in read_audio_chunks(audio_stream, audio_format.chunk_size):
                 if not self._session.is_running:
                     break
 
                 self._seq_no += 1
-                chunk_count += 1
+                await self._call_middleware(ClientMessageType.ADD_AUDIO, chunk, is_binary=True)
                 await self._transport.send_message(chunk)
 
-                # Log progress every 5 seconds
-                current_time: float = time.time()
-                if current_time - last_log_time >= 5.0:
-                    self._logger.debug("Audio streaming progress (chunks=%d, seq_no=%d)", chunk_count, self._seq_no)
-                    last_log_time = current_time
-
-            self._logger.debug("Audio streaming complete (%d chunks total)", chunk_count)
+            self._logger.debug("Audio streaming complete (%d chunks total)", self._seq_no)
             await self._send_end_of_stream()
 
         except Exception as e:
@@ -530,10 +623,11 @@ class AsyncClient(EventEmitter):
         if self._end_of_stream_sent:
             return
 
-        end_message = {
+        message = {
             "message": ClientMessageType.END_OF_STREAM,
             "last_seq_no": self._seq_no,
         }
         self._logger.debug("Sending EndOfStream message (last_seq_no=%d)", self._seq_no)
-        await self._transport.send_message(end_message)
+        await self._call_middleware(ClientMessageType.END_OF_STREAM, message, is_binary=False)
+        await self._transport.send_message(message)
         self._end_of_stream_sent = True
