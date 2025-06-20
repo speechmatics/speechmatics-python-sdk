@@ -164,14 +164,10 @@ class Transport:
             raise TransportError("Not connected")
 
         try:
-            if isinstance(message, (dict, list)):
+            if isinstance(message, dict):
                 data = json.dumps(message)
-                # Only log non-audio messages to reduce spam
-                if isinstance(message, dict) and message.get("message") != "AddAudio":
-                    self._logger.debug("Sending JSON message (type=%s)", message.get("message", "unknown"))
             else:
-                data = message
-
+                data = message  # assume bytes
             await self._websocket.send(data)
         except Exception as e:
             self._logger.error("Send message failed: %s", e)
@@ -206,10 +202,7 @@ class Transport:
         try:
             raw_message = await self._websocket.recv()
             parsed_message = json.loads(raw_message)
-            # Only log important message types to reduce spam
-            message_type = parsed_message.get("message") if isinstance(parsed_message, dict) else "unknown"
-            if message_type not in ["AddPartialTranscript", "AudioAdded"]:
-                self._logger.debug("Received message (type=%s)", message_type)
+            self._logger.debug("Received message=%s", parsed_message)
             return parsed_message  # type: ignore[no-any-return]
         except json.JSONDecodeError as e:
             self._logger.error("Invalid JSON received: %s", e)
