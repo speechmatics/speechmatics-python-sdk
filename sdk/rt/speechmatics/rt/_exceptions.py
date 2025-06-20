@@ -50,14 +50,3 @@ class EndOfTranscriptError(Exception):
     """Raised when the transcript has ended."""
 
     pass
-
-
-class ForceEndSession(Exception):
-    """
-    Exception that can be raised by user handlers to force session termination.
-
-    This is a special exception that users can raise from event handlers
-    or middleware to cleanly terminate a transcription session early.
-    """
-
-    pass
