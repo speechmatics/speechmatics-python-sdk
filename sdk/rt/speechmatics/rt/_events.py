@@ -1,7 +1,3 @@
-"""
-Simplified and type-safe event emitter for the Speechmatics RT SDK.
-"""
-
 from __future__ import annotations
 
 import inspect

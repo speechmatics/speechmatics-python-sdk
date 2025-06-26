@@ -1,11 +1,3 @@
-"""
-Transport layer for Speechmatics RT WebSocket communication.
-
-This module provides the Transport class that handles low-level WebSocket
-communication with the Speechmatics RT API, including connection management,
-message sending/receiving, and authentication.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -23,16 +15,18 @@ from ._auth import AuthBase
 from ._exceptions import ConnectionError
 from ._exceptions import TimeoutError
 from ._exceptions import TransportError
-from ._helpers import get_version
 from ._logging import get_logger
 from ._models import ConnectionConfig
+from ._utils.version import get_version
 
 try:
+    # Try to import from new websockets >=13.0
     from websockets.asyncio.client import ClientConnection
     from websockets.asyncio.client import connect
 
     WS_HEADERS_KEY = "additional_headers"
 except ImportError:
+    # Fall back to legacy websockets
     from websockets.legacy.client import WebSocketClientProtocol
     from websockets.legacy.client import connect  # type: ignore
 
@@ -164,14 +158,10 @@ class Transport:
             raise TransportError("Not connected")
 
         try:
-            if isinstance(message, (dict, list)):
+            if isinstance(message, dict):
                 data = json.dumps(message)
-                # Only log non-audio messages to reduce spam
-                if isinstance(message, dict) and message.get("message") != "AddAudio":
-                    self._logger.debug("Sending JSON message (type=%s)", message.get("message", "unknown"))
             else:
-                data = message
-
+                data = message  # assume bytes
             await self._websocket.send(data)
         except Exception as e:
             self._logger.error("Send message failed: %s", e)
@@ -206,10 +196,7 @@ class Transport:
         try:
             raw_message = await self._websocket.recv()
             parsed_message = json.loads(raw_message)
-            # Only log important message types to reduce spam
-            message_type = parsed_message.get("message") if isinstance(parsed_message, dict) else "unknown"
-            if message_type not in ["AddPartialTranscript", "AudioAdded"]:
-                self._logger.debug("Received message (type=%s)", message_type)
+            self._logger.debug("Received message=%s", parsed_message)
             return parsed_message  # type: ignore[no-any-return]
         except json.JSONDecodeError as e:
             self._logger.error("Invalid JSON received: %s", e)
