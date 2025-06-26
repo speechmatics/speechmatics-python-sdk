@@ -5,6 +5,8 @@ Async Python client for the Speechmatics Real-Time API.
 ## Features
 
 - **Async-first design** with simpler interface
+- **Multi-channel transcription** - Simultaneous processing of multiple audio sources
+- **Single-stream transcription** - Optimized client for single audio source
 - **Comprehensive error handling** with detailed error messages
 - **Type hints throughout** for excellent IDE support and code safety
 - **Environment variable support** for secure credential management
@@ -37,6 +39,45 @@ async def main():
             await client.transcribe(audio_file)
 
 # Run the async function
+asyncio.run(main())
+```
+
+### Multi-Channel Transcription
+
+```python
+import asyncio
+from speechmatics.rt import AsyncMultiChannelClient, ServerMessageType, TranscriptionConfig
+
+async def main():
+    # Prepare multiple audio sources
+    sources = {
+        "left": open("left.wav", "rb"),
+        "right": open("right.wav", "rb"),
+    }
+
+    try:
+        async with AsyncMultiChannelClient() as client:
+            # Handle transcripts with channel identification
+            @client.on(ServerMessageType.ADD_TRANSCRIPT)
+            def handle_transcript(msg):
+                channel = msg["results"][0]["channel"]
+                transcript = msg["metadata"]["transcript"]
+                print(f"[{channel}]: {transcript}")
+
+            # Start multi-channel transcription
+            await client.transcribe(
+                sources,
+                transcription_config=TranscriptionConfig(
+                    language="en",
+                    diarization="channel",
+                    channel_diarization_labels=list(sources.keys()),
+                )
+            )
+    finally:
+        # Ensure all files are closed
+        for source in sources.values():
+            source.close()
+
 asyncio.run(main())
 ```
 

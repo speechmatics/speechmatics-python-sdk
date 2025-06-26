@@ -73,7 +73,7 @@ class ClientMessageType(str, Enum):
         >>>
         >>> # Ending the session
         >>> end_message = {
-        ...     "message": ClientMessageType.EndOfStream,
+        ...     "message": ClientMessageType.END_OF_STREAM,
         ...     "last_seq_no": sequence_number
         ... }
     """
@@ -83,6 +83,8 @@ class ClientMessageType(str, Enum):
     END_OF_STREAM = "EndOfStream"
     SET_RECOGNITION_CONFIG = "SetRecognitionConfig"
     GET_SPEAKERS = "GetSpeakers"
+    ADD_CHANNEL_AUDIO = "AddChannelAudio"
+    END_OF_CHANNEL = "EndOfChannel"
 
 
 class ServerMessageType(str, Enum):
@@ -142,6 +144,7 @@ class ServerMessageType(str, Enum):
     INFO = "Info"
     WARNING = "Warning"
     ERROR = "Error"
+    CHANNEL_AUDIO_ADDED = "ChannelAudioAdded"
 
 
 @dataclass
@@ -269,7 +272,7 @@ class TranscriptionConfig:
             Defaults to "enhanced".
         output_locale: (Optional) RFC-5646 language code for transcript output (eg. "en-US").
             Defaults to None.
-        diarization: Type of diarization to use. Options: "none", "speaker.
+        diarization: Type of diarization to use. Options: "none", "channel", "speaker", "channel_and_speaker".
             Defaults to None.
         additional_vocab: (Optional) Additional vocabulary that is not part of the standard language.
             Defaults to None.
@@ -298,6 +301,8 @@ class TranscriptionConfig:
         conversation_config: (Optional) Configuration for end-of-utterance detection.
             Defaults to None.
         ctrl: (Optional) Configuration for controlling the engine.
+            Defaults to None.
+        channel_diarization_labels: (Optional) Configuration for channel diarization.
             Defaults to None.
 
 
@@ -341,6 +346,7 @@ class TranscriptionConfig:
     streaming_mode: Optional[bool] = None
     conversation_config: Optional[ConversationConfig] = None
     ctrl: Optional[dict] = None
+    channel_diarization_labels: Optional[list[str]] = None
 
     def to_dict(self) -> dict[str, Any]:
         """
