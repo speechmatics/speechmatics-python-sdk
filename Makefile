@@ -37,13 +37,12 @@ help:
 	@echo "  build-batch       Build Batch SDK"
 	@echo ""
 	@echo "Cleaning:"
-	@echo "  clean-dist        Clean distribution artifacts"
 	@echo "  clean-all         Clean both RT and Batch SDKs"
 	@echo "  clean-rt          Clean RT SDK build artifacts"
 	@echo "  clean-batch       Clean Batch SDK build artifacts"
 
 # Testing targets
-test-all: test-rt test-batch
+test-all: test-rt test-batch test-flow
 
 test-rt:
 	pytest tests/rt/ -v
@@ -51,8 +50,11 @@ test-rt:
 test-batch:
 	pytest tests/batch/ -v
 
+test-flow:
+	pytest tests/flow/ -v
+
 # Formatting targets
-format-all: format-rt format-batch
+format-all: format-rt format-batch format-flow
 
 format-rt:
 	cd sdk/rt/speechmatics && black .
@@ -62,8 +64,12 @@ format-batch:
 	cd sdk/batch/speechmatics && black .
 	cd sdk/batch/speechmatics && ruff check --fix .
 
+format-flow:
+	cd sdk/flow/speechmatics && black .
+	cd sdk/flow/speechmatics && ruff check --fix .
+
 # Linting targets
-lint-all: lint-rt lint-batch
+lint-all: lint-rt lint-batch lint-flow
 
 lint-rt:
 	cd sdk/rt/speechmatics && ruff check .
@@ -71,8 +77,11 @@ lint-rt:
 lint-batch:
 	cd sdk/batch/speechmatics && ruff check .
 
+lint-flow:
+	cd sdk/flow/speechmatics && ruff check .
+
 # Type checking targets
-type-check-all: type-check-rt type-check-batch
+type-check-all: type-check-rt type-check-batch type-check-flow
 
 type-check-rt:
 	cd sdk/rt/speechmatics && mypy .
@@ -80,17 +89,21 @@ type-check-rt:
 type-check-batch:
 	cd sdk/batch/speechmatics && mypy .
 
+type-check-flow:
+	cd sdk/flow/speechmatics && mypy .
+
 # Installation targets
 install-dev:
 	python -m pip install --upgrade pip
 	python -m pip install -e sdk/rt[dev]
 	python -m pip install -e sdk/batch[dev]
+	python -m pip install -e sdk/flow[dev]
 
 install-build:
 	python -m pip install --upgrade build
 
 # Building targets
-build-all: build-rt build-batch
+build-all: build-rt build-batch build-flow
 
 build-rt: install-build
 	cd sdk/rt && python -m build
@@ -98,11 +111,11 @@ build-rt: install-build
 build-batch: install-build
 	cd sdk/batch && python -m build
 
-# Cleaning targets
-clean-all: clean-rt clean-batch
+build-flow: install-build
+	cd sdk/flow && python -m build
 
-clean-dist:
-	rm -rf dist/
+# Cleaning targets
+clean-all: clean-rt clean-batch clean-flow
 
 clean-rt:
 	rm -rf sdk/rt/dist sdk/rt/build sdk/rt/*.egg-info
@@ -111,3 +124,7 @@ clean-rt:
 clean-batch:
 	rm -rf sdk/batch/dist sdk/batch/build sdk/batch/*.egg-info
 	find sdk/batch -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+
+clean-flow:
+	rm -rf sdk/flow/dist sdk/flow/build sdk/flow/*.egg-info
+	find sdk/flow -name __pycache__ -exec rm -rf {} + 2>/dev/null || true

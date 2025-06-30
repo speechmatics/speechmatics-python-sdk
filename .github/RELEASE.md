@@ -7,6 +7,7 @@ This document outlines the release process for the Speechmatics Python SDK packa
 The Speechmatics Python SDK repository contains two separate packages:
 - `speechmatics-rt` - Real-Time API Client
 - `speechmatics-batch` - Batch API Client
+- `speechmatics-flow` - Flow API Client
 
 Each package is released independently with its own versioning and release workflow.
 
@@ -81,6 +82,30 @@ To release a new version of the Batch SDK:
    - Update GitHub release notes
    - Announce the release
 
+### 3. Flow SDK Release
+
+To release a new version of the Flow SDK:
+
+1. **Create a Release Tag**
+   ```bash
+   git tag flow/v1.0.0
+   git push origin flow/v1.0.0
+   ```
+
+2. **Automated Workflow**
+   The `release-flow.yaml` workflow will automatically:
+   - Extract version from tag (e.g., `flow/v1.0.0` → `1.0.0`)
+   - Run comprehensive tests across Python versions
+   - Update version in `sdk/flow/speechmatics/flow/__init__.py`
+   - Build the package
+   - Publish to PyPI
+
+3. **Manual Steps After Release**
+   - Verify the package is available on PyPI
+   - Test installation: `pip install speechmatics-flow==1.0.0`
+   - Update GitHub release notes
+   - Announce the release
+
 ## Version Management
 
 ### Version Format
@@ -96,6 +121,7 @@ Both packages follow semantic versioning (SemVer):
 ### Tag Naming Convention
 - RT SDK: `rt/v{version}` (e.g., `rt/v1.0.0`)
 - Batch SDK: `batch/v{version}` (e.g., `batch/v1.0.0`)
+- Flow SDK: `flow/v{version}` (e.g., `flow/v1.0.0`)
 
 ## Environment Setup
 
@@ -103,6 +129,7 @@ Both packages follow semantic versioning (SemVer):
 Both packages are published to PyPI using GitHub Actions with OpenID Connect (OIDC):
 - RT SDK: Uses `pypi-rt` environment
 - Batch SDK: Uses `pypi-batch` environment
+- Flow SDK: Uses `pypi-flow` environment
 
 ### Required Secrets
 No manual secrets are required as the workflows use OIDC for PyPI authentication.
