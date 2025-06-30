@@ -4,7 +4,7 @@ Async Python client for the Speechmatics Flow API - Real-time conversational AI.
 
 ## Features
 
-- **Async-first design** with simpler interface similar to RT SDK
+- **Async-first design** with simpler interface
 - **Comprehensive error handling** with detailed error messages
 - **Event-driven architecture** for real-time conversation processing
 - **Binary audio streaming** support for assistant responses
