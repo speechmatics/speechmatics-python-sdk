@@ -2,6 +2,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/speechmatics-rt)](https://pypi.org/project/speechmatics-rt/)
 [![PyPI](https://img.shields.io/pypi/v/speechmatics-batch)](https://pypi.org/project/speechmatics-batch/)
+[![PyPI](https://img.shields.io/pypi/v/speechmatics-flow)](https://pypi.org/project/speechmatics-flow/)
 [![License](https://img.shields.io/badge/license-MIT-yellow.svg)](https://github.com/speechmatics/speechmatics-python-sdk/blob/master/LICENSE)
 ![PythonSupport](https://img.shields.io/badge/Python-3.9%2B-green)
 
@@ -30,7 +31,7 @@ An async Python client for Speechmatics Batch API.
 pip install speechmatics-batch
 ```
 
-### (Coming soon) Flow Client (`speechmatics-flow`)
+### (Beta) Flow Client (`speechmatics-flow`)
 
 An async Python client for Speechmatics Flow API.
 
@@ -49,13 +50,18 @@ speechmatics-python-sdk/
 │   │   ├── pyproject.toml
 │   │   └── README.md
 │   │
-│   └── rt/
-│       ├── pyproject.toml
-│       └── README.md
+│   ├── rt/
+│   │   ├── pyproject.toml
+│   │   └── README.md
+│   │
+│   ├── flow/
+│   │   ├── pyproject.toml
+│   │   └── README.md
 │
 ├── tests/
 │   ├── batch/
 │   └── rt/
+│   └── flow/
 │
 ├── examples/
 ├── Makefile
@@ -72,7 +78,7 @@ cd speechmatics-python-sdk
 python -m venv .venv
 source .venv/bin/activate
 
-# Install development dependencies for both SDKs
+# Install development dependencies for SDKs
 make install-dev
 ```
 
@@ -95,6 +101,7 @@ Each package can be installed separately:
 ```bash
 pip install speechmatics-rt
 pip install speechmatics-batch
+pip install speechmatics-flow
 ```
 
 ## Docs
