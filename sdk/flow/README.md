@@ -18,23 +18,6 @@ Async Python client for the Speechmatics Flow API - Real-time conversational AI.
 pip install speechmatics-flow
 ```
 
-## Examples
-
-### Microphone Example
-
-**`examples/flow/microphone.py`** - Basic voice conversation with microphone input and audio playback
-
-```bash
-# Install audio requirements
-pip install pyaudio
-
-# Set environment variables
-export SPEECHMATICS_API_KEY=your-api-key
-
-# Start a voice conversation
-python examples/flow/microphone.py
-```
-
 ## JWT Authentication
 
 For enhanced security, use temporary JWT tokens instead of static API keys.

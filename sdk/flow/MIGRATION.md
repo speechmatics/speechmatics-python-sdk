@@ -11,7 +11,6 @@ This guide helps users migrate from the legacy Speechmatics Flow Client (`speech
 - **Enhanced authentication**: Dedicated `JWTAuth` class for JWT token management
 - **Streamlined configuration**: Separate `ConnectionConfig` for WebSocket settings
 - **URL and API key configuration**: Allows loading URL and API key from environment variables
-- **Built-in audio utilities**: Includes `Microphone` and `AudioPlayer` classes
 
 ### Breaking Changes
 
@@ -169,56 +168,6 @@ conn_config = ConnectionConfig(ping_timeout=60)
 
 async with AsyncClient(auth=auth, conn_config=conn_config) as client:
     await client.start_conversation(audio_stream)
-```
-
-## Audio Playback
-
-**Before**
-
-```python
-import pyaudio
-import asyncio
-import io
-
-# Manual audio playback implementation
-audio_buffer = io.BytesIO()
-
-def binary_msg_handler(msg: bytes):
-    if isinstance(msg, (bytes, bytearray)):
-        audio_buffer.write(msg)
-
-async def audio_playback(buffer):
-    p = pyaudio.PyAudio()
-    stream = p.open(format=pyaudio.paInt16, channels=1, rate=16000, output=True)
-    try:
-        while True:
-            audio_to_play = buffer.getvalue()
-            if audio_to_play:
-                stream.write(audio_to_play)
-                buffer.seek(0)
-                buffer.truncate(0)
-            await asyncio.sleep(0.05)
-    finally:
-        stream.close()
-        p.terminate()
-
-client.add_event_handler(ServerMessageType.AddAudio, binary_msg_handler)
-```
-
-**After**
-
-```python
-from speechmatics.flow import AudioPlayer, ServerMessageType
-
-# Built-in audio player
-player = AudioPlayer()
-player.start()
-
-@client.on(ServerMessageType.ADD_AUDIO)
-def handle_audio(audio_data: bytes):
-    player.play_audio(audio_data)
-
-player.stop()
 ```
 
 ## Environment Variables
