@@ -1,45 +1,52 @@
 # Makefile for Speechmatics Python SDKs
 
 .PHONY: help
-.PHONY: test-all test-rt test-batch
-.PHONY: format-all format-rt format-batch
-.PHONY: lint-all lint-rt lint-batch
-.PHONY: type-check-all type-check-rt type-check-batch
-.PHONY: build-all build-rt build-batch
-.PHONY: clean-all clean-rt clean-batch
+.PHONY: test-all test-rt test-batch test-flow
+.PHONY: format-all format-rt format-batch format-flow
+.PHONY: lint-all lint-rt lint-batch lint-flow
+.PHONY: type-check-all type-check-rt type-check-batch type-check-flow
+.PHONY: build-all build-rt build-batch build-flow
+.PHONY: clean-all clean-rt clean-batch clean-flow clean-flow
 
 help:
 	@echo "Available commands:"
 	@echo "  help              Display this help message"
 	@echo "Testing:"
-	@echo "  test-all          Run tests for both RT and Batch SDKs"
+	@echo "  test-all          Run tests for all SDKs"
 	@echo "  test-rt           Run tests for RT SDK"
 	@echo "  test-batch        Run tests for Batch SDK"
+	@echo "  test-flow         Run tests for Flow SDK"
 	@echo ""
 	@echo "Code formatting:"
-	@echo "  format-all        Auto-fix formatting for both SDKs"
+	@echo "  format-all        Auto-fix formatting for all SDKs"
 	@echo "  format-rt         Auto-fix formatting for RT SDK"
 	@echo "  format-batch      Auto-fix formatting for Batch SDK"
+	@echo "  format-flow       Auto-fix formatting for Flow SDK"
 	@echo ""
 	@echo "Linting:"
-	@echo "  lint-all          Run linting for both SDKs"
+	@echo "  lint-all          Run linting for all SDKs"
 	@echo "  lint-rt           Run linting for RT SDK"
 	@echo "  lint-batch        Run linting for Batch SDK"
+	@echo "  lint-flow         Run linting for Flow SDK"
 	@echo ""
 	@echo "Type checking:"
-	@echo "  type-check-all    Run type checking for both SDKs"
+	@echo "  type-check-all    Run type checking for all SDKs"
 	@echo "  type-check-rt     Run type checking for RT SDK"
 	@echo "  type-check-batch  Run type checking for Batch SDK"
+	@echo "  type-check-flow   Run type checking for Flow SDK"
 	@echo ""
 	@echo "Building:"
-	@echo "  build-all         Build both RT and Batch SDKs"
+	@echo "  build-all         Build all SDKs"
 	@echo "  build-rt          Build RT SDK"
 	@echo "  build-batch       Build Batch SDK"
+	@echo "  build-flow        Build Flow SDK"
 	@echo ""
 	@echo "Cleaning:"
-	@echo "  clean-all         Clean both RT and Batch SDKs"
+	@echo "  clean-all         Clean all SDKs"
 	@echo "  clean-rt          Clean RT SDK build artifacts"
 	@echo "  clean-batch       Clean Batch SDK build artifacts"
+	@echo "  clean-flow        Clean Flow SDK build artifacts"
+	@echo ""
 
 # Testing targets
 test-all: test-rt test-batch test-flow
