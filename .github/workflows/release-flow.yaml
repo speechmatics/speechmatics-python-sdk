@@ -1,0 +1,90 @@
+name: Release Flow SDK
+
+on:
+  push:
+    tags:
+      - "flow/v*"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  extract-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.extract.outputs.version }}
+    steps:
+      - name: Extract version from tag
+        id: extract
+        run: |
+          # Extract version from tag (flow/v1.0.0 -> 1.0.0)
+          VERSION=${GITHUB_REF#refs/tags/flow/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION"
+
+  test-flow:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Test Flow SDK
+        run: |
+          make install-dev
+          make lint-flow
+          make test-flow
+
+  release-build:
+    runs-on: ubuntu-latest
+    needs: [extract-version, test-flow]
+    outputs:
+      version: ${{ needs.extract-version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Update package version in sdk/flow/speechmatics/flow/__init__.py
+        run: |
+          VERSION="${{ needs.extract-version.outputs.version }}"
+          sed -i "s/0\.0\.0/$VERSION/g" ./sdk/flow/speechmatics/flow/__init__.py
+          echo "Updated version to: $VERSION"
+          cat ./sdk/flow/speechmatics/flow/__init__.py | grep __version__
+
+      - name: Build Flow SDK
+        run: |
+          make install-dev
+          make build-flow
+
+      - name: Upload dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: flow-release-dist
+          path: sdk/flow/dist/
+
+  pypi-publish:
+    runs-on: ubuntu-latest
+    needs: [release-build]
+    environment:
+      name: pypi-flow
+      url: https://pypi.org/project/speechmatics-flow/${{ needs.release-build.outputs.version }}
+
+    steps:
+      - name: Retrieve release dist
+        uses: actions/download-artifact@v4
+        with:
+          name: flow-release-dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          password: ${{ secrets.PYPI_ORG_TOKEN }}

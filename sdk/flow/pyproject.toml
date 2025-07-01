@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "speechmatics-flow"
+dynamic = ["version"]
+description = "Speechmatics Flow API Client"
+readme = "README.md"
+authors = [{ name = "Speechmatics", email = "support@speechmatics.com" }]
+license = "MIT"
+requires-python = ">=3.9"
+dependencies = ["websockets>=10.0"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+keywords = [
+    "speechmatics",
+    "conversational-ai",
+    "flow",
+    "websocket",
+    "real-time",
+]
+
+[project.optional-dependencies]
+jwt = ["aiohttp"]
+dev = [
+    "black",
+    "ruff",
+    "mypy",
+    "pre-commit",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "pytest-mock",
+    "build",
+]
+
+[project.urls]
+homepage = "https://github.com/speechmatics/speechmatics-python-sdk"
+documentation = "https://docs.speechmatics.com/"
+repository = "https://github.com/speechmatics/speechmatics-python-sdk"
+issues = "https://github.com/speechmatics/speechmatics-python-sdk/issues"
+
+[tool.setuptools.dynamic]
+version = { attr = "speechmatics.flow.__version__" }
+
+[tool.setuptools.package-data]
+"speechmatics.flow" = ["py.typed"]
+
+[tool.setuptools.packages.find]
+where = ["."]

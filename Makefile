@@ -1,49 +1,55 @@
 # Makefile for Speechmatics Python SDKs
 
 .PHONY: help
-.PHONY: test-all test-rt test-batch
-.PHONY: format-all format-rt format-batch
-.PHONY: lint-all lint-rt lint-batch
-.PHONY: type-check-all type-check-rt type-check-batch
-.PHONY: build-all build-rt build-batch
-.PHONY: clean-all clean-rt clean-batch
+.PHONY: test-all test-rt test-batch test-flow
+.PHONY: format-all format-rt format-batch format-flow
+.PHONY: lint-all lint-rt lint-batch lint-flow
+.PHONY: type-check-all type-check-rt type-check-batch type-check-flow
+.PHONY: build-all build-rt build-batch build-flow
+.PHONY: clean-all clean-rt clean-batch clean-flow clean-flow
 
 help:
 	@echo "Available commands:"
 	@echo "  help              Display this help message"
 	@echo "Testing:"
-	@echo "  test-all          Run tests for both RT and Batch SDKs"
+	@echo "  test-all          Run tests for all SDKs"
 	@echo "  test-rt           Run tests for RT SDK"
 	@echo "  test-batch        Run tests for Batch SDK"
+	@echo "  test-flow         Run tests for Flow SDK"
 	@echo ""
 	@echo "Code formatting:"
-	@echo "  format-all        Auto-fix formatting for both SDKs"
+	@echo "  format-all        Auto-fix formatting for all SDKs"
 	@echo "  format-rt         Auto-fix formatting for RT SDK"
 	@echo "  format-batch      Auto-fix formatting for Batch SDK"
+	@echo "  format-flow       Auto-fix formatting for Flow SDK"
 	@echo ""
 	@echo "Linting:"
-	@echo "  lint-all          Run linting for both SDKs"
+	@echo "  lint-all          Run linting for all SDKs"
 	@echo "  lint-rt           Run linting for RT SDK"
 	@echo "  lint-batch        Run linting for Batch SDK"
+	@echo "  lint-flow         Run linting for Flow SDK"
 	@echo ""
 	@echo "Type checking:"
-	@echo "  type-check-all    Run type checking for both SDKs"
+	@echo "  type-check-all    Run type checking for all SDKs"
 	@echo "  type-check-rt     Run type checking for RT SDK"
 	@echo "  type-check-batch  Run type checking for Batch SDK"
+	@echo "  type-check-flow   Run type checking for Flow SDK"
 	@echo ""
 	@echo "Building:"
-	@echo "  build-all         Build both RT and Batch SDKs"
+	@echo "  build-all         Build all SDKs"
 	@echo "  build-rt          Build RT SDK"
 	@echo "  build-batch       Build Batch SDK"
+	@echo "  build-flow        Build Flow SDK"
 	@echo ""
 	@echo "Cleaning:"
-	@echo "  clean-dist        Clean distribution artifacts"
-	@echo "  clean-all         Clean both RT and Batch SDKs"
+	@echo "  clean-all         Clean all SDKs"
 	@echo "  clean-rt          Clean RT SDK build artifacts"
 	@echo "  clean-batch       Clean Batch SDK build artifacts"
+	@echo "  clean-flow        Clean Flow SDK build artifacts"
+	@echo ""
 
 # Testing targets
-test-all: test-rt test-batch
+test-all: test-rt test-batch test-flow
 
 test-rt:
 	pytest tests/rt/ -v
@@ -51,8 +57,11 @@ test-rt:
 test-batch:
 	pytest tests/batch/ -v
 
+test-flow:
+	pytest tests/flow/ -v
+
 # Formatting targets
-format-all: format-rt format-batch
+format-all: format-rt format-batch format-flow
 
 format-rt:
 	cd sdk/rt/speechmatics && black .
@@ -62,8 +71,12 @@ format-batch:
 	cd sdk/batch/speechmatics && black .
 	cd sdk/batch/speechmatics && ruff check --fix .
 
+format-flow:
+	cd sdk/flow/speechmatics && black .
+	cd sdk/flow/speechmatics && ruff check --fix .
+
 # Linting targets
-lint-all: lint-rt lint-batch
+lint-all: lint-rt lint-batch lint-flow
 
 lint-rt:
 	cd sdk/rt/speechmatics && ruff check .
@@ -71,8 +84,11 @@ lint-rt:
 lint-batch:
 	cd sdk/batch/speechmatics && ruff check .
 
+lint-flow:
+	cd sdk/flow/speechmatics && ruff check .
+
 # Type checking targets
-type-check-all: type-check-rt type-check-batch
+type-check-all: type-check-rt type-check-batch type-check-flow
 
 type-check-rt:
 	cd sdk/rt/speechmatics && mypy .
@@ -80,17 +96,21 @@ type-check-rt:
 type-check-batch:
 	cd sdk/batch/speechmatics && mypy .
 
+type-check-flow:
+	cd sdk/flow/speechmatics && mypy .
+
 # Installation targets
 install-dev:
 	python -m pip install --upgrade pip
 	python -m pip install -e sdk/rt[dev]
 	python -m pip install -e sdk/batch[dev]
+	python -m pip install -e sdk/flow[dev]
 
 install-build:
 	python -m pip install --upgrade build
 
 # Building targets
-build-all: build-rt build-batch
+build-all: build-rt build-batch build-flow
 
 build-rt: install-build
 	cd sdk/rt && python -m build
@@ -98,11 +118,11 @@ build-rt: install-build
 build-batch: install-build
 	cd sdk/batch && python -m build
 
-# Cleaning targets
-clean-all: clean-rt clean-batch
+build-flow: install-build
+	cd sdk/flow && python -m build
 
-clean-dist:
-	rm -rf dist/
+# Cleaning targets
+clean-all: clean-rt clean-batch clean-flow
 
 clean-rt:
 	rm -rf sdk/rt/dist sdk/rt/build sdk/rt/*.egg-info
@@ -111,3 +131,7 @@ clean-rt:
 clean-batch:
 	rm -rf sdk/batch/dist sdk/batch/build sdk/batch/*.egg-info
 	find sdk/batch -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+
+clean-flow:
+	rm -rf sdk/flow/dist sdk/flow/build sdk/flow/*.egg-info
+	find sdk/flow -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
