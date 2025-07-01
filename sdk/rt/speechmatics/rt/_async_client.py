@@ -178,9 +178,16 @@ class AsyncClient(_BaseClient):
 
         try:
             await asyncio.wait_for(
-                self._run_pipeline(source, start_recognition_message, ws_headers, audio_format.chunk_size),
+                self._run_pipeline(
+                    source,
+                    start_recognition_message,
+                    ws_headers,
+                    audio_format.chunk_size,
+                ),
                 timeout=timeout,
             )
+        except asyncio.CancelledError:
+            pass
         except asyncio.TimeoutError as exc:
             raise TimeoutError("Transcription session timed out") from exc
 

@@ -1,16 +1,14 @@
 import asyncio
-import os
+import logging
 
 from speechmatics.rt import AsyncMultiChannelClient, ServerMessageType
 
-example_file = os.getenv(
-    "AUDIO_FILE_PATH", os.path.join(os.path.dirname(__file__), "../example.wav")
-)
+logging.basicConfig(level=logging.INFO)
 
 async def main():
     sources = {
-        "channel_one": open(example_file, "rb"),
-        "channel_two": open(example_file, "rb"),
+        "channel_one": open("channel_one.pcm", "rb"),
+        "channel_two": open("channel_two.pcm", "rb"),
     }
 
     try:
