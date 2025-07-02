@@ -86,9 +86,11 @@ class _BaseClient(EventEmitter):
 
         return Transport(url, conn_config, auth, request_id)
 
-    async def __aenter__(self) -> _BaseClient:
-        await self._transport.connect({})
+    async def _ws_connect(self, ws_headers: Optional[dict] = None) -> None:
+        await self._transport.connect(ws_headers)
         self._recv_task = asyncio.create_task(self._recv_loop())
+
+    async def __aenter__(self) -> _BaseClient:
         return self
 
     async def __aexit__(self, *args: Any) -> None:
