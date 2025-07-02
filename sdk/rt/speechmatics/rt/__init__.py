@@ -28,6 +28,7 @@ from ._models import SpeakerDiarizationConfig
 from ._models import TranscriptionConfig
 from ._models import TranscriptResult
 from ._models import TranslationConfig
+from ._utils.microphone import Microphone
 
 __all__ = [
     "AsyncClient",
@@ -46,6 +47,7 @@ __all__ = [
     "EndOfTranscriptError",
     "EventEmitter",
     "JWTAuth",
+    "Microphone",
     "OperatingPoint",
     "ServerMessageType",
     "SessionError",
