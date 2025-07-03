@@ -28,8 +28,6 @@ from ._models import FunctionParamProperty
 from ._models import ServerMessageType
 from ._models import SessionInfo
 from ._models import ToolFunctionParam
-from ._utils.audio_player import AudioPlayer
-from ._utils.microphone import Microphone
 
 __all__ = [
     "AsyncClient",
@@ -50,8 +48,6 @@ __all__ = [
     "ServerMessageType",
     "SessionInfo",
     "ToolFunctionParam",
-    "AudioPlayer",
-    "Microphone",
     "ConfigurationError",
     "AuthenticationError",
     "ConnectionError",
