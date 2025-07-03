@@ -1,5 +1,8 @@
 # Speechmatics Batch API Client
 
+[![PyPI](https://img.shields.io/pypi/v/speechmatics-batch)](https://pypi.org/project/speechmatics-batch/)
+![PythonSupport](https://img.shields.io/badge/Python-3.9%2B-green)
+
 Async Python client for Speechmatics Batch API.
 
 ## Features

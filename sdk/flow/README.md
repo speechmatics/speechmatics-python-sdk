@@ -1,5 +1,8 @@
 # Speechmatics Flow API Client
 
+[![PyPI](https://img.shields.io/pypi/v/speechmatics-flow)](https://pypi.org/project/speechmatics-flow/)
+![PythonSupport](https://img.shields.io/badge/Python-3.9%2B-green)
+
 Async Python client for the Speechmatics Flow API - Real-time conversational AI.
 
 ## Features

@@ -1,11 +1,6 @@
 # Speechmatics Python SDK
 
-[![PyPI](https://img.shields.io/pypi/v/speechmatics-rt)](https://pypi.org/project/speechmatics-rt/)
-[![PyPI](https://img.shields.io/pypi/v/speechmatics-batch)](https://pypi.org/project/speechmatics-batch/)
-[![PyPI](https://img.shields.io/pypi/v/speechmatics-flow)](https://pypi.org/project/speechmatics-flow/)
 [![License](https://img.shields.io/badge/license-MIT-yellow.svg)](https://github.com/speechmatics/speechmatics-python-sdk/blob/master/LICENSE)
-![PythonSupport](https://img.shields.io/badge/Python-3.9%2B-green)
-
 
 A collection of Python clients for Speechmatics APIs packaged as separate installable packages. These packages replace the old [speechmatics-python](https://pypi.org/project/speechmatics-python) package, which will be deprecated soon.
 
