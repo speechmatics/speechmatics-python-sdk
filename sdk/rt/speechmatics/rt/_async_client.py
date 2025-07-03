@@ -212,7 +212,7 @@ class AsyncClient(_BaseClient):
             chunk_size: Chunk size for audio data
         """
 
-        await self._transport.connect(ws_headers)
+        await self._ws_connect(ws_headers)
         await self._send_message(start_recognition_message)
 
         await asyncio.wait_for(self._recognition_started_evt.wait(), timeout=5.0)

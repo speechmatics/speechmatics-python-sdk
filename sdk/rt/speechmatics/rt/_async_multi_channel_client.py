@@ -182,6 +182,8 @@ class AsyncMultiChannelClient(_BaseClient):
                 ),
                 timeout=timeout,
             )
+        except asyncio.CancelledError:
+            pass
         except asyncio.TimeoutError as exc:
             raise TimeoutError("Transcription session timed out") from exc
 
@@ -203,7 +205,7 @@ class AsyncMultiChannelClient(_BaseClient):
             sources: Dictionary of channel IDs to audio file handles
             chunk_size: Size of audio chunks in bytes
         """
-        await self._transport.connect(ws_headers)
+        await self._ws_connect(ws_headers)
         await self._send_message(start_recognition_message)
 
         await asyncio.wait_for(self._rec_started_evt.wait(), timeout=5.0)
