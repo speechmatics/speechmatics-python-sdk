@@ -24,6 +24,68 @@ from ._utils.message import build_start_recognition_message
 from .constants import CHUNK_SIZE
 
 
+class _AudioStreamWriter:
+    """
+    Thin wrapper returned by AsyncClient.start_stream().
+
+    It exposes:
+        • write(frame):  push an audio chunk (bytes)
+        • wait():       await server EndOfTranscript / errors
+        • close():      signal End-Of-Stream
+    """
+
+    def __init__(
+        self,
+        queue: asyncio.Queue[Optional[bytes]],
+        session_done_evt: asyncio.Event,
+    ) -> None:
+        self._q = queue
+        self._session_done_evt = session_done_evt
+        self._closed = False
+        self._logger = get_logger(__name__)
+
+    async def write(self, frame: bytes) -> None:
+        """
+        Push a chunk of raw audio (bytes) to the server.
+
+        Back-pressure: this call will await if the internal queue is full.
+        """
+        if self._closed:
+            raise RuntimeError("Cannot write: stream already ended/closed")
+
+        if not frame:
+            return
+
+        await self._q.put(frame)
+
+    async def close(self, timeout: float = 5.0) -> None:
+        """Tell the client no more audio will be sent (client sends EndOfStream)."""
+        if self._closed:
+            return
+
+        self._closed = True
+        try:
+            await asyncio.wait_for(self._q.put(None), timeout=timeout)
+        except asyncio.CancelledError:
+            raise
+        except asyncio.TimeoutError as e:
+            raise AudioError("Timed out waiting for producer queue") from e
+
+    async def wait(self) -> None:
+        """
+        Wait until the transcription session finishes (EndOfTranscript,
+        server ERROR, or manual client.close()).
+        """
+        await self._session_done_evt.wait()
+
+    async def __aenter__(self) -> _AudioStreamWriter:
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> bool:
+        await asyncio.shield(self.close())
+        return False
+
+
 class AsyncClient(_BaseClient):
     """
     Asynchronous client for Speechmatics real-time audio transcription.
@@ -64,7 +126,7 @@ class AsyncClient(_BaseClient):
         Manual resource management:
             >>> client = AsyncClient(api_key="your-key")
             >>> try:
-            ...     await client.transcribe(audio_stream)
+            ...     await client.transcribe(audio)
             ... finally:
             ...     await client.close()
     """
@@ -102,6 +164,72 @@ class AsyncClient(_BaseClient):
 
         self._logger.debug("AsyncClient initialized (request_id=%s)", self._session.request_id)
 
+    async def start_stream(
+        self,
+        *,
+        transcription_config: Optional[TranscriptionConfig] = None,
+        audio_format: Optional[AudioFormat] = None,
+        translation_config: Optional[TranslationConfig] = None,
+        audio_events_config: Optional[AudioEventsConfig] = None,
+        ws_headers: Optional[dict] = None,
+        queue_maxsize: int = 16,
+    ) -> _AudioStreamWriter:
+        """
+        Open a WebSocket session and return a handle that lets the caller push
+        raw audio chunks.
+
+        Example:
+            async with AsyncClient() as client:
+                stream = await client.start_stream()
+                await stream.write(chunk)
+                ...
+                await stream.close()
+        """
+        transcription_config = transcription_config or TranscriptionConfig()
+        audio_format = audio_format or AudioFormat()
+
+        start_recognition_message = build_start_recognition_message(
+            transcription_config=transcription_config,
+            audio_format=audio_format,
+            translation_config=translation_config,
+            audio_events_config=audio_events_config,
+        )
+
+        await self._ws_connect(ws_headers)
+        await self._send_message(start_recognition_message)
+        await self._wait_recognition_started()
+
+        q: asyncio.Queue[Optional[bytes]] = asyncio.Queue(maxsize=queue_maxsize)
+
+        async def _audio_stream_writer() -> None:
+            seq_no = 0
+            try:
+                while True:
+                    if self._session_done_evt.is_set():
+                        break
+
+                    frame = await q.get()
+
+                    if frame is None:
+                        break
+
+                    try:
+                        await self._send_message(frame)
+                        seq_no += 1
+                    except Exception as e:
+                        self._logger.error("Failed to send audio frame: %s", e)
+                        self._session_done_evt.set()
+                        break
+
+                await self._send_eos(seq_no)
+            except Exception as e:
+                self._logger.error("Live stream producer error: %s", e)
+                self._session_done_evt.set()
+
+        asyncio.create_task(_audio_stream_writer(), name="audio-stream-writer")
+
+        return _AudioStreamWriter(q, self._session_done_evt)
+
     async def transcribe(
         self,
         source: BinaryIO,
@@ -122,7 +250,7 @@ class AsyncClient(_BaseClient):
         an error occurs.
 
         Args:
-            audio_stream: Audio data source with a read() method. Can be a file
+            source: Audio data source with a read() method. Can be a file
                         object, BytesIO, or any object supporting the binary
                         read interface.
             transcription_config: Configuration for transcription behavior such as
@@ -136,7 +264,7 @@ class AsyncClient(_BaseClient):
                     Default None.
 
         Raises:
-            AudioError: If audio_stream is invalid or cannot be read.
+            AudioError: If source is invalid or cannot be read.
             TimeoutError: If transcription exceeds the specified timeout.
             TranscriptionError: If the server reports an error during transcription.
             ConnectionError: If the WebSocket connection fails.
@@ -214,13 +342,13 @@ class AsyncClient(_BaseClient):
 
         await self._ws_connect(ws_headers)
         await self._send_message(start_recognition_message)
+        await self._wait_recognition_started()
 
-        await asyncio.wait_for(self._recognition_started_evt.wait(), timeout=5.0)
+        audio_producer = asyncio.create_task(self._audio_producer(source, chunk_size), name="audio-producer")
 
-        producer = asyncio.create_task(self._audio_producer(source, chunk_size))
         await self._session_done_evt.wait()
         with contextlib.suppress(Exception):
-            await asyncio.wait_for(producer, timeout=2.0)
+            await asyncio.wait_for(audio_producer, timeout=2.0)
 
     async def _audio_producer(self, source: BinaryIO, chunk_size: int) -> None:
         """
@@ -241,30 +369,31 @@ class AsyncClient(_BaseClient):
                 if self._session_done_evt.is_set():
                     break
 
-                seq_no += 1
-
                 try:
                     await self._send_message(frame)
+                    seq_no += 1
                 except Exception as e:
-                    self._logger.error("Failed to send audio chunk: %s", e)
+                    self._logger.error("Failed to send audio frame: %s", e)
                     self._session_done_evt.set()
                     break
 
-            if not self._eos_sent and not self._session_done_evt.is_set():
-                try:
-                    await self._send_message(
-                        {
-                            "message": ClientMessageType.END_OF_STREAM,
-                            "last_seq_no": seq_no,
-                        }
-                    )
-                except Exception as e:
-                    self._logger.error("Failed to send EndOfStream message: %s", e)
-                finally:
-                    self._eos_sent = True
+            await self._send_eos(seq_no)
         except Exception as e:
             self._logger.error("Audio producer error: %s", e)
             self._session_done_evt.set()
+
+    async def _send_eos(self, seq_no: int) -> None:
+        """Send EndOfStream message to server."""
+        if not self._eos_sent and not self._session_done_evt.is_set():
+            try:
+                await self._send_message({"message": ClientMessageType.END_OF_STREAM, "last_seq_no": seq_no})
+                self._eos_sent = True
+            except Exception as e:
+                self._logger.error("Failed to send EndOfStream message: %s", e)
+
+    async def _wait_recognition_started(self, timeout: float = 5.0) -> None:
+        """Wait for RecognitionStarted message from server."""
+        await asyncio.wait_for(self._recognition_started_evt.wait(), timeout)
 
     def _on_recognition_started(self, msg: dict[str, Any]) -> None:
         """Handle RecognitionStarted message from server."""
