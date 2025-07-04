@@ -24,9 +24,9 @@ async with AsyncClient() as client:
     stream = await client.start_stream()
 
     # Write audio chunks to the stream
-    audio_chunk = b""
+    audio_chunk = b"..."
     await stream.write(audio_chunk)
 
     # Close the stream when done
-    await stream.end()
+    await stream.close()
 ```
