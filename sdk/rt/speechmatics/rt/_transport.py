@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from typing import Any
 from typing import Optional
 from typing import Union
 from urllib.parse import parse_qsl
@@ -76,7 +75,7 @@ class Transport:
         self._request_id = request_id or str(uuid.uuid4())
         self._websocket: Optional[Union[ClientConnection, WebSocketClientProtocol]] = None
         self._closed = False
-        self._logger = get_logger(__name__)
+        self._logger = get_logger("speechmatics.rt.transport")
 
         self._logger.debug("Transport initialized (request_id=%s, url=%s)", self._request_id, self._url)
 
@@ -130,39 +129,22 @@ class Transport:
             self._logger.error("WebSocket connection error: %s", e)
             raise ConnectionError(f"WebSocket connection error: {str(e)}")
 
-    async def send_message(self, message: Any) -> None:
+    async def send_message(self, payload: Union[bytes, str]) -> None:
         """
         Send a message through the WebSocket connection.
 
-        This method handles different message types automatically:
-        - Dictionaries and lists are serialized to JSON
-        - Strings are sent as text messages
-        - Bytes are sent as binary messages (typically for audio data)
-
         Args:
-            message: The message to send. Can be a dictionary (for JSON messages),
-                    string (for text messages), or bytes (for binary audio data).
+            payload: The message to send. Can be a JSON message string (for text messages),
+                        or bytes (for binary audio data).
 
         Raises:
             TransportError: If the message cannot be sent or if not connected.
-
-        Examples:
-            >>> # Send JSON message
-            >>> await transport.send_message({"message": "StartRecognition", ...})
-
-            >>> # Send audio data
-            >>> audio_chunk = b""
-            >>> await transport.send_message(audio_chunk)
         """
         if not self._websocket:
             raise TransportError("Not connected")
 
         try:
-            if isinstance(message, dict):
-                data = json.dumps(message)
-            else:
-                data = message  # assume bytes
-            await self._websocket.send(data)
+            await self._websocket.send(payload)
         except Exception as e:
             self._logger.error("Send message failed: %s", e)
             raise TransportError(f"Send message failed: {e}")

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import os
 import uuid
 from typing import Any
@@ -12,9 +13,14 @@ from ._auth import StaticKeyAuth
 from ._events import EventEmitter
 from ._exceptions import TransportError
 from ._logging import get_logger
+from ._models import AudioEventsConfig
+from ._models import AudioFormat
 from ._models import ConnectionConfig
 from ._models import SessionInfo
+from ._models import TranscriptionConfig
+from ._models import TranslationConfig
 from ._transport import Transport
+from ._utils.message import build_start_recognition_message
 
 
 class _BaseClient(EventEmitter):
@@ -34,7 +40,7 @@ class _BaseClient(EventEmitter):
         self._recv_task: Optional[asyncio.Task[None]] = None
         self._closed_evt = asyncio.Event()
 
-        self._logger = get_logger(__name__)
+        self._logger = get_logger("speechmatics.rt.base_client")
 
     @classmethod
     def _init_session_info(cls, request_id: Optional[str] = None) -> tuple[SessionInfo, asyncio.Event, asyncio.Event]:
@@ -96,21 +102,44 @@ class _BaseClient(EventEmitter):
     async def __aexit__(self, *args: Any) -> None:
         await self.close()
 
-    async def _send_message(self, payload: Any) -> None:
+    async def send_audio(self, payload: bytes) -> None:
         """
-        Send a message through the WebSocket.
+        Send an audio frame through the WebSocket.
 
-        Args:
-            payload: Message data (dict for JSON messages, bytes for audio).
-
-        Raises:
-            Any exception from transport layer.
+        Examples:
+            >>> audio_chunk = b""
+            >>> await client.send_audio(audio_chunk)
         """
         if self._closed_evt.is_set():
             raise TransportError("Client is closed")
 
+        if not isinstance(payload, bytes):
+            raise ValueError("Payload must be bytes")
+
         try:
             await self._transport.send_message(payload)
+        except Exception:
+            self._closed_evt.set()
+            raise
+
+    async def send_message(self, message: dict[str, Any]) -> None:
+        """
+        Send a message through the WebSocket.
+
+        Examples:
+            >>> # Send JSON message
+            >>> msg = json.dumps({"message": "StartRecognition", ...})
+            >>> await client.send_message(msg)
+        """
+        if self._closed_evt.is_set():
+            raise TransportError("Client is closed")
+
+        if not isinstance(message, dict):
+            raise ValueError("Message must be a dict")
+
+        try:
+            data = json.dumps(message)
+            await self._transport.send_message(data)
         except Exception:
             self._closed_evt.set()
             raise
@@ -140,6 +169,35 @@ class _BaseClient(EventEmitter):
                 pass  # Ignore close errors - we're already in error state
         finally:
             self._closed_evt.set()
+
+    async def _start_recognition_session(
+        self,
+        *,
+        transcription_config: Optional[TranscriptionConfig] = None,
+        audio_format: Optional[AudioFormat] = None,
+        translation_config: Optional[TranslationConfig] = None,
+        audio_events_config: Optional[AudioEventsConfig] = None,
+        ws_headers: Optional[dict] = None,
+    ) -> tuple[TranscriptionConfig, AudioFormat]:
+        transcription_config = transcription_config or TranscriptionConfig()
+        audio_format = audio_format or AudioFormat()
+
+        start_recognition_message = build_start_recognition_message(
+            transcription_config=transcription_config,
+            audio_format=audio_format,
+            translation_config=translation_config,
+            audio_events_config=audio_events_config,
+        )
+
+        await self._ws_connect(ws_headers)
+        await self.send_message(start_recognition_message)
+        await self._wait_recognition_started()
+
+        return transcription_config, audio_format
+
+    async def _wait_recognition_started(self, timeout: float = 5.0) -> None:
+        """Wait for RecognitionStarted message from server."""
+        raise NotImplementedError()
 
     async def close(self) -> None:
         """

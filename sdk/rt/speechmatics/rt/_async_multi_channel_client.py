@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 from typing import Any
 from typing import BinaryIO
 from typing import Optional
@@ -21,8 +20,6 @@ from ._models import ServerMessageType
 from ._models import TranscriptionConfig
 from ._models import TranslationConfig
 from ._utils.audio import b64_encode_audio
-from ._utils.message import build_start_recognition_message
-from .constants import CHUNK_SIZE
 
 
 class AsyncMultiChannelClient(_BaseClient):
@@ -69,7 +66,7 @@ class AsyncMultiChannelClient(_BaseClient):
         url: Optional[str] = None,
         conn_config: Optional[ConnectionConfig] = None,
     ) -> None:
-        self._logger = get_logger(__name__)
+        self._logger = get_logger("speechmatics.rt.async_multi_chan_client")
 
         (
             self._session,
@@ -159,27 +156,23 @@ class AsyncMultiChannelClient(_BaseClient):
             ...     audio_format=audio_fmt,
             ... )
         """
-        audio_format = audio_format or AudioFormat()
+        # Apply defaults first before validation
         transcription_config = transcription_config or TranscriptionConfig()
 
         self._validate_diarization_config(transcription_config, sources)
         sources = self._remap_sources_with_labels(transcription_config, sources)
 
-        start_recognition_message = build_start_recognition_message(
+        transcription_config, audio_format = await self._start_recognition_session(
             transcription_config=transcription_config,
             audio_format=audio_format,
             translation_config=translation_config,
             audio_events_config=audio_events_config,
+            ws_headers=ws_headers,
         )
 
         try:
             await asyncio.wait_for(
-                self._run_pipeline(
-                    sources,
-                    start_recognition_message,
-                    ws_headers,
-                    audio_format.chunk_size,
-                ),
+                self._audio_producer(sources, audio_format.chunk_size),
                 timeout=timeout,
             )
         except asyncio.CancelledError:
@@ -187,35 +180,11 @@ class AsyncMultiChannelClient(_BaseClient):
         except asyncio.TimeoutError as exc:
             raise TimeoutError("Transcription session timed out") from exc
 
-    async def _run_pipeline(
-        self,
-        sources: dict[str, BinaryIO],
-        start_recognition_message: dict[str, Any],
-        ws_headers: Optional[dict[str, Any]],
-        chunk_size: int = CHUNK_SIZE,
-    ) -> None:
-        """
-        Run the multi-channel audio streaming pipeline and wait for completion.
+    async def _wait_recognition_started(self, timeout: float = 5.0) -> None:
+        """Wait for RecognitionStarted message from server."""
+        await asyncio.wait_for(self._rec_started_evt.wait(), timeout=timeout)
 
-        This method orchestrates the multi-channel audio streaming process by
-        starting the audio producer task and waiting for the session to complete.
-        It ensures proper cleanup even if the producer encounters errors.
-
-        Args:
-            sources: Dictionary of channel IDs to audio file handles
-            chunk_size: Size of audio chunks in bytes
-        """
-        await self._ws_connect(ws_headers)
-        await self._send_message(start_recognition_message)
-
-        await asyncio.wait_for(self._rec_started_evt.wait(), timeout=5.0)
-
-        producer = asyncio.create_task(self._producer(sources, chunk_size))
-        await self._session_done_evt.wait()
-        with contextlib.suppress(Exception):
-            await asyncio.wait_for(producer, timeout=2.0)
-
-    async def _producer(self, sources: dict[str, BinaryIO], chunk_size: int) -> None:
+    async def _audio_producer(self, sources: dict[str, BinaryIO], chunk_size: int) -> None:
         """
         Continuously read from multiple audio sources and send data to the server.
 
@@ -239,7 +208,7 @@ class AsyncMultiChannelClient(_BaseClient):
                 frame = b64_encode_audio(chan_id, chunk)
 
                 try:
-                    await self._send_message(frame)
+                    await self.send_message(frame)
                 except Exception as e:
                     self._logger.error("Failed to send audio chunk for channel %s: %s", chan_id, e)
                     self._session_done_evt.set()
@@ -248,7 +217,7 @@ class AsyncMultiChannelClient(_BaseClient):
             if not self._eos_sent and not self._session_done_evt.is_set():
                 try:
                     for chan_id in sources:
-                        await self._send_message(
+                        await self.send_message(
                             {
                                 "message": ClientMessageType.END_OF_CHANNEL,
                                 "channel": chan_id,

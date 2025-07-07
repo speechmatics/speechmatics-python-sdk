@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 from typing import Any
 from typing import BinaryIO
 from typing import Optional
@@ -20,8 +19,6 @@ from ._models import ConnectionConfig
 from ._models import ServerMessageType
 from ._models import TranscriptionConfig
 from ._models import TranslationConfig
-from ._utils.message import build_start_recognition_message
-from .constants import CHUNK_SIZE
 
 
 class AsyncClient(_BaseClient):
@@ -77,7 +74,7 @@ class AsyncClient(_BaseClient):
         url: Optional[str] = None,
         conn_config: Optional[ConnectionConfig] = None,
     ) -> None:
-        self._logger = get_logger(__name__)
+        self._logger = get_logger("speechmatics.rt.async_client")
 
         (
             self._session,
@@ -102,6 +99,48 @@ class AsyncClient(_BaseClient):
 
         self._logger.debug("AsyncClient initialized (request_id=%s)", self._session.request_id)
 
+    async def start_session(
+        self,
+        *,
+        transcription_config: Optional[TranscriptionConfig] = None,
+        audio_format: Optional[AudioFormat] = None,
+        translation_config: Optional[TranslationConfig] = None,
+        audio_events_config: Optional[AudioEventsConfig] = None,
+        ws_headers: Optional[dict] = None,
+    ) -> None:
+        """
+        This method establishes a WebSocket connection, and configures the transcription session.
+
+        Args:
+            transcription_config: Configuration for transcription behavior such as
+                                language, partial transcripts, and advanced features.
+                                Uses default if not provided.
+            audio_format: Audio format specification including encoding, sample rate,
+                          and chunk size. Uses default (PCM 16-bit LE, 16kHz) if not provided.
+            translation_config: Optional translation configuration for real-time
+                              translation output.
+            audio_events_config: Optional configuration for audio event detection.
+            ws_headers: Additional headers to include in the WebSocket handshake.
+
+        Raises:
+            ConnectionError: If the WebSocket connection fails.
+            TranscriptionError: If the server reports an error during setup.
+            TimeoutError: If the connection or setup times out.
+
+        Examples:
+            Basic streaming:
+                >>> async with AsyncClient() as client:
+                ...     await client.start_session()
+                ...     await client.send_audio(frame)
+        """
+        await self._start_recognition_session(
+            transcription_config=transcription_config,
+            audio_format=audio_format,
+            translation_config=translation_config,
+            audio_events_config=audio_events_config,
+            ws_headers=ws_headers,
+        )
+
     async def transcribe(
         self,
         source: BinaryIO,
@@ -122,7 +161,7 @@ class AsyncClient(_BaseClient):
         an error occurs.
 
         Args:
-            audio_stream: Audio data source with a read() method. Can be a file
+            source: Audio data source with a read() method. Can be a file
                         object, BytesIO, or any object supporting the binary
                         read interface.
             transcription_config: Configuration for transcription behavior such as
@@ -136,7 +175,7 @@ class AsyncClient(_BaseClient):
                     Default None.
 
         Raises:
-            AudioError: If audio_stream is invalid or cannot be read.
+            AudioError: If source is invalid or cannot be read.
             TimeoutError: If transcription exceeds the specified timeout.
             TranscriptionError: If the server reports an error during transcription.
             ConnectionError: If the WebSocket connection fails.
@@ -166,61 +205,21 @@ class AsyncClient(_BaseClient):
         if not source:
             raise AudioError("Audio input source cannot be empty")
 
-        transcription_config = transcription_config or TranscriptionConfig()
-        audio_format = audio_format or AudioFormat()
-
-        start_recognition_message = build_start_recognition_message(
+        transcription_config, audio_format = await self._start_recognition_session(
             transcription_config=transcription_config,
             audio_format=audio_format,
             translation_config=translation_config,
             audio_events_config=audio_events_config,
+            ws_headers=ws_headers,
         )
 
         try:
             await asyncio.wait_for(
-                self._run_pipeline(
-                    source,
-                    start_recognition_message,
-                    ws_headers,
-                    audio_format.chunk_size,
-                ),
+                self._audio_producer(source, audio_format.chunk_size),
                 timeout=timeout,
             )
-        except asyncio.CancelledError:
-            pass
         except asyncio.TimeoutError as exc:
             raise TimeoutError("Transcription session timed out") from exc
-
-    async def _run_pipeline(
-        self,
-        source: BinaryIO,
-        start_recognition_message: dict[str, Any],
-        ws_headers: Optional[dict[str, Any]],
-        chunk_size: int = CHUNK_SIZE,
-    ) -> None:
-        """
-        Run the audio streaming pipeline and wait for completion.
-
-        This method orchestrates the audio streaming process by starting the
-        audio producer task and waiting for the session to complete. It ensures
-        proper cleanup even if the producer encounters errors.
-
-        Args:
-            source: The audio source to stream
-            start_recognition_message: Start recognition message
-            ws_headers: Additional WebSocket headers
-            chunk_size: Chunk size for audio data
-        """
-
-        await self._ws_connect(ws_headers)
-        await self._send_message(start_recognition_message)
-
-        await asyncio.wait_for(self._recognition_started_evt.wait(), timeout=5.0)
-
-        producer = asyncio.create_task(self._audio_producer(source, chunk_size))
-        await self._session_done_evt.wait()
-        with contextlib.suppress(Exception):
-            await asyncio.wait_for(producer, timeout=2.0)
 
     async def _audio_producer(self, source: BinaryIO, chunk_size: int) -> None:
         """
@@ -241,30 +240,33 @@ class AsyncClient(_BaseClient):
                 if self._session_done_evt.is_set():
                     break
 
-                seq_no += 1
-
                 try:
-                    await self._send_message(frame)
+                    await self.send_audio(frame)
+                    seq_no += 1
                 except Exception as e:
-                    self._logger.error("Failed to send audio chunk: %s", e)
+                    self._logger.error("Failed to send audio frame: %s", e)
                     self._session_done_evt.set()
                     break
 
-            if not self._eos_sent and not self._session_done_evt.is_set():
-                try:
-                    await self._send_message(
-                        {
-                            "message": ClientMessageType.END_OF_STREAM,
-                            "last_seq_no": seq_no,
-                        }
-                    )
-                except Exception as e:
-                    self._logger.error("Failed to send EndOfStream message: %s", e)
-                finally:
-                    self._eos_sent = True
+            await self._send_eos(seq_no)
+        except asyncio.CancelledError:
+            raise
         except Exception as e:
             self._logger.error("Audio producer error: %s", e)
             self._session_done_evt.set()
+
+    async def _send_eos(self, seq_no: int) -> None:
+        """Send EndOfStream message to server."""
+        if not self._eos_sent and not self._session_done_evt.is_set():
+            try:
+                await self.send_message({"message": ClientMessageType.END_OF_STREAM, "last_seq_no": seq_no})
+                self._eos_sent = True
+            except Exception as e:
+                self._logger.error("Failed to send EndOfStream message: %s", e)
+
+    async def _wait_recognition_started(self, timeout: float = 5.0) -> None:
+        """Wait for RecognitionStarted message from server."""
+        await asyncio.wait_for(self._recognition_started_evt.wait(), timeout)
 
     def _on_recognition_started(self, msg: dict[str, Any]) -> None:
         """Handle RecognitionStarted message from server."""
@@ -279,7 +281,7 @@ class AsyncClient(_BaseClient):
 
     def _on_error(self, msg: dict[str, Any]) -> None:
         """Handle Error message from server."""
-        error = msg.get("reason", "uknown")
+        error = msg.get("reason", "unknown")
         self._logger.error("Server error: %s", error)
         self._session_done_evt.set()
         raise TranscriptionError(error)

@@ -97,17 +97,21 @@ async def main() -> None:
             print("Microphone started - speak now...")
             print("Press Ctrl+C to stop transcription\n")
 
-            await client.transcribe(
-                source=mic,
+            await client.start_session(
                 transcription_config=transcription_config,
                 audio_format=audio_format,
             )
 
-            if transcript_parts:
-                print(f"\nFull transcript: {''.join(transcript_parts)}")
+            while True:
+                frame = await mic.read(audio_format.chunk_size)
+                await client.send_audio(frame)
 
+        except asyncio.CancelledError:
+            print("Transcription session cancelled")
         except Exception as e:
             print(f"Transcription error: {e}")
+        finally:
+            print(f"\nFull transcript: {''.join(transcript_parts)}")
 
 
 if __name__ == "__main__":
