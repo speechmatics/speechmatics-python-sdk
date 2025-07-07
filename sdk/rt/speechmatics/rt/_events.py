@@ -20,7 +20,7 @@ class EventEmitter:
     def __init__(self) -> None:
         self._handlers: dict[ServerMessageType, set[Callable]] = {}
         self._once_handlers: dict[ServerMessageType, set[Callable]] = {}
-        self._logger = get_logger(__name__)
+        self._logger = get_logger("speechmatics.rt.event_emitter")
 
     def on(self, event: ServerMessageType, callback: Optional[Callable] = None) -> Callable:
         """
