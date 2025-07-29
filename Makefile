@@ -1,12 +1,12 @@
 # Makefile for Speechmatics Python SDKs
 
 .PHONY: help
-.PHONY: test-all test-rt test-batch test-flow
-.PHONY: format-all format-rt format-batch format-flow
-.PHONY: lint-all lint-rt lint-batch lint-flow
-.PHONY: type-check-all type-check-rt type-check-batch type-check-flow
-.PHONY: build-all build-rt build-batch build-flow
-.PHONY: clean-all clean-rt clean-batch clean-flow clean-flow
+.PHONY: test-all test-rt test-rt-utils test-batch test-flow
+.PHONY: format-all format-rt format-rt-utils format-batch format-flow
+.PHONY: lint-all lint-rt lint-rt-utils lint-batch lint-flow
+.PHONY: type-check-all type-check-rt type-check-rt-utils type-check-batch type-check-flow
+.PHONY: build-all build-rt build-rt-utils build-batch build-flow
+.PHONY: clean-all clean-rt clean-rt-utils clean-batch clean-flow clean-flow
 
 help:
 	@echo "Available commands:"
@@ -49,10 +49,13 @@ help:
 	@echo ""
 
 # Testing targets
-test-all: test-rt test-batch test-flow
+test-all: test-rt test-rt-utils test-batch test-flow
 
 test-rt:
 	pytest tests/rt/ -v
+
+test-rt-utils:
+	pytest tests/rt-utils/ -v
 
 test-batch:
 	pytest tests/batch/ -v
@@ -61,11 +64,15 @@ test-flow:
 	pytest tests/flow/ -v
 
 # Formatting targets
-format-all: format-rt format-batch format-flow
+format-all: format-rt format-rt-utils format-batch format-flow
 
 format-rt:
 	cd sdk/rt/speechmatics && black .
 	cd sdk/rt/speechmatics && ruff check --fix .
+
+format-rt-utils:
+	cd sdk/rt-utils/speechmatics && black .
+	cd sdk/rt-utils/speechmatics && ruff check --fix .
 
 format-batch:
 	cd sdk/batch/speechmatics && black .
@@ -76,10 +83,13 @@ format-flow:
 	cd sdk/flow/speechmatics && ruff check --fix .
 
 # Linting targets
-lint-all: lint-rt lint-batch lint-flow
+lint-all: lint-rt lint-rt-utils lint-batch lint-flow
 
 lint-rt:
 	cd sdk/rt/speechmatics && ruff check .
+
+lint-rt-utils:
+	cd sdk/rt-utils/speechmatics && ruff check .
 
 lint-batch:
 	cd sdk/batch/speechmatics && ruff check .
@@ -88,10 +98,13 @@ lint-flow:
 	cd sdk/flow/speechmatics && ruff check .
 
 # Type checking targets
-type-check-all: type-check-rt type-check-batch type-check-flow
+type-check-all: type-check-rt type-check-rt-utils type-check-batch type-check-flow
 
 type-check-rt:
 	cd sdk/rt/speechmatics && mypy .
+
+type-check-rt-utils:
+	cd sdk/rt-utils/speechmatics && mypy .
 
 type-check-batch:
 	cd sdk/batch/speechmatics && mypy .
@@ -110,10 +123,13 @@ install-build:
 	python -m pip install --upgrade build
 
 # Building targets
-build-all: build-rt build-batch build-flow
+build-all: build-rt build-rt-utils build-batch build-flow
 
 build-rt: install-build
 	cd sdk/rt && python -m build
+
+build-rt-utils: install-build
+	cd sdk/rt-utils && python -m build
 
 build-batch: install-build
 	cd sdk/batch && python -m build
@@ -122,11 +138,15 @@ build-flow: install-build
 	cd sdk/flow && python -m build
 
 # Cleaning targets
-clean-all: clean-rt clean-batch clean-flow
+clean-all: clean-rt clean-rt-utils clean-batch clean-flow
 
 clean-rt:
 	rm -rf sdk/rt/dist sdk/rt/build sdk/rt/*.egg-info
 	find sdk/rt -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+
+clean-rt-utils:
+	rm -rf sdk/rt-utils/dist sdk/rt-utils/build sdk/rt-utils/*.egg-info
+	find sdk/rt-utils -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 
 clean-batch:
 	rm -rf sdk/batch/dist sdk/batch/build sdk/batch/*.egg-info
