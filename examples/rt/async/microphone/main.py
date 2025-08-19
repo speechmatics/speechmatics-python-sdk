@@ -83,15 +83,17 @@ async def main() -> None:
         @client.on(ServerMessageType.ADD_TRANSCRIPT)
         def handle_final_transcript(message):
             result = TranscriptResult.from_message(message)
-            if result.transcript:
-                print(f"[final]: {result.transcript}")
-                transcript_parts.append(result.transcript)
+            transcript = result.metadata.transcript
+            if transcript:
+                print(f"[final]: {transcript}")
+                transcript_parts.append(transcript)
 
         @client.on(ServerMessageType.ADD_PARTIAL_TRANSCRIPT)
         def handle_partial_transcript(message):
             result = TranscriptResult.from_message(message)
-            if result.transcript:
-                print(f"[partial]: {result.transcript}")
+            transcript = result.metadata.transcript
+            if transcript:
+                print(f"[partial]: {transcript}")
 
         try:
             print("Microphone started - speak now...")

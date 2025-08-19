@@ -470,6 +470,142 @@ class SessionInfo:
 
 
 @dataclass
+class RecognitionDisplay:
+    """
+    Display information for recognition results.
+
+    Attributes:
+        direction: Display direction (ltr/rtl).
+    """
+
+    direction: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> RecognitionDisplay:
+        """Create RecognitionDisplay from dictionary."""
+        return cls(direction=data.get("direction", "ltr"))
+
+
+@dataclass
+class RecognitionAlternative:
+    """
+    Alternative transcription result for a single recognition segment.
+
+    This class represents a single alternative transcription with confidence,
+    language, and speaker information, matching the OpenAPI specification exactly.
+
+    Attributes:
+        content: A word or punctuation mark.
+        confidence: Confidence score assigned to the alternative (0.0 to 1.0).
+        language: Language that the alternative word is assumed to be spoken in.
+        display: Information about how the word/symbol should be displayed.
+        speaker: Label indicating who said that word (only set if diarization enabled).
+        tags: List of profanities and disfluencies tags.
+    """
+
+    content: str
+    confidence: float
+    language: Optional[str] = None
+    display: Optional[RecognitionDisplay] = None
+    speaker: Optional[str] = None
+    tags: Optional[list[str]] = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> RecognitionAlternative:
+        """Create RecognitionAlternative from dictionary."""
+        display = None
+        if "display" in data and data["display"]:
+            display = RecognitionDisplay.from_dict(data["display"])
+
+        return cls(
+            content=data["content"],
+            confidence=data["confidence"],
+            language=data.get("language"),
+            display=display,
+            speaker=data.get("speaker"),
+            tags=data.get("tags"),
+        )
+
+
+@dataclass
+class RecognitionResult:
+    """
+    Individual recognition result with timing and alternatives.
+
+    This class represents a single recognition result segment, matching
+    the OpenAPI specification exactly.
+
+    Attributes:
+        type: Type of result (word, punctuation).
+        start_time: Start time of this segment in seconds.
+        end_time: End time of this segment in seconds.
+        channel: Channel identifier for multi-channel audio.
+        attaches_to: Attachment information for punctuation.
+        is_eos: Whether this is end of sentence.
+        alternatives: List of alternative transcriptions for this segment.
+        score: Score for this result (0.0 to 1.0).
+        volume: Volume level (0.0 to 100.0).
+    """
+
+    type: str
+    start_time: float
+    end_time: float
+    channel: Optional[str] = None
+    attaches_to: Optional[str] = None
+    is_eos: Optional[bool] = None
+    alternatives: Optional[list[RecognitionAlternative]] = None
+    score: Optional[float] = None
+    volume: Optional[float] = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> RecognitionResult:
+        """Create RecognitionResult from dictionary."""
+        alternatives = None
+        if "alternatives" in data and data["alternatives"]:
+            alternatives = [RecognitionAlternative.from_dict(alt) for alt in data["alternatives"]]
+
+        return cls(
+            type=data["type"],
+            start_time=data["start_time"],
+            end_time=data["end_time"],
+            channel=data.get("channel"),
+            attaches_to=data.get("attaches_to"),
+            is_eos=data.get("is_eos"),
+            alternatives=alternatives,
+            score=data.get("score"),
+            volume=data.get("volume"),
+        )
+
+
+@dataclass
+class RecognitionMetadata:
+    """
+    Metadata for recognition results.
+
+    This class represents the metadata included in AddTranscript messages,
+    matching the OpenAPI specification exactly.
+
+    Attributes:
+        start_time: Start time of the audio segment in seconds.
+        end_time: End time of the audio segment in seconds.
+        transcript: The entire transcript contained in the segment in text format.
+    """
+
+    start_time: float
+    end_time: float
+    transcript: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> RecognitionMetadata:
+        """Create RecognitionMetadata from dictionary."""
+        return cls(
+            start_time=data["start_time"],
+            end_time=data["end_time"],
+            transcript=data["transcript"],
+        )
+
+
+@dataclass
 class TranscriptResult:
     """
     Structured representation of transcription results.
@@ -479,38 +615,34 @@ class TranscriptResult:
     information from server messages.
 
     Attributes:
-        transcript: The transcribed text content.
+        format: Speechmatics JSON output format version number.
+        metadata: Recognition metadata with transcript, start_time, end_time.
+        results: List of detailed recognition results with timing and alternatives.
         is_final: Whether this is a final result (True) or partial (False).
-        confidence: Confidence score for the transcription (0.0 to 1.0).
-        start_time: Start time of the audio segment in seconds.
-        end_time: End time of the audio segment in seconds.
-        speaker: Speaker label if speaker diarization is enabled.
 
     Examples:
         Creating from server message:
             >>> @client.on(ServerMessageType.ADD_TRANSCRIPT)
             >>> def handle_transcript(message):
             ...     result = TranscriptResult.from_message(message)
-            ...     print(f"Final: {result.transcript}")
-            ...     if result.confidence:
-            ...         print(f"Confidence: {result.confidence:.2f}")
+            ...     print(f"Final: {result.metadata.transcript}")
 
         Working with timing information:
-            >>> if result.start_time and result.end_time:
-            ...     duration = result.end_time - result.start_time
-            ...     print(f"Segment duration: {duration:.2f}s")
+            >>> duration = result.metadata.end_time - result.metadata.start_time
+            >>> print(f"Segment duration: {duration:.2f}s")
 
-        Speaker diarization results:
-            >>> if result.speaker:
-            ...     print(f"Speaker {result.speaker}: {result.transcript}")
+        Word-level details:
+            >>> for word_result in result.results:
+            ...     if word_result.alternatives:
+            ...         word = word_result.alternatives[0].content
+            ...         confidence = word_result.alternatives[0].confidence
+            ...         print(f"{word} ({confidence:.2f})")
     """
 
-    transcript: str
-    is_final: bool
-    confidence: Optional[float] = None
-    start_time: Optional[float] = None
-    end_time: Optional[float] = None
-    speaker: Optional[str] = None
+    metadata: RecognitionMetadata
+    results: list[RecognitionResult]
+    format: Optional[str] = None
+    is_final: bool = False
 
     @classmethod
     def from_message(cls, message: dict[str, Any]) -> TranscriptResult:
@@ -531,24 +663,41 @@ class TranscriptResult:
             >>> # Typical server message structure:
             >>> message = {
             ...     "message": "AddTranscript",
+            ...     "format": "2.1",
             ...     "metadata": {
             ...         "transcript": "Hello world",
-            ...         "confidence": 0.95,
             ...         "start_time": 1.5,
             ...         "end_time": 2.8
-            ...     }
+            ...     },
+            ...     "results": [
+            ...         {
+            ...             "type": "word",
+            ...             "start_time": 1.5,
+            ...             "end_time": 1.8,
+            ...             "alternatives": [
+            ...                 {
+            ...                     "content": "Hello",
+            ...                     "confidence": 0.98,
+            ...                     "language": "en"
+            ...                 }
+            ...             ]
+            ...         }
+            ...     ]
             ... }
             >>> result = TranscriptResult.from_message(message)
-            >>> # result.transcript == "Hello world"
-            >>> # result.is_final == True (because message type is "AddTranscript")
-            >>> # result.confidence == 0.95
+            >>> # result.metadata.transcript == "Hello world"
+            >>> # result.is_final == True
+            >>> # result.format == "2.1"
         """
-        metadata = message.get("metadata", {})
+        metadata_data = message["metadata"]
+        metadata = RecognitionMetadata.from_dict(metadata_data)
+
+        results_data = message["results"]
+        results = [RecognitionResult.from_dict(result) for result in results_data]
+
         return cls(
-            transcript=metadata.get("transcript", ""),
-            is_final=message.get("message") == ServerMessageType.ADD_TRANSCRIPT,
-            confidence=metadata.get("confidence"),
-            start_time=metadata.get("start_time"),
-            end_time=metadata.get("end_time"),
-            speaker=metadata.get("speaker"),
+            format=message.get("format"),
+            metadata=metadata,
+            results=results,
+            is_final=message["message"] == ServerMessageType.ADD_TRANSCRIPT,
         )
