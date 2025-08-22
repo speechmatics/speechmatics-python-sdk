@@ -253,7 +253,7 @@ class Transport:
                 kwargs["json"] = json_data
             elif multipart_data:
                 # Create proper multipart/form-data
-                form_data = aiohttp.FormData()
+                form_data = aiohttp.FormData(default_to_multipart=True)
                 for key, value in multipart_data.items():
                     if isinstance(value, tuple) and len(value) == 3:
                         # File data: (filename, file_data, content_type)
