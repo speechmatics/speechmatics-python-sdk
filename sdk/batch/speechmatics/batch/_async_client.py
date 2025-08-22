@@ -135,7 +135,7 @@ class AsyncClient:
 
     async def submit_job(
         self,
-        audio_file: Union[str, BinaryIO],
+        audio_file: Union[str, BinaryIO, None],
         *,
         config: Optional[JobConfig] = None,
         transcription_config: Optional[TranscriptionConfig] = None,
@@ -148,7 +148,8 @@ class AsyncClient:
         asynchronously on the server.
 
         Args:
-            audio_file: Path to audio file or file-like object containing audio data.
+            audio_file: Path to audio file or file-like object containing audio data, or None if using fetch_data.
+                NOTE: You must explicitly pass audio=None if providing a fetch_data in the config
             config: Complete job configuration. If not provided, uses transcription_config
                    to build a basic job configuration.
             transcription_config: Transcription-specific configuration. Used if config
@@ -181,31 +182,44 @@ class AsyncClient:
             transcription_config = transcription_config or TranscriptionConfig()
             config = JobConfig(type=JobType.TRANSCRIPTION, transcription_config=transcription_config)
 
+        # Check for fetch_data configuration
+        config_dict = config.to_dict()
+        has_fetch_data = "fetch_data" in config_dict
+
         # Prepare file data using async context manager
         try:
-            async with prepare_audio_file(audio_file) as (filename, file_data):
-                # Prepare multipart form data
-                multipart_data = {
-                    "config": config.to_dict(),
-                    "data_file": (filename, file_data, "audio/wav"),
-                }
+            # Initialize multipart data with config
+            multipart_data: dict[str, Any] = {"config": config_dict}
 
+            if audio_file is None and has_fetch_data:
+                # No audio file, using fetch_data url
+                filename = config_dict["fetch_data"]["url"]
+                # Submit the job with the prepared multipart data
                 response = await self._transport.post("/jobs", multipart_data=multipart_data)
+            else:
+                # Standard audio file processing
+                if audio_file is None:
+                    raise ValueError("audio_file cannot be None when fetch_data is not configured")
+                async with prepare_audio_file(audio_file) as (filename, file_data):
+                    # Add data file to multipart
+                    multipart_data["data_file"] = (filename, file_data, "audio/wav")
+                    # Submit the job with the prepared multipart data
+                    response = await self._transport.post("/jobs", multipart_data=multipart_data)
 
-                # Extract job info from response
-                job_id = response.get("id")
-                if not job_id:
-                    raise BatchError("No job ID returned from server")
+            # Extract job info from response
+            job_id = response.get("id")
+            if not job_id:
+                raise BatchError("No job ID returned from server")
 
-                self._logger.debug("Job submitted successfully (job_id=%s, filename=%s)", job_id, filename)
+            self._logger.debug("Job submitted successfully (job_id=%s, filename=%s)", job_id, filename)
 
-                return JobDetails(
-                    id=job_id,
-                    status=JobStatus.RUNNING,  # Assume running initially
-                    created_at=response.get("created_at", ""),
-                    data_name=filename,
-                    config=config,
-                )
+            return JobDetails(
+                id=job_id,
+                status=JobStatus.RUNNING,  # Assume running initially
+                created_at=response.get("created_at", ""),
+                data_name=filename,
+                config=config,
+            )
 
         except Exception as e:
             if isinstance(e, (AuthenticationError, BatchError)):

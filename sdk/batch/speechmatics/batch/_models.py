@@ -114,6 +114,25 @@ class AlignmentConfig:
 
 
 @dataclass
+class FetchData:
+    """Batch: Optional configuration for fetching file for transcription."""
+
+    url: str
+    """URL to fetch"""
+
+    auth_headers: Optional[dict[str, str]] = None
+    """
+    A list of additional headers to be added to the input fetch request
+    when using http or https. This is intended to support authentication or
+    authorization, for example by supplying an OAuth2 bearer token
+    """
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary, excluding None values."""
+        return {k: v for k, v in asdict(self).items() if v is not None}
+
+
+@dataclass
 class NotificationConfig:
     """Configuration for job completion notifications."""
 
@@ -229,6 +248,7 @@ class JobConfig:
 
     Attributes:
         type: Type of job (transcription or alignment).
+        fetch_data: Configuration for fetching an audio file for transcription.
         transcription_config: Configuration for transcription behavior.
         alignment_config: Configuration for alignment jobs.
         notification_config: Webhook notification configuration.
@@ -243,6 +263,7 @@ class JobConfig:
     """
 
     type: JobType
+    fetch_data: Optional[FetchData] = None
     transcription_config: Optional[TranscriptionConfig] = None
     alignment_config: Optional[AlignmentConfig] = None
     notification_config: Optional[NotificationConfig] = None
@@ -259,6 +280,8 @@ class JobConfig:
         """Convert job config to dictionary for API submission."""
         config: dict[str, Any] = {"type": self.type.value}
 
+        if self.fetch_data:
+            config["fetch_data"] = self.fetch_data.to_dict()
         if self.transcription_config:
             config["transcription_config"] = self.transcription_config.to_dict()
         if self.alignment_config:
