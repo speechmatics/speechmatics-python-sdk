@@ -149,7 +149,7 @@ class AsyncClient:
 
         Args:
             audio_file: Path to audio file or file-like object containing audio data, or None if using fetch_data.
-                NOTE: You must explicitly pass audio=None if providing a fetch_data in the config
+                NOTE: You must explicitly pass audio_file=None if providing a fetch_data in the config
             config: Complete job configuration. If not provided, uses transcription_config
                    to build a basic job configuration.
             transcription_config: Transcription-specific configuration. Used if config

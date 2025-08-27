@@ -120,7 +120,7 @@ class FetchData:
     url: str
     """URL to fetch"""
 
-    auth_headers: Optional[dict[str, str]] = None
+    auth_headers: Optional[list[str]] = None
     """
     A list of additional headers to be added to the input fetch request
     when using http or https. This is intended to support authentication or
