@@ -186,45 +186,25 @@ class AsyncClient:
         config_dict = config.to_dict()
         has_fetch_data = "fetch_data" in config_dict
 
-        # Prepare file data using async context manager
+        # Validate input combination
+        if audio_file is not None and has_fetch_data:
+            raise ValueError("Cannot specify both audio_file and fetch_data")
+        if audio_file is None and not has_fetch_data:
+            raise ValueError("Must provide either audio_file or fetch_data in config")
+
         try:
-            # Initialize multipart data with config
-            multipart_data: dict[str, Any] = {"config": config_dict}
-
-            if audio_file is None and has_fetch_data:
-                # No audio file, using fetch_data url
-                filename = config_dict["fetch_data"]["url"]
-                # Submit the job with the prepared multipart data
-                response = await self._transport.post("/jobs", multipart_data=multipart_data)
+            # Prepare multipart data based on strategy
+            if has_fetch_data:
+                multipart_data, filename = await self._prepare_fetch_data_submission(config_dict)
             else:
-                # Standard audio file processing
-                if audio_file is None:
-                    raise ValueError("audio_file cannot be None when fetch_data is not configured")
-                async with prepare_audio_file(audio_file) as (filename, file_data):
-                    # Add data file to multipart
-                    multipart_data["data_file"] = (filename, file_data, "audio/wav")
-                    # Submit the job with the prepared multipart data
-                    response = await self._transport.post("/jobs", multipart_data=multipart_data)
+                assert audio_file is not None  # for type checker; validated above
+                multipart_data, filename = await self._prepare_file_submission(audio_file, config_dict)
 
-            # Extract job info from response
-            job_id = response.get("id")
-            if not job_id:
-                raise BatchError("No job ID returned from server")
-
-            self._logger.debug("Job submitted successfully (job_id=%s, filename=%s)", job_id, filename)
-
-            return JobDetails(
-                id=job_id,
-                status=JobStatus.RUNNING,  # Assume running initially
-                created_at=response.get("created_at", ""),
-                data_name=filename,
-                config=config,
-            )
-
+            return await self._submit_and_create_job_details(multipart_data, filename, config)
         except Exception as e:
             if isinstance(e, (AuthenticationError, BatchError)):
                 raise
-            raise BatchError(f"Failed to submit job: {e}") from e
+            raise BatchError(f"Job submission failed: {e}") from e
 
     async def get_job_info(self, job_id: str) -> JobDetails:
         """
@@ -528,3 +508,38 @@ class AsyncClient:
             await self._transport.close()
         except Exception:
             pass  # Best effort cleanup
+
+    # ------------------------------------------------------------------
+    # Internal helpers for job submission strategies
+    # ------------------------------------------------------------------
+    async def _prepare_fetch_data_submission(self, config_dict: dict) -> tuple[dict, str]:
+        """Prepare multipart data for fetch_data submission."""
+        filename = config_dict["fetch_data"]["url"]
+        multipart_data = {"config": config_dict}
+        return multipart_data, filename
+
+    async def _prepare_file_submission(self, audio_file: Union[str, BinaryIO], config_dict: dict) -> tuple[dict, str]:
+        """Prepare multipart data for file upload submission."""
+        async with prepare_audio_file(audio_file) as (filename, file_data):
+            multipart_data = {
+                "config": config_dict,
+                "data_file": (filename, file_data, "audio/wav"),
+            }
+            return multipart_data, filename
+
+    async def _submit_and_create_job_details(
+        self, multipart_data: dict, filename: str, config: JobConfig
+    ) -> JobDetails:
+        """Submit job and create JobDetails response."""
+        response = await self._transport.post("/jobs", multipart_data=multipart_data)
+        job_id = response.get("id")
+        if not job_id:
+            raise BatchError("No job ID returned from server")
+        self._logger.debug("Job submitted successfully (job_id=%s, filename=%s)", job_id, filename)
+        return JobDetails(
+            id=job_id,
+            status=JobStatus.RUNNING,
+            created_at=response.get("created_at", ""),
+            data_name=filename,
+            config=config,
+        )
