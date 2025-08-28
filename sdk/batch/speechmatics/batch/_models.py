@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 from typing import Optional
+from typing import Union
 
 
 class JobType(str, Enum):
@@ -367,8 +368,14 @@ class JobConfig:
             ae_data = data["audio_events_config"]
             audio_events_config = AudioEventsConfig(**ae_data)
 
+        fetch_data = None
+        if "fetch_data" in data:
+            fd_data = data["fetch_data"]
+            fetch_data = FetchData(**fd_data)
+
         return cls(
             type=job_type,
+            fetch_data=fetch_data,
             transcription_config=transcription_config,
             alignment_config=alignment_config,
             notification_config=notification_config,
@@ -395,6 +402,19 @@ class JobError:
     def from_dict(cls, data: dict[str, Any]) -> JobError:
         """Create JobError from dictionary."""
         return cls(type=data["type"], message=data["message"], details=data.get("details"))
+
+
+@dataclass
+class FetchDataError:
+    """Represents a fetch data error."""
+
+    message: str
+    timestamp: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> FetchDataError:
+        """Create FetchDataError from dictionary."""
+        return cls(message=data["message"], timestamp=data["timestamp"])
 
 
 @dataclass
@@ -459,7 +479,7 @@ class JobDetails:
     data_name: str
     duration: Optional[float] = None
     config: Optional[JobConfig] = None
-    errors: Optional[list[JobError]] = None
+    errors: Optional[list[Union[JobError, FetchDataError]]] = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> JobDetails:
@@ -468,9 +488,12 @@ class JobDetails:
         if "config" in data and data["config"]:
             config = JobConfig.from_dict(data["config"])
 
-        errors = None
+        errors: list[Union[JobError, FetchDataError]] = []
         if "errors" in data and data["errors"]:
-            errors = [JobError.from_dict(error) for error in data["errors"]]
+            if config and config.fetch_data:
+                errors = [FetchDataError.from_dict(error) for error in data["errors"]]
+            else:
+                errors = [JobError.from_dict(error) for error in data["errors"]]
 
         return cls(
             id=data["id"],
