@@ -9,6 +9,7 @@ request/response handling, and authentication.
 from __future__ import annotations
 
 import asyncio
+import io
 import sys
 import uuid
 from typing import Any
@@ -252,13 +253,18 @@ class Transport:
             if json_data:
                 kwargs["json"] = json_data
             elif multipart_data:
-               # Force multipart encoding even when no files are present (for fetch_data support)
+                # Force multipart encoding even when no files are present (for fetch_data support)
                 form_data = aiohttp.FormData(default_to_multipart=True)
                 for key, value in multipart_data.items():
                     if isinstance(value, tuple) and len(value) == 3:
                         # File data: (filename, file_data, content_type)
                         filename, file_data, content_type = value
-                        form_data.add_field(key, file_data, filename=filename, content_type=content_type)
+                        # aiohttp cannot serialize io.BytesIO directly; convert to bytes
+                        if isinstance(file_data, io.BytesIO):
+                            file_payload = file_data.getvalue()
+                        else:
+                            file_payload = file_data
+                        form_data.add_field(key, file_payload, filename=filename, content_type=content_type)
                     else:
                         # Regular form field
                         if isinstance(value, dict):
