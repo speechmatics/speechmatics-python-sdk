@@ -86,4 +86,4 @@ pip install pyaudio
 export SPEECHMATICS_API_KEY="your_api_key_here"
 ```
 
-For more information, see the main SDK documentation in [OVERVIEW.md](../OVERVIEW.md).
+For more information, see the main SDK documentation in [OVERVIEW.md](../../OVERVIEW.md).
