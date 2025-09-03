@@ -218,25 +218,25 @@ class VoiceAgentClient(AsyncClient):
 
         # Recognition started event
         @self.once(ServerMessageType.RECOGNITION_STARTED)
-        def _evt_on_recognition_started(message: dict[str, Any]):
+        def _evt_on_recognition_started(message: dict[str, Any]) -> None:
             self._start_time = datetime.datetime.now(datetime.timezone.utc)
             self._is_ready_for_audio = True
 
         # Partial transcript event
         @self.on(ServerMessageType.ADD_PARTIAL_TRANSCRIPT)
-        def _evt_on_partial_transcript(message: dict[str, Any]):
+        def _evt_on_partial_transcript(message: dict[str, Any]) -> None:
             self._handle_transcript(message, is_final=False)
 
         # Final transcript event
         @self.on(ServerMessageType.ADD_TRANSCRIPT)
-        def _evt_on_final_transcript(message: dict[str, Any]):
+        def _evt_on_final_transcript(message: dict[str, Any]) -> None:
             self._handle_transcript(message, is_final=True)
 
         # End of utterance event
         if self._end_of_utterance_mode == EndOfUtteranceMode.FIXED:
 
             @self.on(ServerMessageType.END_OF_UTTERANCE)
-            def _evt_on_end_of_utterance(message: dict[str, Any]):
+            def _evt_on_end_of_utterance(message: dict[str, Any]) -> None:
                 self._logger.debug("End of utterance")
                 self.finalize_segments()
 
@@ -390,7 +390,7 @@ class VoiceAgentClient(AsyncClient):
             self._processor_task.cancel()
 
         # Send transcription frames after delay
-        async def process_after_delay(delay: float):
+        async def process_after_delay(delay: float) -> None:
             await asyncio.sleep(delay)
             await self._process_speech_fragments()
             self._processor_task = None
@@ -699,6 +699,12 @@ class VoiceAgentClient(AsyncClient):
 
                 # TODO - Other checks / end of turn detection
 
+            # Constrain to `end_of_utterance_max_delay`
+            if emit_final_delay is not None:
+                emit_final_delay = min(emit_final_delay, self._config.end_of_utterance_max_delay)
+            else:
+                emit_final_delay = self._config.end_of_utterance_max_delay
+
             # Emit segments
             should_emit = True
 
@@ -713,7 +719,7 @@ class VoiceAgentClient(AsyncClient):
         # Return the result
         return should_emit, emit_final_delay
 
-    def finalize_segments(self, ttl: Optional[float] = None):
+    def finalize_segments(self, ttl: Optional[float] = None) -> None:
         """Finalize segments.
 
         This function will emit segments in the buffer without any further checks
@@ -724,7 +730,7 @@ class VoiceAgentClient(AsyncClient):
             ttl: Optional delay before finalizing partial segments (defaults to 0.01 seconds).
         """
 
-        async def _emit():
+        async def _emit() -> None:
             await asyncio.sleep(ttl or 0.01)
             await self._emit_final_segments()
 
@@ -775,7 +781,7 @@ class VoiceAgentClient(AsyncClient):
         if self._finals_emitter_task is not None:
             self._finals_emitter_task.cancel()
 
-        async def emit_finals_now():
+        async def emit_finals_now() -> None:
             """Emit final segments."""
 
             # Skip if no segments
@@ -798,7 +804,7 @@ class VoiceAgentClient(AsyncClient):
                 # Only include segments up to the last active segment
                 trimmed_view = SpeakerFragmentView(
                     fragments=fragments_to_emit,
-                    base_time=view.base_time,
+                    base_time=self._start_time,
                     focus_speakers=view.focus_speakers,
                     annotate_segments=False,
                 )
@@ -821,7 +827,7 @@ class VoiceAgentClient(AsyncClient):
                 # Update the current view
                 self._current_view = SpeakerFragmentView(
                     fragments=self._speech_fragments,
-                    base_time=self._trim_before_time,
+                    base_time=self._start_time,
                     focus_speakers=self._dz_config.focus_speakers,
                     annotate_segments=False,
                 )
@@ -829,7 +835,7 @@ class VoiceAgentClient(AsyncClient):
                 # Reset previous fragments
                 self._last_speech_fragments = self._speech_fragments.copy()
 
-        async def emit_finals_after_delay(_delay: float):
+        async def emit_finals_after_delay(_delay: float) -> None:
             """Yield before emitting final segments after a delay."""
 
             # Wait for the delay (can be cancelled)
@@ -851,7 +857,7 @@ class VoiceAgentClient(AsyncClient):
         else:
             self._finals_emitter_task = asyncio.create_task(emit_finals_now())
 
-    def _vad_evaluation(self, fragments: list[SpeechFragment]):
+    def _vad_evaluation(self, fragments: list[SpeechFragment]) -> None:
         """Emit a VAD event.
 
         This will emit `SPEECH_STARTED` and `SPEECH_ENDED` events to the client and is

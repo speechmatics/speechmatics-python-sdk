@@ -122,6 +122,11 @@ class VoiceAgentConfig:
             word frames. The value must be lower than max_delay.
             Defaults to 0.5.
 
+        end_of_utterance_max_delay: Maximum delay in seconds for end of utterance delay.
+            The delay is used to wait for any further transcribed words before emitting the final
+            word frames. The value must be greater than end_of_utterance_silence_trigger.
+            Defaults to 10.0.
+
         end_of_utterance_mode: End of utterance delay mode. When ADAPTIVE is used, the delay
             can be adjusted on the content of what the most recent speaker has said, such as
             rate of speech and whether they have any pauses or disfluencies. When FIXED is used,
@@ -183,6 +188,7 @@ class VoiceAgentConfig:
     # Features
     max_delay: float = 1.0
     end_of_utterance_silence_trigger: float = 0.5
+    end_of_utterance_max_delay: float = 10.0
     end_of_utterance_mode: EndOfUtteranceMode = EndOfUtteranceMode.FIXED
     additional_vocab: list[AdditionalVocabEntry] = field(default_factory=list)
     punctuation_overrides: Optional[dict] = None
@@ -451,7 +457,7 @@ class SpeakerSegment:
         """Return the end time of the segment."""
         return self.fragments[-1].end_time
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return a string representation of the object."""
         meta = {
             "speaker_id": self.speaker_id,
