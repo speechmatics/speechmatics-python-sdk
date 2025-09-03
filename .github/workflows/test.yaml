@@ -69,3 +69,23 @@ jobs:
         run: make test-flow
       - name: Build Flow SDK
         run: make build-flow
+
+  test-voice:
+    name: Test Voice Agent SDK
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: make install-dev
+      - name: Lint Voice Agent SDK
+        run: make lint-voice
+      - name: Test Voice Agent SDK
+        run: make test-voice
+      - name: Build Voice Agent SDK
+        run: make build-voice
