@@ -4,7 +4,7 @@
 
 An SDK for working with the Speechmatics Real-Time API optimised for use in voice agents or transcription services.
 
-This uses the Python Real-Time API to process the transcription results from the STT engine and combine them into manageable segments of audio. Taking advantage of speaker diarization, the transcription is grouped into individual speakers, with advanced options to focus on and/or ignore specific speakers.
+This uses the Python Real-Time API to process the transcription results from the STT engine and combine them into manageable segments of text. Taking advantage of speaker diarization, the transcription is grouped into individual speakers, with advanced options to focus on and/or ignore specific speakers.
 
 See [OVERVIEW.md](OVERVIEW.md) for more information.
 
