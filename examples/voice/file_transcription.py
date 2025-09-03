@@ -10,8 +10,8 @@ from utils import get_logger
 from utils import select_audio_output_device
 
 from speechmatics.voice import AgentServerMessageType
-from speechmatics.voice import DiarizationSpeakerConfig
 from speechmatics.voice import DiarizationFocusMode
+from speechmatics.voice import DiarizationSpeakerConfig
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import SpeakerSegment
 from speechmatics.voice import VoiceAgentClient
@@ -166,12 +166,12 @@ async def _stream_audio_file(
     sample_width: int,
 ) -> None:
     """Stream audio file in real-time to client and player."""
-    CHUNK_SIZE = 320
-    chunk_duration = CHUNK_SIZE / sample_rate / sample_width
+    chunk_size = 320
+    chunk_duration = chunk_size / sample_rate / sample_width
 
     with wave.open(str(file_path), "rb") as wav_file:
         while True:
-            audio_data = wav_file.readframes(CHUNK_SIZE)
+            audio_data = wav_file.readframes(chunk_size)
             if not audio_data:
                 print("\nEnd of file reached")
                 break

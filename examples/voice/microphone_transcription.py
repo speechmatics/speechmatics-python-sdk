@@ -70,11 +70,7 @@ def _register_event_handlers(client: VoiceAgentClient, logger) -> None:
 
     def _format_segment(segment: SpeakerSegment) -> str:
         """Format speaker segment for display."""
-        template = (
-            "@{speaker_id}: {text}"
-            if segment.is_active
-            else "@{speaker_id} (background): {text}"
-        )
+        template = "@{speaker_id}: {text}" if segment.is_active else "@{speaker_id} (background): {text}"
         return segment.format_text(template)
 
     @client.on(AgentServerMessageType.ADD_SEGMENTS)
@@ -89,9 +85,7 @@ def _register_event_handlers(client: VoiceAgentClient, logger) -> None:
         segments = [_format_segment(s) for s in message["segments"]]
         delay = message.get("delay_to_finalize")
         if delay is not None:
-            logger.log(
-                CustomLevels.PARTIAL, f"💬 Partial: {segments} ({delay}s to finals)"
-            )
+            logger.log(CustomLevels.PARTIAL, f"💬 Partial: {segments} ({delay}s to finals)")
         else:
             logger.log(CustomLevels.PARTIAL, f"💬 Partial: {segments}")
 
@@ -127,9 +121,7 @@ def _setup_microphone(sample_rate: int, chunk_size: int) -> Microphone | None:
     return mic
 
 
-async def _stream_microphone(
-    mic: Microphone, client: VoiceAgentClient, chunk_size: int
-) -> None:
+async def _stream_microphone(mic: Microphone, client: VoiceAgentClient, chunk_size: int) -> None:
     """Stream microphone audio to client."""
     while True:
         frame = await mic.read(chunk_size)
