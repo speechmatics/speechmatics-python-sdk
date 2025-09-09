@@ -375,6 +375,10 @@ class VoiceAgentClient(AsyncClient):
             is_final: Whether the data is final or partial.
         """
 
+        # Debug
+        if DEBUG_MORE:
+            self._logger.debug(json.dumps(message))
+
         # Add the speech fragments
         fragments_available = await self._add_speech_fragments(
             message=message,
@@ -482,7 +486,7 @@ class VoiceAgentClient(AsyncClient):
                         content=alt.get("content", ""),
                         speaker=alt.get("speaker", None),
                         confidence=alt.get("confidence", 1.0),
-                        result=result,
+                        result={"final": is_final, **result},
                     )
 
                     # Check fragment is after trim time
