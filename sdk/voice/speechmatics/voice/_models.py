@@ -15,8 +15,6 @@ from typing import Optional
 from speechmatics.rt import AudioEncoding
 from speechmatics.rt import OperatingPoint
 
-__version__ = "0.1.0"
-
 
 class EndOfUtteranceMode(str, Enum):
     """End of turn delay options for transcription."""
@@ -243,9 +241,9 @@ class AgentServerMessageType(str, Enum):
         Error: Error message.
         AddPartialTranscript: Partial transcript has been added.
         AddTranscript: Transcript has been added.
-        UserSpeechStarted: Speech has started.
-        UserSpeechEnded: Speech has ended.
-        TurnDetected: A turn has been detected.
+        SpeakingStarted: Speech has started.
+        SpeakingEnded: Speech has ended.
+        EndOfTurn: A turn has been detected (context-based prediction).
         AddSegments: A final segment has been detected.
         AddInterimSegments: An interim segment has been detected.
         SpeakersResult: Speakers result has been detected.
@@ -281,13 +279,13 @@ class AgentServerMessageType(str, Enum):
     ADD_TRANSCRIPT = "AddTranscript"
 
     # VAD messages
-    USER_SPEECH_STARTED = "UserSpeechStarted"
-    USER_SPEECH_ENDED = "UserSpeechEnded"
+    SPEAKING_STARTED = "SpeakingStarted"
+    SPEAKING_ENDED = "SpeakingEnded"
+    END_OF_TURN = "EndOfTurn"
 
     # Turn / segment messages
     ADD_SEGMENTS = "AddSegments"
     ADD_INTERIM_SEGMENTS = "AddInterimSegments"
-    TURN_DETECTED = "TurnDetected"
 
     # Speaker messages
     SPEAKERS_RESULT = "SpeakersResult"
@@ -514,7 +512,7 @@ class SpeakerSegment:
 
 
 @dataclass
-class SpeakerFragmentView:
+class SpeakerSegmentView:
     """View for speaker fragments.
 
     Parameters:
@@ -575,6 +573,12 @@ class SpeakerFragmentView:
         words_only: bool = False,
     ) -> str:
         return separator.join(segment.format_text(format, words_only) for segment in self.segments)
+
+    def trim(self, start_time: float, end_time: float, annotate_segments: bool = True) -> None:
+        self.fragments = [
+            frag for frag in self.fragments if frag.start_time >= start_time and frag.end_time <= end_time
+        ]
+        self.segments = self._get_segments_from_fragments(annotate_segments=annotate_segments)
 
     def _get_segments_from_fragments(self, annotate_segments: bool = True) -> list[SpeakerSegment]:
         # Speaker groups
@@ -734,11 +738,11 @@ class SpeakerFragmentView:
         # Return the annotation result
         return result
 
-    def compare_and_annotate(self, other: Optional["SpeakerFragmentView"]) -> AnnotationResult:
-        """Compare two SpeakerFragmentView objects and return the differences.
+    def compare_and_annotate(self, other: Optional["SpeakerSegmentView"]) -> AnnotationResult:
+        """Compare two SpeakerSegmentView objects and return the differences.
 
         Args:
-            other: The other SpeakerFragmentView object to compare to or None.
+            other: The other SpeakerSegmentView object to compare to or None.
 
         Returns:
             AnnotationResult: The annotation result.

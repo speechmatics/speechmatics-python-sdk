@@ -89,7 +89,7 @@ def _register_event_handlers(client: VoiceAgentClient, logger) -> None:
         else:
             logger.log(CustomLevels.PARTIAL, f"💬 Partial: {segments}")
 
-    @client.on(AgentServerMessageType.USER_SPEECH_STARTED)
+    @client.on(AgentServerMessageType.SPEAKING_STARTED)
     def handle_speech_started(message):
         """Handle speech start events."""
         logger.log(CustomLevels.SPEAKER, f"✅ Speech started: {message}")
