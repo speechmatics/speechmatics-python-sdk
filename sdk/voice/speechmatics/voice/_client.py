@@ -203,7 +203,6 @@ class VoiceAgentClient(AsyncClient):
         audio_format = AudioFormat(
             encoding=config.audio_encoding,
             sample_rate=config.sample_rate,
-            chunk_size=config.chunk_size,
         )
 
         # Return the config objects
@@ -237,9 +236,9 @@ class VoiceAgentClient(AsyncClient):
 
             @self.on(ServerMessageType.END_OF_UTTERANCE)
             def _evt_on_end_of_utterance(message: dict[str, Any]) -> None:
-                # self._logger.debug("End of utterance")
+                self._logger.debug("End of utterance")
                 # self.finalize_segments()
-                pass
+                # pass
 
     async def connect(self) -> None:
         """Connect to the Speechmatics API.
@@ -529,6 +528,8 @@ class VoiceAgentClient(AsyncClient):
             self._speech_fragments.extend(fragments)
             self._speech_fragments.sort(key=lambda x: x.start_time)
 
+            # TODO: add in index to sort by
+
             # Debug the fragments
             if DEBUG_MORE:
                 debug_payload = {
@@ -560,7 +561,7 @@ class VoiceAgentClient(AsyncClient):
             # Create a view of the current segments
             self._update_current_view()
 
-            # Check we have a valid view
+            # Check view exists
             if not self._current_view:
                 return
 
@@ -570,6 +571,8 @@ class VoiceAgentClient(AsyncClient):
 
             # Create a view of segments to emit
             last_segment = self._current_view.segments[self._current_view.last_active_segment_index]
+
+            # Trim the view
             self._current_view.trim(start_time=self._current_view.start_time, end_time=last_segment.end_time)
 
         # Emit the segments

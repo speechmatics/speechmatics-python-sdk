@@ -113,12 +113,12 @@ class VoiceAgentConfig:
 
         max_delay: Maximum delay in seconds for transcription. This forces the STT engine to
             speed up the processing of transcribed words and reduces the interval between partial
-            and final results. Lower values can have an impact on accuracy. Defaults to 1.0.
+            and final results. Lower values can have an impact on accuracy. Defaults to 0.7.
 
         end_of_utterance_silence_trigger: Maximum delay in seconds for end of utterance trigger.
             The delay is used to wait for any further transcribed words before emitting the final
             word frames. The value must be lower than max_delay.
-            Defaults to 0.5.
+            Defaults to 0.2.
 
         end_of_utterance_max_delay: Maximum delay in seconds for end of utterance delay.
             The delay is used to wait for any further transcribed words before emitting the final
@@ -173,7 +173,6 @@ class VoiceAgentConfig:
             Defaults to [].
 
         sample_rate: Audio sample rate for streaming. Defaults to 16000.
-        chunk_size: Audio chunk size for streaming. Defaults to 160.
         audio_encoding: Audio encoding format. Defaults to AudioEncoding.PCM_S16LE.
     """
 
@@ -184,8 +183,8 @@ class VoiceAgentConfig:
     output_locale: Optional[str] = None
 
     # Features
-    max_delay: float = 1.0
-    end_of_utterance_silence_trigger: float = 0.5
+    max_delay: float = 0.7
+    end_of_utterance_silence_trigger: float = 0.2
     end_of_utterance_max_delay: float = 10.0
     end_of_utterance_mode: EndOfUtteranceMode = EndOfUtteranceMode.FIXED
     additional_vocab: list[AdditionalVocabEntry] = field(default_factory=list)
@@ -201,7 +200,6 @@ class VoiceAgentConfig:
 
     # Audio
     sample_rate: int = 16000
-    chunk_size: int = 160
     audio_encoding: AudioEncoding = AudioEncoding.PCM_S16LE
 
 
@@ -534,7 +532,11 @@ class SpeakerSegmentView:
         self.fragments = fragments
         self.base_time = base_time
         self.focus_speakers = focus_speakers
-        self.segments = self._get_segments_from_fragments(annotate_segments=annotate_segments)
+
+        # Process fragments into a list of segments
+        self.segments = FragmentUtils.segment_list_from_fragments(
+            base_time, fragments, focus_speakers, annotate_segments
+        )
 
     @property
     def start_time(self) -> float:
@@ -578,15 +580,54 @@ class SpeakerSegmentView:
         self.fragments = [
             frag for frag in self.fragments if frag.start_time >= start_time and frag.end_time <= end_time
         ]
-        self.segments = self._get_segments_from_fragments(annotate_segments=annotate_segments)
+        self.segments = FragmentUtils.segment_list_from_fragments(
+            self.base_time, self.fragments, focus_speakers=self.focus_speakers, annotate_segments=annotate_segments
+        )
 
-    def _get_segments_from_fragments(self, annotate_segments: bool = True) -> list[SpeakerSegment]:
+
+@dataclass
+class SpeakerVADStatus:
+    """Emitted when a speaker starts or ends speaking.
+
+    The speaker id is taken from the last word in the segment when
+    the event is emitted.
+
+    Parameters:
+        is_active: Whether the speaker is active.
+        speaker_id: The ID of the speaker.
+    """
+
+    is_active: bool
+    speaker_id: Optional[str] = None
+
+
+class FragmentUtils:
+    """Set of utility functions for working with SpeechFragment and SpeakerSegment objects."""
+
+    @staticmethod
+    def segment_list_from_fragments(
+        base_time: datetime.datetime,
+        fragments: list[SpeechFragment],
+        focus_speakers: Optional[list[str]] = None,
+        annotate_segments: bool = True,
+    ) -> list[SpeakerSegment]:
+        """Create SpeakerSegment objects from a list of SpeechFragment objects.
+
+        Args:
+            base_time: Base time for the fragments.
+            fragments: List of SpeechFragment objects.
+            focus_speakers: List of speakers to focus on or None.
+            annotate_segments: Whether to annotate segments.
+
+        Returns:
+            List of SpeakerSegment objects.
+        """
         # Speaker groups
         current_speaker: Optional[str] = None
         speaker_groups: list[list[SpeechFragment]] = [[]]
 
         # Group by speakers
-        for frag in self.fragments:
+        for frag in fragments:
             if frag.speaker != current_speaker:
                 current_speaker = frag.speaker
                 if speaker_groups[-1]:
@@ -596,16 +637,20 @@ class SpeakerSegmentView:
         # Create SpeakerFragments objects
         segments: list[SpeakerSegment] = []
         for group in speaker_groups:
-            sd = self._get_speaker_segment_from_fragment_group(group, annotate=annotate_segments)
+            sd = FragmentUtils.segment_from_fragments(
+                base_time, group, focus_speakers=focus_speakers, annotate=annotate_segments
+            )
             if sd:
                 segments.append(sd)
 
         # Return the grouped SpeakerFragments objects
         return segments
 
-    def _get_speaker_segment_from_fragment_group(
-        self,
-        group: list[SpeechFragment],
+    @staticmethod
+    def segment_from_fragments(
+        base_time: datetime.datetime,
+        fragments: list[SpeechFragment],
+        focus_speakers: Optional[list[str]] = None,
         annotate: bool = True,
     ) -> Optional[SpeakerSegment]:
         """Take a group of fragments and piece together into SpeakerSegment.
@@ -618,52 +663,55 @@ class SpeakerSegmentView:
         be removed.
 
         Args:
-            group: List of SpeechFragment objects.
+            base_time: The base time for the segment.
+            fragments: List of SpeechFragment objects.
+            focus_speakers: List of speakers to focus on.
             annotate: Whether to annotate the segment.
 
         Returns:
             SpeakerSegment: The object for the group.
         """
         # Check for starting fragments that are attached to previous
-        if group and group[0].attaches_to == "previous":
-            group = group[1:]
+        if fragments and fragments[0].attaches_to == "previous":
+            fragments = fragments[1:]
 
         # Check for trailing fragments that are attached to next
-        if group and group[-1].attaches_to == "next":
-            group = group[:-1]
+        if fragments and fragments[-1].attaches_to == "next":
+            fragments = fragments[:-1]
 
         # Check there are results
-        if not group:
+        if not fragments:
             return None
 
         # Get the timing extremes
-        start_time = min(frag.start_time for frag in group)
+        start_time = min(frag.start_time for frag in fragments)
 
         # Timestamp
-        ts = (self.base_time + datetime.timedelta(seconds=start_time)).isoformat(timespec="milliseconds")
+        ts = (base_time + datetime.timedelta(seconds=start_time)).isoformat(timespec="milliseconds")
 
         # Determine if the speaker is considered active
         is_active = True
-        if self.focus_speakers:
-            is_active = group[0].speaker in self.focus_speakers
+        if focus_speakers:
+            is_active = fragments[0].speaker in focus_speakers
 
         # New SpeakerSegment
         segment = SpeakerSegment(
-            speaker_id=group[0].speaker,
+            speaker_id=fragments[0].speaker,
             timestamp=ts,
-            language=group[0].language,
-            fragments=group,
+            language=fragments[0].language,
+            fragments=fragments,
             is_active=is_active,
         )
 
         # Annotate
         if annotate:
-            segment.annotation = self._annotate_segment(segment)
+            segment.annotation = FragmentUtils._annotate_segment(segment)
 
         # Return the SpeakerSegment object
         return segment
 
-    def _annotate_segment(self, segment: SpeakerSegment) -> AnnotationResult:
+    @staticmethod
+    def _annotate_segment(segment: SpeakerSegment) -> AnnotationResult:
         """Annotate the segment.
 
         This will annotate the segment with any additional information.
@@ -738,11 +786,13 @@ class SpeakerSegmentView:
         # Return the annotation result
         return result
 
-    def compare_and_annotate(self, other: Optional["SpeakerSegmentView"]) -> AnnotationResult:
+    @staticmethod
+    def compare_views(view1: SpeakerSegmentView, view2: Optional[SpeakerSegmentView]) -> AnnotationResult:
         """Compare two SpeakerSegmentView objects and return the differences.
 
         Args:
-            other: The other SpeakerSegmentView object to compare to or None.
+            view1: The first SpeakerSegmentView object to compare.
+            view2: The second SpeakerSegmentView object to compare to or None.
 
         Returns:
             AnnotationResult: The annotation result.
@@ -751,53 +801,36 @@ class SpeakerSegmentView:
         result = AnnotationResult()
 
         # If we have a previous view, compare it
-        if other and other.segment_count > 0:
+        if view2 and view2.segment_count > 0:
             # Compare full string
-            self_full_str: str = self.format_text()
-            other_full_str: str = other.format_text()
-            if self_full_str != other_full_str:
+            view1_full_str: str = view1.format_text()
+            view2_full_str: str = view2.format_text()
+            if view1_full_str != view2_full_str:
                 result.add(AnnotationFlags.UPDATED_FULL)
-            if self_full_str.lower() != other_full_str.lower():
+            if view1_full_str.lower() != view2_full_str.lower():
                 result.add(AnnotationFlags.UPDATED_FULL_LCASE)
 
             # Stripped string (without punctuation)
-            self_stripped_str: str = self.format_text(words_only=True)
-            other_stripped_str: str = other.format_text(words_only=True)
-            if self_stripped_str != other_stripped_str:
+            view1_stripped_str: str = view1.format_text(words_only=True)
+            view2_stripped_str: str = view2.format_text(words_only=True)
+            if view1_stripped_str != view2_stripped_str:
                 result.add(AnnotationFlags.UPDATED_STRIPPED)
-            if self_stripped_str.lower() != other_stripped_str.lower():
+            if view1_stripped_str.lower() != view2_stripped_str.lower():
                 result.add(AnnotationFlags.UPDATED_STRIPPED_LCASE)
 
             # Partials, finals and speakers
-            if self.final_count != other.final_count:
+            if view1.final_count != view2.final_count:
                 result.add(AnnotationFlags.UPDATED_FINALS)
-            if self.partial_count != other.partial_count:
+            if view1.partial_count != view2.partial_count:
                 result.add(AnnotationFlags.UPDATED_PARTIALS)
-            if self.segment_count != other.segment_count:
+            if view1.segment_count != view2.segment_count:
                 result.add(AnnotationFlags.UPDATED_SPEAKERS)
 
         # Assume this is new
-        elif self.segment_count > 0:
+        elif view1.segment_count > 0:
             result.add(AnnotationFlags.NEW)
 
         # TODO - contents of LAST segment?
 
         # Return the result
-        self.annotation = result
         return result
-
-
-@dataclass
-class SpeakerVADStatus:
-    """Emitted when a speaker starts or ends speaking.
-
-    The speaker id is taken from the last word in the segment when
-    the event is emitted.
-
-    Parameters:
-        is_active: Whether the speaker is active.
-        speaker_id: The ID of the speaker.
-    """
-
-    is_active: bool
-    speaker_id: Optional[str] = None
