@@ -34,6 +34,8 @@ from ._models import SpeechFragment
 from ._models import VoiceAgentConfig
 
 DEBUG_MORE = os.getenv("SPEECHMATICS_DEBUG_MORE", "0").lower() in ["1", "true"]
+PREVIEW_FEATURES = os.getenv("SPEECHMATICS_PREVIEW_FEATURES", "0").lower() in ["1", "true"]
+
 
 if DEBUG_MORE:
     import json
@@ -110,8 +112,9 @@ class VoiceAgentClient(AsyncClient):
         self._dz_enabled: bool = self._config.enable_diarization
         self._dz_config = self._config.speaker_config
 
-        # EndOfUtterance fallback timer
+        # Timers for EndOfUtterance and EndOfTurn
         self._finalize_task: Optional[asyncio.Task] = None
+        self._eot_task: Optional[asyncio.Task] = None
 
         # Segment processor
         self._processor_wait_time: float = 0.005
@@ -699,9 +702,12 @@ class VoiceAgentClient(AsyncClient):
         """
 
         async def emit() -> None:
-            if ttl is not None:
+            if ttl is not None and ttl > 0:
                 await asyncio.sleep(ttl)
-            await self._emit_segments(finalize=True)
+            if PREVIEW_FEATURES:
+                await self.send_message({"message": "Finalize"})
+            else:
+                await self._emit_segments(finalize=True)
 
         asyncio.create_task(emit())
 

@@ -34,9 +34,8 @@ from speechmatics.voice import (
 async def main():
     # Configure the voice agent
     config = VoiceAgentConfig(
-        end_of_utterance_silence_trigger=0.5,
         enable_diarization=True,
-        end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
+        end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE
     )
 
     # Initialize microphone
@@ -67,14 +66,19 @@ async def main():
                 print(f"Speaker {segment.speaker_id}: {segment.text}")
 
         # Handle user started speaking event
-        @client.on(AgentServerMessageType.USER_SPEECH_STARTED)
+        @client.on(AgentServerMessageType.SPEAKING_STARTED)
         def handle_speech_started(message):
             print("User started speaking")
 
         # Handle user stopped speaking event
-        @client.on(AgentServerMessageType.USER_SPEECH_ENDED)
+        @client.on(AgentServerMessageType.SPEAKING_ENDED)
         def handle_speech_ended(message):
             print("User stopped speaking")
+
+        # End of turn / utterance(s)
+        @client.on(AgentServerMessageType.END_OF_TURN)
+        def handle_end_of_turn(message):
+            print("End of turn")
 
         # Connect and start processing audio
         await client.connect()
