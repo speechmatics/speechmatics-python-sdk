@@ -35,7 +35,7 @@ async def main():
     # Configure the voice agent
     config = VoiceAgentConfig(
         enable_diarization=True,
-        end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE
+        end_of_utterance_mode=EndOfUtteranceMode.FIXED
     )
 
     # Initialize microphone
