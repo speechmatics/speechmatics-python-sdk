@@ -391,6 +391,7 @@ class SpeechFragment:
     objects are accumulated and then used to form SpeechSegments objects.
 
     Parameters:
+        idx: Index of the fragment in the list (used for sorting).
         start_time: Start time of the fragment in seconds (from session start).
         end_time: End time of the fragment in seconds (from session start).
         language: Language of the fragment. Defaults to `en`.
@@ -407,6 +408,7 @@ class SpeechFragment:
         annotation: Annotation for the fragment.
     """
 
+    idx: int
     start_time: float
     end_time: float
     language: str = "en"

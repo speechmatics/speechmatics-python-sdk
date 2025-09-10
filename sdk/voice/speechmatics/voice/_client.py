@@ -94,9 +94,9 @@ class VoiceAgentClient(AsyncClient):
         self._trim_before_time: float = 0
 
         # Current utterance speech data
+        self._fragment_idx: int = 0
         self._speech_fragments: list[SpeechFragment] = []
         self._speech_fragments_lock: asyncio.Lock = asyncio.Lock()
-        self._last_speech_fragments: list[SpeechFragment] = []
         self._current_view: Optional[SpeakerSegmentView] = None
 
         # Speaking states
@@ -474,6 +474,7 @@ class VoiceAgentClient(AsyncClient):
                 if alt.get("content", None):
                     # Create the new fragment
                     fragment = SpeechFragment(
+                        idx=self._frag_idx(),
                         start_time=result.get("start_time", 0),
                         end_time=result.get("end_time", 0),
                         language=alt.get("language", "en"),
@@ -526,9 +527,7 @@ class VoiceAgentClient(AsyncClient):
             # Re-structure the speech fragments
             self._speech_fragments = retained_fragments.copy()
             self._speech_fragments.extend(fragments)
-            self._speech_fragments.sort(key=lambda x: x.start_time)
-
-            # TODO: add in index to sort by
+            self._speech_fragments.sort(key=lambda x: x.idx)
 
             # Debug the fragments
             if DEBUG_MORE:
@@ -827,6 +826,10 @@ class VoiceAgentClient(AsyncClient):
         # Reset the current speaker
         if not self._is_speaking:
             self._current_speaker = None
+
+    def _frag_idx(self):
+        self._fragment_idx += 1
+        return self._fragment_idx
 
     def _get_endpoint_url(self, url: str, app: Optional[str] = None) -> str:
         """Format the endpoint URL with the SDK and app versions.
