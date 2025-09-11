@@ -58,19 +58,19 @@ help:
 test-all: test-rt test-batch test-flow test-voice
 
 test-rt:
-	pytest tests/rt/ -v
+	pytest tests/rt/ -v -s
 
 test-batch:
-	pytest tests/batch/ -v
+	pytest tests/batch/ -v -s
 
 test-flow:
-	pytest tests/flow/ -v
+	pytest tests/flow/ -v -s
 
 test-voice:
-	pytest tests/voice/ -v
+	pytest tests/voice/ -v -s
 
 # Formatting targets
-format-all: format-rt format-batch format-flow format-voice
+format-all: format-rt format-batch format-flow format-voice format-tests
 
 format-rt:
 	cd sdk/rt/speechmatics && black .
@@ -87,6 +87,10 @@ format-flow:
 format-voice:
 	cd sdk/voice/speechmatics && black .
 	cd sdk/voice/speechmatics && ruff check --fix .
+
+format-tests:
+	cd tests && black .
+	cd tests && ruff check --fix .
 
 # Linting targets
 lint-all: lint-rt lint-batch lint-flow lint-voice
@@ -162,4 +166,3 @@ clean-flow:
 clean-voice:
 	rm -rf sdk/voice/dist sdk/voice/build sdk/voice/*.egg-info
 	find sdk/voice -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-	

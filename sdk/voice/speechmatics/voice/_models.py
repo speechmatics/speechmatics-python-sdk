@@ -239,6 +239,7 @@ class AgentServerMessageType(str, Enum):
         Error: Error message.
         AddPartialTranscript: Partial transcript has been added.
         AddTranscript: Transcript has been added.
+        EndOfUtterance: End of utterance has been detected (from STT engine).
         SpeakingStarted: Speech has started.
         SpeakingEnded: Speech has ended.
         EndOfTurn: A turn has been detected (context-based prediction).
@@ -275,6 +276,7 @@ class AgentServerMessageType(str, Enum):
     # Raw transcription messages
     ADD_PARTIAL_TRANSCRIPT = "AddPartialTranscript"
     ADD_TRANSCRIPT = "AddTranscript"
+    END_OF_UTTERANCE = "EndOfUtterance"
 
     # VAD messages
     SPEAKING_STARTED = "SpeakingStarted"
@@ -454,6 +456,11 @@ class SpeakerSegment:
     def end_time(self) -> float:
         """Return the end time of the segment."""
         return self.fragments[-1].end_time
+
+    @property
+    def text(self) -> str:
+        """Return the text of the segment."""
+        return self.format_text()
 
     def __str__(self) -> str:
         """Return a string representation of the object."""
