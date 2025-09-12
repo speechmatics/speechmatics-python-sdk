@@ -5,6 +5,7 @@ import os
 import pytest
 from _utils import get_client
 from _utils import send_audio_file
+from _utils import to_serializable
 
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
@@ -26,7 +27,10 @@ async def test_log_messages():
         api_key=api_key,
         connect=True,
         config=VoiceAgentConfig(
-            end_of_utterance_silence_trigger=0.2, max_delay=0.7, end_of_utterance_mode=EndOfUtteranceMode.FIXED
+            end_of_utterance_silence_trigger=0.2,
+            max_delay=0.7,
+            end_of_utterance_mode=EndOfUtteranceMode.FIXED,
+            enable_diarization=True,
         ),
     )
 
@@ -35,16 +39,23 @@ async def test_log_messages():
 
     # Create an event to track when the callback is called
     messages: list[str] = []
+    bytes_sent: int = 0
 
     # Start time
     start_time = datetime.datetime.now()
 
+    # Bytes logger
+    def log_bytes_sent(bytes):
+        nonlocal bytes_sent
+        bytes_sent += bytes
+
     # Callback for each message
     def log_message(message):
         ts = (datetime.datetime.now() - start_time).total_seconds()
-        log = {"ts": ts, "payload": message}
-        messages.append(json.dumps(log))
-        print(json.dumps(log))
+        audio_ts = bytes_sent / 16000 / 2
+        log = json.dumps({"ts": ts, "audio_ts": audio_ts, "payload": to_serializable(message)})
+        messages.append(log)
+        print(log)
 
     # Add listeners
     client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, log_message)
@@ -59,10 +70,15 @@ async def test_log_messages():
     # Load the audio file `./assets/audio_01.wav`
     audio_file = "./assets/audio_01.wav"
     print()
-    print(f"Loading audio file: {audio_file}")
+    print()
     print("---")
-    await send_audio_file(client, audio_file)
+    log_message({"message": "AudioFile", "path": audio_file})
+    log_message({"message": "VoiceAgentConfig", **to_serializable(client._config)})
+    log_message({"message": "TranscriptionConfig", **to_serializable(client._transcription_config)})
+    log_message({"message": "AudioFormat", **to_serializable(client._audio_format)})
+    await send_audio_file(client, audio_file, progress_callback=log_bytes_sent)
     print("---")
+    print()
     print()
 
     # Close session

@@ -1,6 +1,8 @@
 import asyncio
 import os
 import time
+from dataclasses import asdict
+from dataclasses import is_dataclass
 from typing import Callable
 from typing import Optional
 
@@ -105,3 +107,26 @@ async def send_audio_file(
             if sleep_time > 0:
                 await asyncio.sleep(sleep_time)
             next_time += delay
+
+
+def to_serializable(obj):
+    """Convert an object into a JSON-serializable form."""
+
+    # Dataclasses → dict
+    if is_dataclass(obj):
+        return {k: to_serializable(v) for k, v in asdict(obj).items()}
+
+    # dicts → dict with serializable values
+    if isinstance(obj, dict):
+        return {k: to_serializable(v) for k, v in obj.items()}
+
+    # lists/tuples → list with serializable items
+    if isinstance(obj, (list, tuple)):
+        return [to_serializable(v) for v in obj]
+
+    # basic types → leave as is
+    if isinstance(obj, (str, int, float, bool)) or obj is None:
+        return obj
+
+    # fallback → string
+    return str(obj)

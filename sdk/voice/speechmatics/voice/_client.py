@@ -206,6 +206,7 @@ class VoiceAgentClient(AsyncClient):
         audio_format = AudioFormat(
             encoding=config.audio_encoding,
             sample_rate=config.sample_rate,
+            chunk_size=320,
         )
 
         # Return the config objects
@@ -254,7 +255,7 @@ class VoiceAgentClient(AsyncClient):
         if self._is_connected:
             self.emit(
                 AgentServerMessageType.ERROR,
-                {"reason": "Already connected"},
+                {"message": AgentServerMessageType.ERROR, "reason": "Already connected"},
             )
             return
 
@@ -344,6 +345,7 @@ class VoiceAgentClient(AsyncClient):
                 self.emit(
                     AgentServerMessageType.METRICS,
                     {
+                        "message": AgentServerMessageType.METRICS,
                         "total_time": time_s,
                         "total_time_str": time.strftime("%H:%M:%S", time.gmtime(time_s)),
                         "total_bytes": self._total_bytes,
@@ -441,6 +443,7 @@ class VoiceAgentClient(AsyncClient):
         self.emit(
             AgentServerMessageType.TTFB_METRICS,
             {
+                "message": AgentServerMessageType.TTFB_METRICS,
                 "ttfb": self._last_ttfb,
             },
         )
@@ -746,7 +749,7 @@ class VoiceAgentClient(AsyncClient):
             if final_segments:
                 self.emit(
                     AgentServerMessageType.ADD_SEGMENTS,
-                    {"segments": final_segments},
+                    {"message": AgentServerMessageType.ADD_SEGMENTS, "segments": final_segments},
                 )
                 self._trim_before_time = final_segments[-1].end_time
                 self._speech_fragments = [f for f in self._speech_fragments if f.start_time >= self._trim_before_time]
@@ -755,7 +758,7 @@ class VoiceAgentClient(AsyncClient):
             if interim_segments:
                 self.emit(
                     AgentServerMessageType.ADD_INTERIM_SEGMENTS,
-                    {"segments": interim_segments},
+                    {"message": AgentServerMessageType.ADD_INTERIM_SEGMENTS, "segments": interim_segments},
                 )
 
             # Update the current view
@@ -806,11 +809,17 @@ class VoiceAgentClient(AsyncClient):
             if already_speaking and speaker_changed:
                 self.emit(
                     AgentServerMessageType.SPEAKING_ENDED,
-                    {"status": SpeakerVADStatus(speaker_id=current_speaker, is_active=False)},
+                    {
+                        "message": AgentServerMessageType.SPEAKING_ENDED,
+                        "status": SpeakerVADStatus(speaker_id=current_speaker, is_active=False),
+                    },
                 )
                 self.emit(
                     AgentServerMessageType.SPEAKING_STARTED,
-                    {"status": SpeakerVADStatus(speaker_id=speaker, is_active=True)},
+                    {
+                        "message": AgentServerMessageType.SPEAKING_STARTED,
+                        "status": SpeakerVADStatus(speaker_id=speaker, is_active=True),
+                    },
                 )
 
         # Update current speaker
@@ -824,9 +833,10 @@ class VoiceAgentClient(AsyncClient):
         self._is_speaking = not self._is_speaking
 
         # Emit the event for latest speaker
+        msg = AgentServerMessageType.SPEAKING_STARTED if self._is_speaking else AgentServerMessageType.SPEAKING_ENDED
         self.emit(
-            (AgentServerMessageType.SPEAKING_STARTED if self._is_speaking else AgentServerMessageType.SPEAKING_ENDED),
-            {"status": SpeakerVADStatus(speaker_id=speaker, is_active=self._is_speaking)},
+            msg,
+            {"message": msg, "status": SpeakerVADStatus(speaker_id=speaker, is_active=self._is_speaking)},
         )
 
         # Reset the current speaker
