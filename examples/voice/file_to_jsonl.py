@@ -24,15 +24,9 @@ async def main() -> None:
     # Parse command line arguments
     args = parse_args()
 
-    # Use absolute path if provided, otherwise relative to script directory
-    if os.path.isabs(args.input_file):
-        file = args.input_file
-    else:
-        file = os.path.join(os.path.dirname(__file__), args.input_file)
-
     # Check file exists
-    if not os.path.exists(file):
-        print(f"Error: Input file '{file}' not found", file=sys.stderr)
+    if not os.path.exists(args.input_file):
+        print(f"Error: Input file '{args.input_file}' not found", file=sys.stderr)
         sys.exit(1)
 
     # Client
@@ -74,7 +68,7 @@ async def main() -> None:
             print(log)
 
     # Log script info
-    log_message({"message": "AudioFile", "path": file})
+    log_message({"message": "AudioFile", "path": args.input_file})
     log_message({"message": "VoiceAgentConfig", **to_serializable(client._config)})
     log_message({"message": "TranscriptionConfig", **to_serializable(client._transcription_config)})
     log_message({"message": "AudioFormat", **to_serializable(client._audio_format)})
@@ -92,7 +86,8 @@ async def main() -> None:
     client.on(AgentServerMessageType.ADD_SEGMENTS, log_message)
     client.on(AgentServerMessageType.SPEAKING_STARTED, log_message)
     client.on(AgentServerMessageType.SPEAKING_ENDED, log_message)
-    client.on(AgentServerMessageType.END_OF_TURN, log_message)
+    client.on(AgentServerMessageType.TURN_STARTED, log_message)
+    client.on(AgentServerMessageType.TURN_ENDED, log_message)
 
     # Clear output file if it exists
     if args.output and os.path.exists(args.output):
@@ -102,14 +97,14 @@ async def main() -> None:
     await client.connect()
 
     # Use the input file from command line arguments
-    await send_audio_file(client, file, progress_callback=log_bytes_sent)
+    await send_audio_file(client, args.input_file, progress_callback=log_bytes_sent)
 
     # Close session
     await client.disconnect()
     assert not client._is_connected
 
 
-def to_serializable(obj):
+def to_serializable(obj) -> str:
     """Convert an object into a JSON-serializable form."""
     if is_dataclass(obj):
         return {k: to_serializable(v) for k, v in asdict(obj).items()}

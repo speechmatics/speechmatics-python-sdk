@@ -843,7 +843,7 @@ class VoiceAgentClient(AsyncClient):
         if not self._is_speaking:
             self._current_speaker = None
 
-    def _frag_idx(self):
+    def _frag_idx(self) -> int:
         self._fragment_idx += 1
         return self._fragment_idx
 

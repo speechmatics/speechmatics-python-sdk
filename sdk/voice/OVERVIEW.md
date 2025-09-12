@@ -76,7 +76,7 @@ async def main():
             print("User stopped speaking")
 
         # End of turn / utterance(s)
-        @client.on(AgentServerMessageType.END_OF_TURN)
+        @client.on(AgentServerMessageType.TURN_ENDED)
         def handle_end_of_turn(message):
             print("End of turn")
 

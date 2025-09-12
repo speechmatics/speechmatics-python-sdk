@@ -7,8 +7,6 @@ import datetime
 from dataclasses import dataclass
 from dataclasses import field
 from enum import Enum
-from enum import IntFlag
-from enum import auto
 from typing import Any
 from typing import Optional
 
@@ -242,7 +240,8 @@ class AgentServerMessageType(str, Enum):
         EndOfUtterance: End of utterance has been detected (from STT engine).
         SpeakingStarted: Speech has started.
         SpeakingEnded: Speech has ended.
-        EndOfTurn: A turn has been detected (context-based prediction).
+        TurnStarted: A turn has been detected (context-based prediction).
+        TurnEnded: A turn has ended (context-based prediction).
         AddSegments: A final segment has been detected.
         AddInterimSegments: An interim segment has been detected.
         SpeakersResult: Speakers result has been detected.
@@ -281,7 +280,10 @@ class AgentServerMessageType(str, Enum):
     # VAD messages
     SPEAKING_STARTED = "SpeakingStarted"
     SPEAKING_ENDED = "SpeakingEnded"
-    END_OF_TURN = "EndOfTurn"
+
+    # Turn messages
+    TURN_STARTED = "TurnStarted"
+    TURN_ENDED = "TurnEnded"
 
     # Turn / segment messages
     ADD_SEGMENTS = "AddSegments"
@@ -296,93 +298,78 @@ class AgentServerMessageType(str, Enum):
     SPEAKER_METRICS = "SpeakerMetrics"
 
 
-class AnnotationFlags(IntFlag):
+class AnnotationFlags(str, Enum):
     """Flags to apply when processing speech / objects."""
 
     # High-level segment updates
-    NEW = auto()
-    UPDATED_FULL = auto()
-    UPDATED_FULL_LCASE = auto()
-    UPDATED_STRIPPED = auto()
-    UPDATED_STRIPPED_LCASE = auto()
-    UPDATED_FINALS = auto()
-    UPDATED_PARTIALS = auto()
-    UPDATED_SPEAKERS = auto()
+    NEW = "new"
+    UPDATED_FULL = "updated_full"
+    UPDATED_FULL_LCASE = "updated_full_lcase"
+    UPDATED_STRIPPED = "updated_stripped"
+    UPDATED_STRIPPED_LCASE = "updated_stripped_lcase"
+    UPDATED_FINALS = "updated_finals"
+    UPDATED_PARTIALS = "updated_partials"
+    UPDATED_SPEAKERS = "updated_speakers"
 
     # Content of segments
-    ONLY_ACTIVE_SPEAKERS = auto()
-    CONTAINS_INACTIVE_SPEAKERS = auto()
+    ONLY_ACTIVE_SPEAKERS = "only_active_speakers"
+    CONTAINS_INACTIVE_SPEAKERS = "contains_inactive_speakers"
 
     # More granular details on the word content
-    HAS_PARTIAL = auto()
-    HAS_FINAL = auto()
-    STARTS_WITH_FINAL = auto()
-    ENDS_WITH_FINAL = auto()
-    HAS_EOS = auto()
-    ENDS_WITH_EOS = auto()
-    HAS_DISFLUENCY = auto()
-    STARTS_WITH_DISFLUENCY = auto()
-    ENDS_WITH_DISFLUENCY = auto()
-    HIGH_DISFLUENCY_COUNT = auto()
-    ENDS_WITH_PUNCTUATION = auto()
-    VERY_SLOW_SPEAKER = auto()
-    SLOW_SPEAKER = auto()
-    FAST_SPEAKER = auto()
-    ONLY_PUNCTUATION = auto()
-    MULTIPLE_SPEAKERS = auto()
-    NO_TEXT = auto()
+    HAS_PARTIAL = "has_partial"
+    HAS_FINAL = "has_final"
+    STARTS_WITH_FINAL = "starts_with_final"
+    ENDS_WITH_FINAL = "ends_with_final"
+    HAS_EOS = "has_eos"
+    ENDS_WITH_EOS = "ends_with_eos"
+    HAS_DISFLUENCY = "has_disfluency"
+    STARTS_WITH_DISFLUENCY = "starts_with_disfluency"
+    ENDS_WITH_DISFLUENCY = "ends_with_disfluency"
+    HIGH_DISFLUENCY_COUNT = "high_disfluency_count"
+    ENDS_WITH_PUNCTUATION = "ends_with_punctuation"
+    VERY_SLOW_SPEAKER = "very_slow_speaker"
+    SLOW_SPEAKER = "slow_speaker"
+    FAST_SPEAKER = "fast_speaker"
+    ONLY_PUNCTUATION = "only_punctuation"
+    MULTIPLE_SPEAKERS = "multiple_speakers"
+    NO_TEXT = "no_text"
 
     # End of utterance detection
-    END_OF_UTTERANCE = auto()
+    END_OF_UTTERANCE = "end_of_utterance"
 
 
-@dataclass
-class AnnotationResult:
+class AnnotationResult(list):
     """Processing result."""
 
-    flags: int = 0
-
-    def __init__(self, *flags: AnnotationFlags):
-        """Initialize the object.
-
-        Args:
-            flags: The initial flags to set.
-        """
-        self.flags = 0
+    def add(self, *flags: AnnotationFlags) -> None:
+        """Add a flag(s) to the object."""
         for flag in flags:
-            self.add(flag)
+            if flag not in self:
+                self.append(flag.value)
+
+    def remove(self, *flags: AnnotationFlags) -> None:
+        """Remove a flag(s) from the object."""
+        for flag in flags:
+            if flag in self:
+                super().remove(flag.value)
 
     def has(self, *flags: AnnotationFlags) -> bool:
         """Check if the object has all given flags."""
-        return all(self.flags & flag == flag for flag in flags)
+        return all(f.value in set(self) for f in flags)
 
     def any(self, *flags: AnnotationFlags) -> bool:
         """Check if the object has any of the given flags."""
-        return any(self.flags & flag == flag for flag in flags)
+        return any(f.value in set(self) for f in flags)
 
-    def add(self, flag: AnnotationFlags) -> None:
-        """Add a flag to the object."""
-        self.flags |= flag
-
-    def remove(self, flag: AnnotationFlags) -> None:
-        """Remove a flag from the object."""
-        self.flags &= ~flag
-
-    def __eq__(self, o: object) -> bool:
+    def __eq__(self, other: object) -> bool:
         """Check if the object is equal to another."""
-        if isinstance(o, AnnotationResult):
-            return self.flags == o.flags
-        elif isinstance(o, (AnnotationFlags, int)):
-            return self.flags == o
+        if isinstance(other, AnnotationResult):
+            return set(self) == set(other)
         return False
 
-    def __str__(self) -> str:
-        """String representation of the flags."""
-        flags: list[str] = []
-        for flag in AnnotationFlags:
-            if self.flags & flag == flag and flag.name is not None:
-                flags.append(flag.name)
-        return f"{type(self).__name__}({', '.join(flags)})"
+    # def __repr__(self) -> str:
+    #     """Return a representation of the object."""
+    #     return repr([f.value for f in self])
 
 
 @dataclass
