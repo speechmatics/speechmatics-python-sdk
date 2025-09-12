@@ -19,6 +19,11 @@ async def test_transcribe_partial():
         - wait for the first partial transcript (within 10 seconds)
     """
 
+    # API key
+    api_key = os.getenv("SPEECHMATICS_API_KEY")
+    if not api_key:
+        pytest.skip("Valid API key required for test")
+
     # Client
     client = await get_client(api_key=api_key, connect=True)
 
@@ -62,6 +67,11 @@ async def test_transcribe_final():
         - wait for the first final transcript (within 10 seconds)
     """
 
+    # API key
+    api_key = os.getenv("SPEECHMATICS_API_KEY")
+    if not api_key:
+        pytest.skip("Valid API key required for test")
+
     # Client
     client = await get_client(api_key=api_key, connect=True)
 
@@ -104,6 +114,11 @@ async def test_interim_segment():
         - send audio data to the API server
         - wait for the first interim segment (within 10 seconds)
     """
+
+    # API key
+    api_key = os.getenv("SPEECHMATICS_API_KEY")
+    if not api_key:
+        pytest.skip("Valid API key required for test")
 
     # Client
     client = await get_client(api_key=api_key, connect=True)

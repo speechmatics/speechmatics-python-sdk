@@ -22,6 +22,11 @@ async def test_log_messages():
         - log messages
     """
 
+    # API key
+    api_key = os.getenv("SPEECHMATICS_API_KEY")
+    if not api_key:
+        pytest.skip("Valid API key required for test")
+
     # Client
     client = await get_client(
         api_key=api_key,
