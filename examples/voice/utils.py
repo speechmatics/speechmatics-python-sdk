@@ -40,9 +40,7 @@ def select_audio_output_device() -> int | None:
 
         print("Available audio output devices:")
         for device in output_devices:
-            print(
-                f"  [{device['index']}] {device['name']} ({device['channels']} channels, {device['sample_rate']}Hz)"
-            )
+            print(f"  [{device['index']}] {device['name']} ({device['channels']} channels, {device['sample_rate']}Hz)")
         print()
 
         return _get_device_choice(
@@ -213,9 +211,7 @@ def get_logger(name: str) -> logging.Logger:
     logging.addLevelName(CustomLevels.SPEAKER, "SPEAKER")
 
     # Apply custom formatter to all handlers
-    formatter = CustomTextFormatter(
-        CustomTextFormatter.FORMAT, datefmt="%Y-%m-%d %H:%M:%S"
-    )
+    formatter = CustomTextFormatter(CustomTextFormatter.FORMAT, datefmt="%Y-%m-%d %H:%M:%S")
     for handler in logging.root.handlers:
         handler.setFormatter(formatter)
 

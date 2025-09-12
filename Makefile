@@ -70,7 +70,7 @@ test-voice:
 	pytest tests/voice/ -v -s
 
 # Formatting targets
-format-all: format-rt format-batch format-flow format-voice format-tests
+format-all: format-rt format-batch format-flow format-voice format-tests format-examples
 
 format-rt:
 	cd sdk/rt/speechmatics && black .
@@ -91,6 +91,10 @@ format-voice:
 format-tests:
 	cd tests && black .
 	cd tests && ruff check --fix .
+
+format-examples:
+	cd examples && black .
+	cd examples && ruff check --fix .
 
 # Linting targets
 lint-all: lint-rt lint-batch lint-flow lint-voice

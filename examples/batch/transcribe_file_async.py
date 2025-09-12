@@ -5,17 +5,13 @@ Async example showing batch transcription.
 import asyncio
 import os
 
-from speechmatics.batch import (
-    AsyncClient,
-    JobConfig,
-    JobType,
-    Transcript,
-    TranscriptionConfig,
-)
+from speechmatics.batch import AsyncClient
+from speechmatics.batch import JobConfig
+from speechmatics.batch import JobType
+from speechmatics.batch import Transcript
+from speechmatics.batch import TranscriptionConfig
 
-audio_file = os.getenv(
-    "AUDIO_FILE_PATH", os.path.join(os.path.dirname(__file__), "../example.wav")
-)
+audio_file = os.getenv("AUDIO_FILE_PATH", os.path.join(os.path.dirname(__file__), "../example.wav"))
 
 
 async def main() -> None:
@@ -29,9 +25,7 @@ async def main() -> None:
             # Submit transcription job
             config = JobConfig(
                 type=JobType.TRANSCRIPTION,
-                transcription_config=TranscriptionConfig(
-                    language="en", enable_entities=True
-                ),
+                transcription_config=TranscriptionConfig(language="en", enable_entities=True),
             )
 
             job = await client.submit_job(audio_file, config=config)
