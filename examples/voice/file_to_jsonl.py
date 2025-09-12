@@ -24,14 +24,6 @@ async def main() -> None:
     # Parse command line arguments
     args = parse_args()
 
-    # Validate API key
-    if not args.api_key:
-        print(
-            "Error: API key is required. Set SPEECHMATICS_API_KEY environment variable or use --api-key",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
     # Use absolute path if provided, otherwise relative to script directory
     if os.path.isabs(args.input_file):
         file = args.input_file
@@ -179,7 +171,6 @@ def parse_args():
     parser.add_argument("input_file", help="Path to the input audio file (WAV format)")
     parser.add_argument(
         "--api-key",
-        default=os.getenv("SPEECHMATICS_API_KEY"),
         help="Speechmatics API key (defaults to SPEECHMATICS_API_KEY environment variable)",
     )
     parser.add_argument("--url", help="Speechmatics server URL (optional)")
