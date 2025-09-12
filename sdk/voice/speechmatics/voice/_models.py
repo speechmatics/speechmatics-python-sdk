@@ -2,6 +2,7 @@
 # Copyright (c) 2025, Speechmatics / Cantab Research Ltd
 #
 
+from __future__ import annotations
 
 import datetime
 from dataclasses import dataclass

@@ -16,6 +16,7 @@ from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import VoiceAgentClient
 from speechmatics.voice import VoiceAgentConfig, AdditionalVocabEntry
+from speechmatics.voice._helpers import to_serializable
 
 
 async def main() -> None:
@@ -105,19 +106,6 @@ async def main() -> None:
     # Close session
     await client.disconnect()
     assert not client._is_connected
-
-
-def to_serializable(obj) -> str:
-    """Convert an object into a JSON-serializable form."""
-    if is_dataclass(obj):
-        return {k: to_serializable(v) for k, v in asdict(obj).items()}
-    if isinstance(obj, dict):
-        return {k: to_serializable(v) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple)):
-        return [to_serializable(v) for v in obj]
-    if isinstance(obj, (str, int, float, bool)) or obj is None:
-        return obj
-    return str(obj)
 
 
 async def send_audio_file(

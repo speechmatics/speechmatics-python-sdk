@@ -5,11 +5,11 @@ import os
 import pytest
 from _utils import get_client
 from _utils import send_audio_file
-from _utils import to_serializable
 
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import VoiceAgentConfig
+from speechmatics.voice._helpers import to_serializable
 
 api_key = os.getenv("SPEECHMATICS_API_KEY")
 

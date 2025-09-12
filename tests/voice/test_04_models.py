@@ -74,6 +74,7 @@ async def test_speech_fragments():
     """Test SpeechFragment.
 
     - create fragment(s)
+    - check output from processing conversation
     - serialize to JSON
     """
 
