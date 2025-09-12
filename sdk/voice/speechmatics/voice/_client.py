@@ -241,7 +241,7 @@ class VoiceAgentClient(AsyncClient):
             @self.on(ServerMessageType.END_OF_UTTERANCE)
             def _evt_on_end_of_utterance(message: dict[str, Any]) -> None:
                 self._logger.debug("End of utterance")
-                # self.finalize_segments()
+                # self.finalize()
                 # pass
 
     async def connect(self) -> None:
@@ -693,7 +693,7 @@ class VoiceAgentClient(AsyncClient):
         # Return the result
         return should_emit, emit_final_delay
 
-    def finalize_segments(self, ttl: Optional[float] = None) -> None:
+    def finalize(self, ttl: Optional[float] = None) -> None:
         """Finalize segments.
 
         This function will emit segments in the buffer without any further checks

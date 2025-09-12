@@ -285,9 +285,9 @@ class AgentServerMessageType(str, Enum):
     TURN_STARTED = "TurnStarted"
     TURN_ENDED = "TurnEnded"
 
-    # Turn / segment messages
-    ADD_SEGMENTS = "AddSegments"
+    # Segment messages
     ADD_INTERIM_SEGMENTS = "AddInterimSegments"
+    ADD_SEGMENTS = "AddSegments"
 
     # Speaker messages
     SPEAKERS_RESULT = "SpeakersResult"

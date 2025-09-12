@@ -1,8 +1,10 @@
 import asyncio
+import json
 import os
 import time
 from dataclasses import asdict
 from dataclasses import is_dataclass
+from typing import Any
 from typing import Callable
 from typing import Optional
 
@@ -130,3 +132,30 @@ def to_serializable(obj):
 
     # fallback → string
     return str(obj)
+
+
+class ConversationLog:
+    """Load a JSONL past conversation."""
+
+    def __init__(self, file: str):
+        """Load a JSONL past conversation.
+
+        Args:
+            file (str): Path to the JSONL file.
+        """
+        self.file = file
+        self.conversation = self._load_conversation()
+
+    def _load_conversation(self):
+        """Load a JSONL past conversation."""
+        with open(self.file) as f:
+            return [json.loads(line) for line in f]
+
+    def get_conversation(self, filter: Optional[list[str]] = None) -> list[dict[str, Any]]:
+        """Get the conversation."""
+        try:
+            if filter:
+                return [line for line in self.conversation if line["payload"]["message"] in filter]
+            return list(self.conversation)
+        except KeyError:
+            return []

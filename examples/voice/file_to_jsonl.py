@@ -15,7 +15,7 @@ import aiofiles
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import VoiceAgentClient
-from speechmatics.voice import VoiceAgentConfig
+from speechmatics.voice import VoiceAgentConfig, AdditionalVocabEntry
 
 
 async def main() -> None:
@@ -34,10 +34,13 @@ async def main() -> None:
         api_key=args.api_key,
         url=args.url,
         config=VoiceAgentConfig(
-            end_of_utterance_silence_trigger=0.2,
+            end_of_utterance_silence_trigger=0.5,
             max_delay=0.7,
             end_of_utterance_mode=EndOfUtteranceMode.FIXED,
             enable_diarization=True,
+            additional_vocab=[
+                AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matters", "speech magic"])
+            ],
         ),
     )
 
