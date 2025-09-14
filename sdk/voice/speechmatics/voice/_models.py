@@ -342,6 +342,13 @@ class AnnotationFlags(str, Enum):
 class AnnotationResult(list):
     """Processing result."""
 
+    @staticmethod
+    def from_flags(*flags: AnnotationFlags) -> AnnotationResult:
+        """Create an AnnotationResult from a list of flags."""
+        r = AnnotationResult()
+        r.add(*flags)
+        return r
+
     def add(self, *flags: AnnotationFlags) -> None:
         """Add a flag(s) to the object."""
         for flag in flags:
@@ -773,9 +780,9 @@ class FragmentUtils:
             wpm = len(last_5_words) / ((last_5_words[-1].end_time - last_5_words[0].start_time) / 60.0)
 
             # Categorize the speaker
-            if wpm < 100:
+            if wpm < 50:
                 result.add(AnnotationFlags.VERY_SLOW_SPEAKER)
-            elif wpm < 200:
+            elif wpm < 100:
                 result.add(AnnotationFlags.SLOW_SPEAKER)
             elif wpm > 350:
                 result.add(AnnotationFlags.FAST_SPEAKER)
