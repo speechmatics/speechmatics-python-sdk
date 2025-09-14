@@ -67,6 +67,7 @@ class VoiceAgentClient(AsyncClient):
             app: Optional application name to use in the endpoint URL.
             config: Optional voice agent configuration.
         """
+
         # Default URL
         if not url:
             url = os.getenv("SPEECHMATICS_RT_URL") or "wss://eu2.rt.speechmatics.com/v2"
@@ -155,6 +156,7 @@ class VoiceAgentClient(AsyncClient):
         Returns:
             A tuple of (VoiceAgentConfig, TranscriptionConfig, AudioFormat).
         """
+
         # Default config
         if config is None:
             config = VoiceAgentConfig()
@@ -253,6 +255,7 @@ class VoiceAgentClient(AsyncClient):
             transcription_config: Transcription configuration.
             audio_format: Audio format.
         """
+
         # Check if we are already connected
         if self._is_connected:
             self.emit(
@@ -275,6 +278,7 @@ class VoiceAgentClient(AsyncClient):
 
     async def disconnect(self) -> None:
         """Disconnect from the Speechmatics API."""
+
         # Check if we are already connected
         if not self._is_connected:
             return
@@ -467,6 +471,7 @@ class VoiceAgentClient(AsyncClient):
         Returns:
             True if the speech fragments were updated, False otherwise.
         """
+
         async with self._speech_fragments_lock:
             # Parsed new speech data from the STT engine
             fragments: list[SpeechFragment] = []
@@ -482,7 +487,7 @@ class VoiceAgentClient(AsyncClient):
                 if alt.get("content", None):
                     # Create the new fragment
                     fragment = SpeechFragment(
-                        idx=self._frag_idx(),
+                        idx=self._next_fragment_id(),
                         start_time=result.get("start_time", 0),
                         end_time=result.get("end_time", 0),
                         language=alt.get("language", "en"),
@@ -564,6 +569,7 @@ class VoiceAgentClient(AsyncClient):
         When segments are emitted, they are then removed from the buffer of fragments
         so the next comparison is based on the remaining + new fragments.
         """
+
         async with self._speech_fragments_lock:
             # Create a view of the current segments
             self._update_current_view()
@@ -638,6 +644,7 @@ class VoiceAgentClient(AsyncClient):
         Returns:
             Tuple of (should_emit, emit_final_delay)
         """
+
         # Skip if no segments
         if view.segment_count == 0:
             return False, None
@@ -802,6 +809,7 @@ class VoiceAgentClient(AsyncClient):
         Args:
             fragments: The list of fragments to use for evaluation.
         """
+
         # Find the valid list of partial words
         if self._dz_enabled and self._dz_config.focus_speakers:
             partial_words = [
@@ -871,7 +879,8 @@ class VoiceAgentClient(AsyncClient):
         if not self._is_speaking:
             self._current_speaker = None
 
-    def _frag_idx(self) -> int:
+    def _next_fragment_id(self) -> int:
+        """Return the next fragment ID."""
         self._fragment_idx += 1
         return self._fragment_idx
 
@@ -885,6 +894,7 @@ class VoiceAgentClient(AsyncClient):
         Returns:
         str: The formatted endpoint URL.
         """
+
         query_params = {}
         query_params["sm-app"] = app or f"voice-sdk/{__version__}"
         query_params["sm-voice-sdk"] = f"{__version__}"
