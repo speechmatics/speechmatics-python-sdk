@@ -241,8 +241,6 @@ class AgentServerMessageType(str, Enum):
         EndOfUtterance: End of utterance has been detected (from STT engine).
         SpeakingStarted: Speech has started.
         SpeakingEnded: Speech has ended.
-        TurnStarted: A turn has been detected (context-based prediction).
-        TurnEnded: A turn has ended (context-based prediction).
         AddSegments: A final segment has been detected.
         AddInterimSegments: An interim segment has been detected.
         SpeakersResult: Speakers result has been detected.
@@ -281,10 +279,6 @@ class AgentServerMessageType(str, Enum):
     # VAD messages
     SPEAKING_STARTED = "SpeakingStarted"
     SPEAKING_ENDED = "SpeakingEnded"
-
-    # Turn messages
-    TURN_STARTED = "TurnStarted"
-    TURN_ENDED = "TurnEnded"
 
     # Segment messages
     ADD_INTERIM_SEGMENTS = "AddInterimSegments"
