@@ -388,15 +388,27 @@ async def test_end_of_utterance_adaptive_vad():
     # Inject conversation
     await send_message(0, count=12, use_ttl=False)
 
+    # Timing info
+    timeout = adaptive_timeout * 1.5
+    start_time = datetime.datetime.now()
+    receive_interval = None
+
     # Wait for EndOfUtterance
     try:
-        await asyncio.wait_for(event_rx.wait(), timeout=adaptive_timeout * 1.5)
+        await asyncio.wait_for(event_rx.wait(), timeout=timeout)
         assert last_message is not None
+        receive_interval = (datetime.datetime.now() - start_time).total_seconds()
     except asyncio.TimeoutError:
-        pytest.fail(f"END_OF_UTTERANCE event was not received within {adaptive_timeout * 1.5} seconds")
+        pytest.fail(f"END_OF_UTTERANCE event was not received within {timeout} seconds")
 
     # Check the right message was received
     assert last_message.get("message") == AgentServerMessageType.END_OF_UTTERANCE
+
+    # Check the interval was within +/- 10% of the adaptive trigger of 0.5 the timeout (see client code)
+    expected_min_interval = adaptive_timeout * 0.5 * 0.9
+    expected_max_interval = adaptive_timeout * 0.5 * 1.1
+    assert receive_interval >= expected_min_interval
+    assert receive_interval <= expected_max_interval
 
 
 @pytest.mark.asyncio
