@@ -259,7 +259,7 @@ class VoiceAgentClient(AsyncClient):
                 self._logger.debug("End of utterance")
                 self.emit(
                     AgentServerMessageType.END_OF_TURN,
-                    {"message": AgentServerMessageType.END_OF_TURN, "metadata": message.get("metadata", {})},
+                    {"message": AgentServerMessageType.END_OF_TURN.value, "metadata": message.get("metadata", {})},
                 )
 
     async def connect(self) -> None:
@@ -274,7 +274,7 @@ class VoiceAgentClient(AsyncClient):
         if self._is_connected:
             self.emit(
                 AgentServerMessageType.ERROR,
-                {"message": AgentServerMessageType.ERROR, "reason": "Already connected"},
+                {"message": AgentServerMessageType.ERROR.value, "reason": "Already connected"},
             )
             return
 
@@ -365,7 +365,7 @@ class VoiceAgentClient(AsyncClient):
                 self.emit(
                     AgentServerMessageType.METRICS,
                     {
-                        "message": AgentServerMessageType.METRICS,
+                        "message": AgentServerMessageType.METRICS.value,
                         "total_time": time_s,
                         "total_time_str": time.strftime("%H:%M:%S", time.gmtime(time_s)),
                         "total_bytes": self._total_bytes,
@@ -463,7 +463,7 @@ class VoiceAgentClient(AsyncClient):
         self.emit(
             AgentServerMessageType.TTFB_METRICS,
             {
-                "message": AgentServerMessageType.TTFB_METRICS,
+                "message": AgentServerMessageType.TTFB_METRICS.value,
                 "ttfb": self._last_ttfb,
             },
         )
