@@ -881,14 +881,14 @@ class VoiceAgentClient(AsyncClient):
                     AgentServerMessageType.SPEAKER_ENDED,
                     {
                         "message": AgentServerMessageType.SPEAKER_ENDED.value,
-                        "status": SpeakerVADStatus(speaker_id=current_speaker, is_active=False),
+                        "status": SpeakerVADStatus(speaker_id=current_speaker, is_active=False).to_dict(),
                     },
                 )
                 self.emit(
                     AgentServerMessageType.SPEAKER_STARTED,
                     {
                         "message": AgentServerMessageType.SPEAKER_STARTED.value,
-                        "status": SpeakerVADStatus(speaker_id=speaker, is_active=True),
+                        "status": SpeakerVADStatus(speaker_id=speaker, is_active=True).to_dict(),
                     },
                 )
 
@@ -908,7 +908,10 @@ class VoiceAgentClient(AsyncClient):
         )
         self.emit(
             msg,
-            {"message": msg.value, "status": SpeakerVADStatus(speaker_id=speaker, is_active=self._is_speaking)},
+            {
+                "message": msg.value,
+                "status": SpeakerVADStatus(speaker_id=speaker, is_active=self._is_speaking).to_dict(),
+            },
         )
 
         # Reset the current speaker

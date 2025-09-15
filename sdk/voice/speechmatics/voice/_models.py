@@ -383,6 +383,15 @@ class LanguagePackInfo:
             writing_direction="rtl" if data.get("writing_direction", "left-to-right") == "right-to-left" else "ltr",
         )
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "adapted": self.adapted,
+            "itn": self.itn,
+            "language_description": self.language_description,
+            "word_delimiter": self.word_delimiter,
+            "writing_direction": self.writing_direction,
+        }
+
 
 @dataclass
 class SessionInfo:
@@ -399,6 +408,14 @@ class SessionInfo:
     session_id: str
     base_time: datetime.datetime
     language_pack_info: LanguagePackInfo
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "config": self.config,
+            "session_id": self.session_id,
+            "base_time": self.base_time,
+            "language_pack_info": self.language_pack_info.to_dict(),
+        }
 
 
 class AnnotationResult(list):
@@ -657,6 +674,12 @@ class SpeakerVADStatus:
 
     is_active: bool
     speaker_id: Optional[str] = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "is_active": self.is_active,
+            "speaker_id": self.speaker_id,
+        }
 
 
 class FragmentUtils:
