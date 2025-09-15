@@ -145,32 +145,33 @@ The `VoiceAgentClient` can be configured with a number of options to control the
 
 ```python
 from speechmatics.voice import (
-    VoiceAgentConfig,
-    EndOfUtteranceMode,
+    AdditionalVocabEntry,
+    AudioEncoding,
     DiarizationSpeakerConfig,
-    AdditionalVocabEntry
+    EndOfUtteranceMode,
+    OperatingPoint,
+    VoiceAgentConfig
 )
-from speechmatics.rt import OperatingPoint, AudioEncoding
 
 # Basic configuration
 config = VoiceAgentConfig(
     language="en",
     enable_diarization=True,
-    end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
+    end_of_utterance_mode=EndOfUtteranceMode.FIXED,
 )
 
 # Advanced configuration with custom settings
 advanced_config = VoiceAgentConfig(
     operating_point=OperatingPoint.ENHANCED,
-    language="en-GB",
+    language="en",
     output_locale="en-GB",
-    max_delay=0.5,
-    end_of_utterance_silence_trigger=0.15,
+    max_delay=0.7,
+    end_of_utterance_silence_trigger=0.25,
     end_of_utterance_max_delay=8.0,
     end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
     enable_diarization=True,
-    speaker_sensitivity=0.7,
-    max_speakers=3,
+    speaker_sensitivity=0.5,
+    max_speakers=6,
     prefer_current_speaker=True,
     speaker_config=DiarizationSpeakerConfig(
         focus_speakers=["S1", "S2"],
@@ -313,6 +314,13 @@ The `ADAPTIVE` mode takes into consideration a number of factors to determine wh
 The `end_of_utterance_silence_trigger` is used to calculate the baseline `FIXED` and `ADAPTIVE` delays. As a fallback, the `end_of_utterance_max_delay` is used to trigger the end of turn after a fixed amount of time, regardless of the content of what the most recent speaker has said.
 
 When using `EXTERNAL` mode, call `client.finalize()` to force the end of turn.
+
+```json
+{
+  "message": "EndOfTurn",
+  "metadata": { "end_time": 9.16, "start_time": 11.08 }
+}
+```
 
 ## Environment Variables
 
