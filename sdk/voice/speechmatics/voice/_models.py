@@ -386,6 +386,7 @@ class SpeechFragment:
         start_time: Start time of the fragment in seconds (from session start).
         end_time: End time of the fragment in seconds (from session start).
         language: Language of the fragment. Defaults to `en`.
+        direction: Direction of the fragment. Defaults to `ltr`.
         _type: Type of the fragment. Defaults to `word`.
         is_eos: Whether the fragment is the end of a sentence. Defaults to `False`.
         is_final: Whether the fragment is the final fragment. Defaults to `False`.
@@ -403,6 +404,7 @@ class SpeechFragment:
     start_time: float
     end_time: float
     language: str = "en"
+    direction: str = "ltr"
     _type: str = "word"
     is_eos: bool = False
     is_final: bool = False
@@ -832,3 +834,25 @@ class FragmentUtils:
 
         # Return the result
         return result
+
+
+@dataclass
+class LanguagePackInfo:
+    """Information about the language pack used in a session."""
+
+    adapted: bool
+    itn: bool
+    language_description: str
+    word_delimiter: str
+    writing_direction: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> LanguagePackInfo:
+        """Create LanguagePackInfo from dictionary."""
+        return cls(
+            adapted=data.get("adapted", False),
+            itn=data.get("itn", False),
+            language_description=data.get("language_description", "Unknown"),
+            word_delimiter=data.get("word_delimiter", ""),
+            writing_direction="rtl" if data.get("writing_direction", "left-to-right") == "right-to-left" else "ltr",
+        )

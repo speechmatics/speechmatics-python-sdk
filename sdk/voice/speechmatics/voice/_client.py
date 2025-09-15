@@ -29,6 +29,7 @@ from ._models import DiarizationFocusMode
 from ._models import DiarizationSpeakerConfig
 from ._models import EndOfUtteranceMode
 from ._models import FragmentUtils
+from ._models import LanguagePackInfo
 from ._models import SpeakerSegmentView
 from ._models import SpeakerVADStatus
 from ._models import SpeechFragment
@@ -84,6 +85,10 @@ class VoiceAgentClient(AsyncClient):
         # Connection status
         self._is_connected: bool = False
         self._is_ready_for_audio: bool = False
+
+        # Session info
+        self._session_id: Optional[str] = None
+        self._language_pack_info: Optional[LanguagePackInfo] = None
 
         # Timing info
         self._start_time: datetime.datetime = datetime.datetime.now(datetime.timezone.utc)
@@ -228,6 +233,8 @@ class VoiceAgentClient(AsyncClient):
         def _evt_on_recognition_started(message: dict[str, Any]) -> None:
             self._start_time = datetime.datetime.now(datetime.timezone.utc)
             self._is_ready_for_audio = True
+            self._session_id = message.get("id")
+            self._language_pack_info = LanguagePackInfo.from_dict(message.get("language_pack_info", {}))
 
         # Partial transcript event
         @self.on(ServerMessageType.ADD_PARTIAL_TRANSCRIPT)
