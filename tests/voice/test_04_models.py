@@ -124,7 +124,7 @@ async def test_speech_fragments():
 
     # Add listener for first interim segment
     message_reset()
-    client.once(AgentServerMessageType.ADD_INTERIM_SEGMENTS, message_rx)
+    client.once(AgentServerMessageType.ADD_PARTIAL_SEGMENT, message_rx)
 
     # Inject first partial
     await send_message(0, count=3, use_ttl=False)
@@ -137,18 +137,19 @@ async def test_speech_fragments():
         pytest.fail("ADD_INTERIM_SEGMENTS event was not received within 5 seconds")
 
     # Check the right message was received
-    assert last_message.get("message") == AgentServerMessageType.ADD_INTERIM_SEGMENTS
+    assert last_message.get("message") == AgentServerMessageType.ADD_PARTIAL_SEGMENT
 
     # Check the segment
     segments: list[SpeakerSegment] = last_message.get("segments", [])
     assert len(segments) == 1
-    assert segments[0].speaker_id == "S1"
-    assert segments[0].text == "Welcome"
-    assert segments[0].format_text("{speaker_id}: {text}") == "S1: Welcome"
+    seg0 = segments[0]
+    assert seg0.speaker_id == "S1"
+    assert seg0.text == "Welcome"
+    assert f"{seg0.speaker_id}: {seg0.text}" == "S1: Welcome"
 
     # Add listener for final segment
     message_reset()
-    client.once(AgentServerMessageType.ADD_SEGMENTS, message_rx)
+    client.once(AgentServerMessageType.ADD_SEGMENT, message_rx)
 
     # Send a more partials and finals
     await send_message(3, count=10, use_ttl=False)
@@ -161,17 +162,18 @@ async def test_speech_fragments():
         pytest.fail("ADD_SEGMENTS event was not received within 5 seconds")
 
     # Check the right message was received
-    assert last_message.get("message") == AgentServerMessageType.ADD_SEGMENTS
+    assert last_message.get("message") == AgentServerMessageType.ADD_SEGMENT
 
     # Check the segment
     segments: list[SpeakerSegment] = last_message.get("segments", [])
     assert len(segments) == 1
-    assert segments[0].speaker_id == "S1"
-    assert segments[0].text == "Welcome to Speechmatics."
-    assert segments[0].format_text("{speaker_id}: {text}") == "S1: Welcome to Speechmatics."
+    seg0 = segments[0]
+    assert seg0.speaker_id == "S1"
+    assert seg0.text == "Welcome to Speechmatics."
+    assert f"{seg0.speaker_id}: {seg0.text}" == "S1: Welcome to Speechmatics."
 
     # Check the contents of the segment
-    fragments: list[SpeechFragment] = segments[0].fragments
+    fragments: list[SpeechFragment] = seg0.fragments
     assert len(fragments) == 4
 
 
@@ -227,7 +229,7 @@ async def test_end_of_utterance_fixed():
     # Inject conversation
     await send_message(0, count=13, use_ttl=False)
 
-    # Wait for EndOfUtterance
+    # Wait for EndOfTurn
     try:
         await asyncio.wait_for(event_rx.wait(), timeout=5.0)
         assert last_message is not None
@@ -300,7 +302,7 @@ async def test_external_vad():
     await asyncio.sleep(0.5)
 
     # Add listener for first interim segment
-    client.once(AgentServerMessageType.ADD_SEGMENTS, message_rx)
+    client.once(AgentServerMessageType.ADD_SEGMENT, message_rx)
 
     # Send finalize
     client.finalize()
@@ -313,14 +315,15 @@ async def test_external_vad():
         pytest.fail("ADD_SEGMENTS event was not received within 4 seconds")
 
     # Check the right message was received
-    assert last_message.get("message") == AgentServerMessageType.ADD_SEGMENTS
+    assert last_message.get("message") == AgentServerMessageType.ADD_SEGMENT
 
     # Check the segment
     segments: list[SpeakerSegment] = last_message.get("segments", [])
     assert len(segments) == 1
-    assert segments[0].speaker_id == "S1"
-    assert segments[0].text == "Welcome to Speechmatics"
-    assert segments[0].format_text("{speaker_id}: {text}") == "S1: Welcome to Speechmatics"
+    seg0 = segments[0]
+    assert seg0.speaker_id == "S1"
+    assert seg0.text == "Welcome to Speechmatics"
+    assert f"{seg0.speaker_id}: {seg0.text}" == "S1: Welcome to Speechmatics"
 
     # Check the contents of the segment
     fragments: list[SpeechFragment] = segments[0].fragments
@@ -381,7 +384,6 @@ async def test_end_of_utterance_adaptive_vad():
                 await asyncio.sleep(0.005)
 
             # Emit the message
-            print(message)
             client.emit(message["payload"]["message"], message["payload"])
 
     # Add listener for first interim segment

@@ -209,17 +209,26 @@ class AgentClientMessageType(str, Enum):
     client can send to the Speechmatics RT API during a transcription session.
 
     Attributes:
+        FinalizeTurn: Force the finalization of the current turn.
         EndOfStream: Signals that no more audio data will be sent.
         GetSpeakers: Internal, Speechmatics only message. Allows the client to request speaker data.
 
     Examples:
+        >>> # Finalizing the current turn
+        >>> finalize_turn_message = {
+        ...     "message": AgentClientMessageType.FINALIZE_TURN
+        ... }
+        >>> await client.send_message(finalize_turn_message)
+        >>>
         >>> # Ending the session
         >>> end_message = {
         ...     "message": AgentClientMessageType.END_OF_STREAM,
         ...     "last_seq_no": sequence_number
         ... }
+        >>> await client.send_message(end_message)
     """
 
+    FINALIZE_TURN = "FinalizeTurn"
     END_OF_STREAM = "EndOfStream"
     GET_SPEAKERS = "GetSpeakers"
 
@@ -239,25 +248,30 @@ class AgentServerMessageType(str, Enum):
         AddPartialTranscript: Partial transcript has been added.
         AddTranscript: Transcript has been added.
         EndOfUtterance: End of utterance has been detected (from STT engine).
-        SpeakingStarted: Speech has started.
-        SpeakingEnded: Speech has ended.
-        AddSegments: A final segment has been detected.
-        AddInterimSegments: An interim segment has been detected.
+        SpeakerStarted: Speech has started.
+        SpeakerEnded: Speech has ended.
+        AddPartialSegment: A partial / interim segment has been detected.
+        AddSegment: A final segment has been detected.
+        EndOfTurn: End of turn has been detected.
         SpeakersResult: Speakers result has been detected.
         Metrics: Metrics for the STT engine.
         SpeakerMetrics: Metrics relating to speakers.
 
     Examples:
         >>> # Register event handlers for different message types
-        >>> @client.on(AgentServerMessageType.INTERIM_SEGMENTS)
+        >>> @client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT)
         >>> def handle_interim(message):
         ...     segments: list[SpeakerSegment] = message['segments']
         ...     print(f"Interim: {segments}")
         >>>
-        >>> @client.on(AgentServerMessageType.FINAL_SEGMENTS)
+        >>> @client.on(AgentServerMessageType.ADD_SEGMENT)
         >>> def handle_final(message):
         ...     segments: list[SpeakerSegment] = message['segments']
         ...     print(f"Final: {segments}")
+        >>>
+        >>> @client.on(AgentServerMessageType.END_OF_TURN)
+        >>> def handle_end_of_turn(message):
+        ...     print(f"End of turn")
         >>>
         >>> @client.on(AgentServerMessageType.ERROR)
         >>> def handle_error(message):
@@ -277,12 +291,13 @@ class AgentServerMessageType(str, Enum):
     END_OF_UTTERANCE = "EndOfUtterance"
 
     # VAD messages
-    SPEAKING_STARTED = "SpeakingStarted"
-    SPEAKING_ENDED = "SpeakingEnded"
+    SPEAKER_STARTED = "SpeakerStarted"
+    SPEAKER_ENDED = "SpeakerEnded"
 
     # Segment messages
-    ADD_INTERIM_SEGMENTS = "AddInterimSegments"
-    ADD_SEGMENTS = "AddSegments"
+    ADD_PARTIAL_SEGMENT = "AddPartialSegment"
+    ADD_SEGMENT = "AddSegment"
+    END_OF_TURN = "EndOfTurn"
 
     # Speaker messages
     SPEAKERS_RESULT = "SpeakersResult"
@@ -331,6 +346,51 @@ class AnnotationFlags(str, Enum):
 
     # End of utterance detection
     END_OF_UTTERANCE = "end_of_utterance"
+
+
+@dataclass
+class LanguagePackInfo:
+    """Information about the language pack used in a session.
+
+    Attributes:
+        adapted (bool): Whether the language pack is adapted.
+        itn (bool): Whether the language pack has ITN enabled.
+        language_description (str): The language description.
+        word_delimiter (str): The word delimiter.
+        writing_direction (str): The writing direction ('ltr' or 'rtl').
+    """
+
+    adapted: bool
+    itn: bool
+    language_description: str
+    word_delimiter: str
+    writing_direction: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> LanguagePackInfo:
+        """Create LanguagePackInfo from dictionary."""
+        return cls(
+            adapted=data.get("adapted", False),
+            itn=data.get("itn", True),
+            language_description=data.get("language_description", "English"),
+            word_delimiter=data.get("word_delimiter", " "),
+            writing_direction="rtl" if data.get("writing_direction", "left-to-right") == "right-to-left" else "ltr",
+        )
+
+
+@dataclass
+class SessionInfo:
+    """Information about the session.
+
+    Attributes:
+        session_id (str): The session ID.
+        base_time (datetime.datetime): The base time for the session.
+        language_pack_info (LanguagePackInfo): The language pack info for the session.
+    """
+
+    session_id: str
+    base_time: datetime.datetime
+    language_pack_info: LanguagePackInfo
 
 
 class AnnotationResult(list):
@@ -428,6 +488,7 @@ class SpeakerSegment:
         timestamp: The timestamp of the frame.
         language: The language of the frame.
         fragments: The list of SpeechFragment items.
+        text: The text of the segment.
         annotation: The annotation associated with the segment.
     """
 
@@ -436,6 +497,7 @@ class SpeakerSegment:
     timestamp: Optional[str] = None
     language: Optional[str] = None
     fragments: list[SpeechFragment] = field(default_factory=list)
+    text: str | None = None
     annotation: AnnotationResult = field(default_factory=AnnotationResult)
 
     @property
@@ -448,11 +510,6 @@ class SpeakerSegment:
         """Return the end time of the segment."""
         return self.fragments[-1].end_time
 
-    @property
-    def text(self) -> str:
-        """Return the text of the segment."""
-        return self.format_text()
-
     def __str__(self) -> str:
         """Return a string representation of the object."""
         meta = {
@@ -460,53 +517,9 @@ class SpeakerSegment:
             "timestamp": self.timestamp,
             "language": self.language,
             "annotation": str(self.annotation),
-            "text": self.format_text(),
+            "text": self.text,
         }
         return f"SpeakerSegment({', '.join(f'{k}={v}' for k, v in meta.items())})"
-
-    def format_text(self, format: Optional[str] = None, words_only: bool = False) -> str:
-        """Wrap text with speaker ID in an optional f-string format.
-
-        Supported format variables:
-            speaker_id: The ID of the speaker.
-            text: The text of the fragment.
-            ts: The timestamp of the fragment.
-            lang: The language of the fragment.
-
-        Args:
-            format: Format to wrap the text with.
-            words_only: Whether to include only word fragments.
-
-        Returns:
-            str: The wrapped text.
-        """
-        # Cumulative contents
-        content = ""
-
-        # Select fragments to include
-        if not words_only:
-            fragments = self.fragments
-        else:
-            fragments = [frag for frag in self.fragments if frag._type == "word"]
-
-        # Assemble the text
-        for frag in fragments:
-            if content == "" or frag.attaches_to == "previous":
-                content += frag.content
-            else:
-                content += " " + frag.content
-
-        # Format the text, if format is provided
-        if format is None:
-            return content
-        return format.format(
-            **{
-                "speaker_id": self.speaker_id,
-                "text": content,
-                "ts": self.timestamp,
-                "lang": self.language,
-            }
-        )
 
 
 @dataclass
@@ -514,28 +527,32 @@ class SpeakerSegmentView:
     """View for speaker fragments.
 
     Parameters:
+        session: SessionInfo object.
         fragments: List of fragments.
-        base_time: Base time for the fragments.
         focus_speakers: List of speakers to focus on or None.
     """
 
+    session: SessionInfo
     fragments: list[SpeechFragment]
     segments: list[SpeakerSegment]
 
     def __init__(
         self,
+        session: SessionInfo,
         fragments: list[SpeechFragment],
-        base_time: datetime.datetime,
         focus_speakers: Optional[list[str]] = None,
         annotate_segments: bool = True,
     ):
+        self.session = session
         self.fragments = fragments
-        self.base_time = base_time
         self.focus_speakers = focus_speakers
 
         # Process fragments into a list of segments
         self.segments = FragmentUtils.segment_list_from_fragments(
-            base_time, fragments, focus_speakers, annotate_segments
+            session=session,
+            fragments=fragments,
+            focus_speakers=focus_speakers,
+            annotate_segments=annotate_segments,
         )
 
     @property
@@ -568,20 +585,48 @@ class SpeakerSegmentView:
             return -1
         return len(self.segments) - idx - 1
 
-    def format_text(
+    def format_view_text(
         self,
         format: str = "|{speaker_id}|{text}|",
         separator: str = "",
         words_only: bool = False,
     ) -> str:
-        return separator.join(segment.format_text(format, words_only) for segment in self.segments)
+        """Format each segment into a single string.
+
+        Args:
+            format: Format string.
+            separator: Separator string.
+            words_only: Whether to include only word fragments.
+
+        Returns:
+            str: The formatted text.
+        """
+        return separator.join(
+            FragmentUtils.format_segment_text(
+                session=self.session,
+                segment=segment,
+                format=format,
+                words_only=words_only,
+            )
+            for segment in self.segments
+        )
 
     def trim(self, start_time: float, end_time: float, annotate_segments: bool = True) -> None:
+        """Trim a segment view to a specific time range.
+
+        Args:
+            start_time: Start time in seconds.
+            end_time: End time in seconds.
+            annotate_segments: Whether to annotate segments.
+        """
         self.fragments = [
             frag for frag in self.fragments if frag.start_time >= start_time and frag.end_time <= end_time
         ]
         self.segments = FragmentUtils.segment_list_from_fragments(
-            self.base_time, self.fragments, focus_speakers=self.focus_speakers, annotate_segments=annotate_segments
+            session=self.session,
+            fragments=self.fragments,
+            focus_speakers=self.focus_speakers,
+            annotate_segments=annotate_segments,
         )
 
 
@@ -605,8 +650,49 @@ class FragmentUtils:
     """Set of utility functions for working with SpeechFragment and SpeakerSegment objects."""
 
     @staticmethod
+    def format_segment_text(
+        session: SessionInfo, segment: SpeakerSegment, format: str = "{text}", words_only: bool = False
+    ) -> str:
+        """Format a segment's text based on the language pack info.
+
+        Args:
+            session: SessionInfo object.
+            segment: SpeakerSegment object.
+            words_only: Whether to include only word fragments.
+
+        Returns:
+            str: The formatted text.
+        """
+
+        # Cumulative contents
+        content = ""
+
+        # Select fragments to include
+        if words_only:
+            fragments = [frag for frag in segment.fragments if frag._type == "word"]
+        else:
+            fragments = segment.fragments
+
+        # Assemble the text (LTR)
+        for frag in fragments:
+            if content == "" or frag.attaches_to == "previous":
+                content += frag.content
+            else:
+                content += session.language_pack_info.word_delimiter + frag.content
+
+        # Return the formatted text
+        return format.format(
+            **{
+                "speaker_id": segment.speaker_id,
+                "text": content,
+                "ts": segment.timestamp,
+                "lang": segment.language,
+            }
+        )
+
+    @staticmethod
     def segment_list_from_fragments(
-        base_time: datetime.datetime,
+        session: SessionInfo,
         fragments: list[SpeechFragment],
         focus_speakers: Optional[list[str]] = None,
         annotate_segments: bool = True,
@@ -614,7 +700,7 @@ class FragmentUtils:
         """Create SpeakerSegment objects from a list of SpeechFragment objects.
 
         Args:
-            base_time: Base time for the fragments.
+            session: SessionInfo object.
             fragments: List of SpeechFragment objects.
             focus_speakers: List of speakers to focus on or None.
             annotate_segments: Whether to annotate segments.
@@ -622,6 +708,7 @@ class FragmentUtils:
         Returns:
             List of SpeakerSegment objects.
         """
+
         # Speaker groups
         current_speaker: Optional[str] = None
         speaker_groups: list[list[SpeechFragment]] = [[]]
@@ -637,18 +724,22 @@ class FragmentUtils:
         # Create SpeakerFragments objects
         segments: list[SpeakerSegment] = []
         for group in speaker_groups:
-            sd = FragmentUtils.segment_from_fragments(
-                base_time, group, focus_speakers=focus_speakers, annotate=annotate_segments
+            segment = FragmentUtils.segment_from_fragments(
+                session=session,
+                fragments=group,
+                focus_speakers=focus_speakers,
+                annotate=annotate_segments,
             )
-            if sd:
-                segments.append(sd)
+            if segment:
+                segment.text = FragmentUtils.format_segment_text(session=session, segment=segment)
+                segments.append(segment)
 
         # Return the grouped SpeakerFragments objects
         return segments
 
     @staticmethod
     def segment_from_fragments(
-        base_time: datetime.datetime,
+        session: SessionInfo,
         fragments: list[SpeechFragment],
         focus_speakers: Optional[list[str]] = None,
         annotate: bool = True,
@@ -663,7 +754,7 @@ class FragmentUtils:
         be removed.
 
         Args:
-            base_time: The base time for the segment.
+            session: SessionInfo object.
             fragments: List of SpeechFragment objects.
             focus_speakers: List of speakers to focus on.
             annotate: Whether to annotate the segment.
@@ -687,7 +778,7 @@ class FragmentUtils:
         start_time = min(frag.start_time for frag in fragments)
 
         # Timestamp
-        ts = (base_time + datetime.timedelta(seconds=start_time)).isoformat(timespec="milliseconds")
+        ts = (session.base_time + datetime.timedelta(seconds=start_time)).isoformat(timespec="milliseconds")
 
         # Determine if the speaker is considered active
         is_active = True
@@ -712,9 +803,13 @@ class FragmentUtils:
 
     @staticmethod
     def _annotate_segment(segment: SpeakerSegment) -> AnnotationResult:
-        """Annotate the segment.
+        """Annotate the segment with any additional information.
 
-        This will annotate the segment with any additional information.
+        Args:
+            segment: SpeakerSegment object.
+
+        Returns:
+            AnnotationResult: The annotation result.
         """
         # Annotation result
         result = AnnotationResult()
@@ -787,10 +882,13 @@ class FragmentUtils:
         return result
 
     @staticmethod
-    def compare_views(view1: SpeakerSegmentView, view2: Optional[SpeakerSegmentView]) -> AnnotationResult:
+    def compare_views(
+        session: SessionInfo, view1: SpeakerSegmentView, view2: Optional[SpeakerSegmentView]
+    ) -> AnnotationResult:
         """Compare two SpeakerSegmentView objects and return the differences.
 
         Args:
+            session: SessionInfo object.
             view1: The first SpeakerSegmentView object to compare.
             view2: The second SpeakerSegmentView object to compare to or None.
 
@@ -803,16 +901,16 @@ class FragmentUtils:
         # If we have a previous view, compare it
         if view2 and view2.segment_count > 0:
             # Compare full string
-            view1_full_str: str = view1.format_text()
-            view2_full_str: str = view2.format_text()
+            view1_full_str: str = view1.format_view_text()
+            view2_full_str: str = view2.format_view_text()
             if view1_full_str != view2_full_str:
                 result.add(AnnotationFlags.UPDATED_FULL)
             if view1_full_str.lower() != view2_full_str.lower():
                 result.add(AnnotationFlags.UPDATED_FULL_LCASE)
 
             # Stripped string (without punctuation)
-            view1_stripped_str: str = view1.format_text(words_only=True)
-            view2_stripped_str: str = view2.format_text(words_only=True)
+            view1_stripped_str: str = view1.format_view_text(words_only=True)
+            view2_stripped_str: str = view2.format_view_text(words_only=True)
             if view1_stripped_str != view2_stripped_str:
                 result.add(AnnotationFlags.UPDATED_STRIPPED)
             if view1_stripped_str.lower() != view2_stripped_str.lower():
@@ -830,29 +928,5 @@ class FragmentUtils:
         elif view1.segment_count > 0:
             result.add(AnnotationFlags.NEW)
 
-        # TODO - contents of LAST segment?
-
         # Return the result
         return result
-
-
-@dataclass
-class LanguagePackInfo:
-    """Information about the language pack used in a session."""
-
-    adapted: bool
-    itn: bool
-    language_description: str
-    word_delimiter: str
-    writing_direction: str
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> LanguagePackInfo:
-        """Create LanguagePackInfo from dictionary."""
-        return cls(
-            adapted=data.get("adapted", False),
-            itn=data.get("itn", False),
-            language_description=data.get("language_description", "Unknown"),
-            word_delimiter=data.get("word_delimiter", ""),
-            writing_direction="rtl" if data.get("writing_direction", "left-to-right") == "right-to-left" else "ltr",
-        )

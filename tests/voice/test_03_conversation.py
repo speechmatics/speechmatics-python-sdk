@@ -30,7 +30,7 @@ async def test_log_messages():
     # Client
     client = await get_client(
         api_key=api_key,
-        connect=True,
+        connect=False,
         config=VoiceAgentConfig(
             end_of_utterance_silence_trigger=0.2,
             max_delay=0.7,
@@ -38,9 +38,6 @@ async def test_log_messages():
             enable_diarization=True,
         ),
     )
-
-    # Check we are connected
-    assert client._is_connected
 
     # Create an event to track when the callback is called
     messages: list[str] = []
@@ -63,16 +60,23 @@ async def test_log_messages():
         print(log)
 
     # Add listeners
+    client.once(AgentServerMessageType.RECOGNITION_STARTED, log_message)
+    client.once(AgentServerMessageType.INFO, log_message)
+    client.on(AgentServerMessageType.WARNING, log_message)
+    client.on(AgentServerMessageType.ERROR, log_message)
     client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, log_message)
     client.on(AgentServerMessageType.ADD_TRANSCRIPT, log_message)
     client.on(AgentServerMessageType.END_OF_UTTERANCE, log_message)
-    client.on(AgentServerMessageType.ADD_INTERIM_SEGMENTS, log_message)
-    client.on(AgentServerMessageType.ADD_SEGMENTS, log_message)
-    client.on(AgentServerMessageType.SPEAKING_STARTED, log_message)
-    client.on(AgentServerMessageType.SPEAKING_ENDED, log_message)
+    client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, log_message)
+    client.on(AgentServerMessageType.ADD_SEGMENT, log_message)
+    client.on(AgentServerMessageType.SPEAKER_STARTED, log_message)
+    client.on(AgentServerMessageType.SPEAKER_ENDED, log_message)
+    client.on(AgentServerMessageType.END_OF_TURN, log_message)
 
     # Load the audio file `./assets/audio_01.wav`
     audio_file = "./assets/audio_01.wav"
+
+    # HEADER
     print()
     print()
     print("---")
@@ -80,7 +84,17 @@ async def test_log_messages():
     log_message({"message": "VoiceAgentConfig", **to_serializable(client._config)})
     log_message({"message": "TranscriptionConfig", **to_serializable(client._transcription_config)})
     log_message({"message": "AudioFormat", **to_serializable(client._audio_format)})
+
+    # Connect
+    await client.connect()
+
+    # Check we are connected
+    assert client._is_connected
+
+    # Individual payloads
     await send_audio_file(client, audio_file, progress_callback=log_bytes_sent)
+
+    # FOOTER
     print("---")
     print()
     print()

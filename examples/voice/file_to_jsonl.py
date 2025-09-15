@@ -86,10 +86,10 @@ async def main() -> None:
     client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, log_message)
     client.on(AgentServerMessageType.ADD_TRANSCRIPT, log_message)
     client.on(AgentServerMessageType.END_OF_UTTERANCE, log_message)
-    client.on(AgentServerMessageType.ADD_INTERIM_SEGMENTS, log_message)
-    client.on(AgentServerMessageType.ADD_SEGMENTS, log_message)
-    client.on(AgentServerMessageType.SPEAKING_STARTED, log_message)
-    client.on(AgentServerMessageType.SPEAKING_ENDED, log_message)
+    client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, log_message)
+    client.on(AgentServerMessageType.ADD_SEGMENT, log_message)
+    client.on(AgentServerMessageType.SPEAKER_STARTED, log_message)
+    client.on(AgentServerMessageType.SPEAKER_ENDED, log_message)
 
     # Clear output file if it exists
     if args.output and os.path.exists(args.output):

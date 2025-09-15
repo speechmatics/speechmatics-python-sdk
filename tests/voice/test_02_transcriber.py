@@ -5,7 +5,9 @@ import pytest
 from _utils import get_client
 from _utils import send_audio_file
 
+from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
+from speechmatics.voice import VoiceAgentConfig
 
 api_key = os.getenv("SPEECHMATICS_API_KEY")
 
@@ -25,7 +27,15 @@ async def test_transcribe_partial():
         pytest.skip("Valid API key required for test")
 
     # Client
-    client = await get_client(api_key=api_key, connect=True)
+    client = await get_client(
+        api_key=api_key,
+        connect=True,
+        config=VoiceAgentConfig(
+            additional_vocab=[
+                AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"]),
+            ]
+        ),
+    )
 
     # Check we are connected
     assert client._is_connected
@@ -107,12 +117,12 @@ async def test_transcribe_final():
 
 
 @pytest.mark.asyncio
-async def test_interim_segment():
+async def test_partial_segment():
     """Test transcription.
 
     This test will:
         - send audio data to the API server
-        - wait for the first interim segment (within 10 seconds)
+        - wait for the first partial segment (within 10 seconds)
     """
 
     # API key
@@ -121,7 +131,7 @@ async def test_interim_segment():
         pytest.skip("Valid API key required for test")
 
     # Client
-    client = await get_client(api_key=api_key, connect=True)
+    client = await get_client(api_key=api_key, connect=True, config=VoiceAgentConfig())
 
     # Check we are connected
     assert client._is_connected
@@ -149,7 +159,7 @@ async def test_interim_segment():
         event_received.set()
 
     # Add listener for PARTIALS
-    client.on(AgentServerMessageType.ADD_INTERIM_SEGMENTS, on_segment_received)
+    client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, on_segment_received)
 
     # Load the audio file `./assets/audio_01.wav`
     await send_audio_file(client=client, audio_file="./assets/audio_01.wav", terminate_event=event_received)
@@ -158,7 +168,7 @@ async def test_interim_segment():
     try:
         await asyncio.wait_for(event_received.wait(), timeout=5.0)
     except asyncio.TimeoutError:
-        pytest.fail("ADD_INTERIM_SEGMENTS event was not received within 5 seconds of audio finish")
+        pytest.fail("ADD_PARTIAL_SEGMENT event was not received within 5 seconds of audio finish")
 
     # Close session
     await client.disconnect()

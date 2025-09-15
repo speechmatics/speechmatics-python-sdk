@@ -36,6 +36,6 @@ async def test_client():
     assert not client._is_connected
 
     # Check session info
-    assert client._session_id is not None
-    assert client._language_pack_info is not None
-    assert client._language_pack_info.language_description == "English"
+    assert client._session.session_id != "NOT_SET"
+    assert client._session.language_pack_info is not None
+    assert client._session.language_pack_info.language_description == "English"

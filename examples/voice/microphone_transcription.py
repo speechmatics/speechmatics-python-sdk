@@ -73,13 +73,7 @@ def _register_event_handlers(client: VoiceAgentClient, logger) -> None:
         template = "@{speaker_id}: {text}" if segment.is_active else "@{speaker_id} (background): {text}"
         return segment.format_text(template)
 
-    @client.on(AgentServerMessageType.ADD_SEGMENTS)
-    def handle_final_segments(message):
-        """Handle final transcription segments."""
-        segments = [_format_segment(s) for s in message["segments"]]
-        logger.log(CustomLevels.FINAL, f"🚀 Final: {segments}")
-
-    @client.on(AgentServerMessageType.ADD_INTERIM_SEGMENTS)
+    @client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT)
     def handle_partial_segments(message):
         """Handle partial transcription segments."""
         segments = [_format_segment(s) for s in message["segments"]]
@@ -89,12 +83,18 @@ def _register_event_handlers(client: VoiceAgentClient, logger) -> None:
         else:
             logger.log(CustomLevels.PARTIAL, f"💬 Partial: {segments}")
 
-    @client.on(AgentServerMessageType.SPEAKING_STARTED)
+    @client.on(AgentServerMessageType.ADD_SEGMENT)
+    def handle_final_segments(message):
+        """Handle final transcription segments."""
+        segments = [_format_segment(s) for s in message["segments"]]
+        logger.log(CustomLevels.FINAL, f"🚀 Final: {segments}")
+
+    @client.on(AgentServerMessageType.SPEAKER_STARTED)
     def handle_speech_started(message):
         """Handle speech start events."""
         logger.log(CustomLevels.SPEAKER, f"✅ Speech started: {message}")
 
-    @client.on(AgentServerMessageType.USER_SPEECH_ENDED)
+    @client.on(AgentServerMessageType.SPEAKER_ENDED)
     def handle_speech_ended(message):
         """Handle speech end events."""
         logger.log(CustomLevels.SPEAKER, f"🛑 Speech ended: {message}")

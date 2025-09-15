@@ -30,6 +30,7 @@ from ._models import DiarizationSpeakerConfig
 from ._models import EndOfUtteranceMode
 from ._models import FragmentUtils
 from ._models import LanguagePackInfo
+from ._models import SessionInfo
 from ._models import SpeakerSegmentView
 from ._models import SpeakerVADStatus
 from ._models import SpeechFragment
@@ -86,12 +87,14 @@ class VoiceAgentClient(AsyncClient):
         self._is_connected: bool = False
         self._is_ready_for_audio: bool = False
 
-        # Session info
-        self._session_id: Optional[str] = None
-        self._language_pack_info: Optional[LanguagePackInfo] = None
+        # Session info (updated on session created)
+        self._session: SessionInfo = SessionInfo(
+            session_id="NOT_SET",
+            base_time=datetime.datetime.now(datetime.timezone.utc),
+            language_pack_info=LanguagePackInfo.from_dict({}),
+        )
 
         # Timing info
-        self._start_time: datetime.datetime = datetime.datetime.now(datetime.timezone.utc)
         self._total_time: float = 0
         self._total_bytes: int = 0
 
@@ -231,10 +234,12 @@ class VoiceAgentClient(AsyncClient):
         # Recognition started event
         @self.once(ServerMessageType.RECOGNITION_STARTED)
         def _evt_on_recognition_started(message: dict[str, Any]) -> None:
-            self._start_time = datetime.datetime.now(datetime.timezone.utc)
             self._is_ready_for_audio = True
-            self._session_id = message.get("id")
-            self._language_pack_info = LanguagePackInfo.from_dict(message.get("language_pack_info", {}))
+            self._session = SessionInfo(
+                session_id=message.get("id", "UNKNOWN"),
+                base_time=datetime.datetime.now(datetime.timezone.utc),
+                language_pack_info=LanguagePackInfo.from_dict(message.get("language_pack_info", {})),
+            )
 
         # Partial transcript event
         @self.on(ServerMessageType.ADD_PARTIAL_TRANSCRIPT)
@@ -498,6 +503,7 @@ class VoiceAgentClient(AsyncClient):
                         start_time=result.get("start_time", 0),
                         end_time=result.get("end_time", 0),
                         language=alt.get("language", "en"),
+                        direction=alt.get("direction", "ltr"),
                         _type=result.get("type", "word"),
                         is_eos=result.get("is_eos", False),
                         is_disfluency="disfluency" in alt.get("tags", []),
@@ -604,7 +610,7 @@ class VoiceAgentClient(AsyncClient):
 
             # Compare previous view to this view
             if self._previous_view:
-                changes = FragmentUtils.compare_views(self._previous_view, self._current_view)
+                changes = FragmentUtils.compare_views(self._session, self._previous_view, self._current_view)
             else:
                 changes = AnnotationResult.from_flags(AnnotationFlags.NEW)
 
@@ -629,8 +635,8 @@ class VoiceAgentClient(AsyncClient):
     def _update_current_view(self) -> None:
         """Load the current view of the speech fragments."""
         self._current_view = SpeakerSegmentView(
+            session=self._session,
             fragments=self._speech_fragments.copy(),
-            base_time=self._start_time,
             focus_speakers=self._dz_config.focus_speakers,
         )
 
@@ -759,6 +765,14 @@ class VoiceAgentClient(AsyncClient):
             end_of_utterance: Whether to emit an end of turn event.
         """
 
+        # Metadata
+        if self._current_view:
+            metadata = {"start_time": self._current_view.start_time, "end_time": self._current_view.end_time}
+        elif self._previous_view:
+            metadata = {"start_time": self._previous_view.start_time, "end_time": self._previous_view.end_time}
+        else:
+            metadata = None
+
         # Lock the speech fragments
         if self._current_view and self._current_view.segment_count > 0:
             async with self._speech_fragments_lock:
@@ -779,8 +793,12 @@ class VoiceAgentClient(AsyncClient):
                 # Emit finals first
                 if final_segments:
                     self.emit(
-                        AgentServerMessageType.ADD_SEGMENTS,
-                        {"message": AgentServerMessageType.ADD_SEGMENTS.value, "segments": final_segments},
+                        AgentServerMessageType.ADD_SEGMENT,
+                        {
+                            "message": AgentServerMessageType.ADD_SEGMENT.value,
+                            "segments": final_segments,
+                            "metadata": metadata,
+                        },
                     )
                     self._trim_before_time = final_segments[-1].end_time
                     self._speech_fragments = [
@@ -790,8 +808,12 @@ class VoiceAgentClient(AsyncClient):
                 # Emit interim segments
                 if interim_segments:
                     self.emit(
-                        AgentServerMessageType.ADD_INTERIM_SEGMENTS,
-                        {"message": AgentServerMessageType.ADD_INTERIM_SEGMENTS.value, "segments": interim_segments},
+                        AgentServerMessageType.ADD_PARTIAL_SEGMENT,
+                        {
+                            "message": AgentServerMessageType.ADD_PARTIAL_SEGMENT.value,
+                            "segments": interim_segments,
+                            "metadata": metadata,
+                        },
                     )
 
                 # Update the current view
@@ -801,7 +823,10 @@ class VoiceAgentClient(AsyncClient):
         if end_of_utterance:
             self.emit(
                 AgentServerMessageType.END_OF_UTTERANCE,
-                {"message": AgentServerMessageType.END_OF_UTTERANCE.value},
+                {
+                    "message": AgentServerMessageType.END_OF_UTTERANCE.value,
+                    "metadata": metadata,
+                },
             )
 
     def _vad_evaluation(self, fragments: list[SpeechFragment]) -> None:
@@ -849,16 +874,16 @@ class VoiceAgentClient(AsyncClient):
             # Check if speaker is different to the current speaker
             if already_speaking and speaker_changed:
                 self.emit(
-                    AgentServerMessageType.SPEAKING_ENDED,
+                    AgentServerMessageType.SPEAKER_ENDED,
                     {
-                        "message": AgentServerMessageType.SPEAKING_ENDED.value,
+                        "message": AgentServerMessageType.SPEAKER_ENDED.value,
                         "status": SpeakerVADStatus(speaker_id=current_speaker, is_active=False),
                     },
                 )
                 self.emit(
-                    AgentServerMessageType.SPEAKING_STARTED,
+                    AgentServerMessageType.SPEAKER_STARTED,
                     {
-                        "message": AgentServerMessageType.SPEAKING_STARTED.value,
+                        "message": AgentServerMessageType.SPEAKER_STARTED.value,
                         "status": SpeakerVADStatus(speaker_id=speaker, is_active=True),
                     },
                 )
@@ -875,7 +900,7 @@ class VoiceAgentClient(AsyncClient):
 
         # Emit the event for latest speaker
         msg: AgentServerMessageType = (
-            AgentServerMessageType.SPEAKING_STARTED if self._is_speaking else AgentServerMessageType.SPEAKING_ENDED
+            AgentServerMessageType.SPEAKER_STARTED if self._is_speaking else AgentServerMessageType.SPEAKER_ENDED
         )
         self.emit(
             msg,
