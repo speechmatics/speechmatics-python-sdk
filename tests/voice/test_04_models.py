@@ -364,6 +364,7 @@ async def test_end_of_utterance_adaptive_vad():
         nonlocal last_message
         last_message = message
         event_rx.set()
+        print(message)
 
     # Send a message from the conversation
     async def send_message(idx: int, count: int = 1, use_ttl: bool = True):
@@ -380,13 +381,14 @@ async def test_end_of_utterance_adaptive_vad():
                 await asyncio.sleep(0.005)
 
             # Emit the message
+            print(message)
             client.emit(message["payload"]["message"], message["payload"])
 
     # Add listener for first interim segment
     client.once(AgentServerMessageType.END_OF_UTTERANCE, message_rx)
 
     # Inject conversation
-    await send_message(0, count=12, use_ttl=False)
+    await send_message(0, count=12, use_ttl=True)
 
     # Timing info
     timeout = adaptive_timeout * 1.5
@@ -405,6 +407,7 @@ async def test_end_of_utterance_adaptive_vad():
     assert last_message.get("message") == AgentServerMessageType.END_OF_UTTERANCE
 
     # Check the interval was within +/- 10% of the adaptive trigger of 0.5 the timeout (see client code)
+    print(f"receive_interval={round(receive_interval, 3)}")
     expected_min_interval = adaptive_timeout * 0.5 * 0.9
     expected_max_interval = adaptive_timeout * 0.5 * 1.1
     assert receive_interval >= expected_min_interval

@@ -152,7 +152,7 @@ async def test_interim_segment():
     client.on(AgentServerMessageType.ADD_INTERIM_SEGMENTS, on_segment_received)
 
     # Load the audio file `./assets/audio_01.wav`
-    await send_audio_file(client, "./assets/audio_01.wav", event_received)
+    await send_audio_file(client=client, audio_file="./assets/audio_01.wav", terminate_event=event_received)
 
     # Wait for the callback with timeout
     try:

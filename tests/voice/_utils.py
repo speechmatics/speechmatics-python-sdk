@@ -59,7 +59,7 @@ async def get_client(
 async def send_audio_file(
     client: VoiceAgentClient,
     audio_file: str,
-    event_received: Optional[asyncio.Event] = None,
+    terminate_event: Optional[asyncio.Event] = None,
     chunk_size: int = 320,
     progress_callback: Optional[Callable[[int], None]] = None,
 ) -> None:
@@ -85,7 +85,7 @@ async def send_audio_file(
 
         # Send audio data
         next_time = time.perf_counter() + delay
-        while not event_received.is_set() if event_received else True:
+        while not terminate_event.is_set() if terminate_event else True:
             """Reads all chunks until the end of the file with precision delay."""
 
             # Read chunk
