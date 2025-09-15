@@ -21,15 +21,10 @@ from ._client import VoiceAgentClient
 from ._models import AdditionalVocabEntry
 from ._models import AgentClientMessageType
 from ._models import AgentServerMessageType
-from ._models import AnnotationFlags
-from ._models import AnnotationResult
 from ._models import DiarizationFocusMode
 from ._models import DiarizationKnownSpeaker
 from ._models import DiarizationSpeakerConfig
 from ._models import EndOfUtteranceMode
-from ._models import SpeakerSegment
-from ._models import SpeakerVADStatus
-from ._models import SpeechFragment
 from ._models import VoiceAgentConfig
 
 __all__ = [
@@ -45,13 +40,6 @@ __all__ = [
     "AudioEncoding",
     "AudioFormat",
     "OperatingPoint",
-    # Transcription models
-    "AnnotationFlags",
-    "AnnotationResult",
-    "SpeakerSegment",
-    "SpeechFragment",
-    # Events
-    "SpeakerVADStatus",
     # Client
     "VoiceAgentClient",
     "AgentClientMessageType",

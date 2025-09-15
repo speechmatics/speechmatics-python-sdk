@@ -10,12 +10,10 @@ from _utils import ConversationLog
 from _utils import get_client
 
 from speechmatics.voice import AgentServerMessageType
-from speechmatics.voice import AnnotationFlags
-from speechmatics.voice import AnnotationResult
 from speechmatics.voice import EndOfUtteranceMode
-from speechmatics.voice import SpeakerSegment
-from speechmatics.voice import SpeechFragment
 from speechmatics.voice import VoiceAgentConfig
+from speechmatics.voice._models import AnnotationFlags
+from speechmatics.voice._models import AnnotationResult
 
 
 @pytest.mark.asyncio
@@ -140,12 +138,12 @@ async def test_speech_fragments():
     assert last_message.get("message") == AgentServerMessageType.ADD_PARTIAL_SEGMENT
 
     # Check the segment
-    segments: list[SpeakerSegment] = last_message.get("segments", [])
+    segments = last_message.get("segments", [])
     assert len(segments) == 1
     seg0 = segments[0]
-    assert seg0.speaker_id == "S1"
-    assert seg0.text == "Welcome"
-    assert f"{seg0.speaker_id}: {seg0.text}" == "S1: Welcome"
+    assert seg0["speaker_id"] == "S1"
+    assert seg0["text"] == "Welcome"
+    assert f"{seg0['speaker_id']}: {seg0['text']}" == "S1: Welcome"
 
     # Add listener for final segment
     message_reset()
@@ -165,16 +163,12 @@ async def test_speech_fragments():
     assert last_message.get("message") == AgentServerMessageType.ADD_SEGMENT
 
     # Check the segment
-    segments: list[SpeakerSegment] = last_message.get("segments", [])
+    segments = last_message.get("segments", [])
     assert len(segments) == 1
     seg0 = segments[0]
-    assert seg0.speaker_id == "S1"
-    assert seg0.text == "Welcome to Speechmatics."
-    assert f"{seg0.speaker_id}: {seg0.text}" == "S1: Welcome to Speechmatics."
-
-    # Check the contents of the segment
-    fragments: list[SpeechFragment] = seg0.fragments
-    assert len(fragments) == 4
+    assert seg0["speaker_id"] == "S1"
+    assert seg0["text"] == "Welcome to Speechmatics."
+    assert f"{seg0['speaker_id']}: {seg0['text']}" == "S1: Welcome to Speechmatics."
 
 
 @pytest.mark.asyncio
@@ -318,16 +312,12 @@ async def test_external_vad():
     assert last_message.get("message") == AgentServerMessageType.ADD_SEGMENT
 
     # Check the segment
-    segments: list[SpeakerSegment] = last_message.get("segments", [])
+    segments = last_message.get("segments", [])
     assert len(segments) == 1
     seg0 = segments[0]
-    assert seg0.speaker_id == "S1"
-    assert seg0.text == "Welcome to Speechmatics"
-    assert f"{seg0.speaker_id}: {seg0.text}" == "S1: Welcome to Speechmatics"
-
-    # Check the contents of the segment
-    fragments: list[SpeechFragment] = segments[0].fragments
-    assert len(fragments) == 3
+    assert seg0["speaker_id"] == "S1"
+    assert seg0["text"] == "Welcome to Speechmatics"
+    assert f"{seg0['speaker_id']}: {seg0['text']}" == "S1: Welcome to Speechmatics"
 
 
 @pytest.mark.asyncio
@@ -427,16 +417,3 @@ async def test_end_of_utterance_adaptive_vad():
     expected_max_interval = adaptive_timeout * 0.5 * 1.1
     assert receive_interval >= expected_min_interval
     assert receive_interval <= expected_max_interval
-
-
-@pytest.mark.asyncio
-async def test_speaker_segment():
-    """Test SpeakerSegment.
-
-    - create segment
-    - serialize to JSON
-    """
-
-    # Create a new segment
-    segment = SpeakerSegment()
-    assert segment is not None

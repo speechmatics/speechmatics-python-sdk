@@ -89,6 +89,7 @@ class VoiceAgentClient(AsyncClient):
 
         # Session info (updated on session created)
         self._session: SessionInfo = SessionInfo(
+            config=self._config,
             session_id="NOT_SET",
             base_time=datetime.datetime.now(datetime.timezone.utc),
             language_pack_info=LanguagePackInfo.from_dict({}),
@@ -236,6 +237,7 @@ class VoiceAgentClient(AsyncClient):
         def _evt_on_recognition_started(message: dict[str, Any]) -> None:
             self._is_ready_for_audio = True
             self._session = SessionInfo(
+                config=self._config,
                 session_id=message.get("id", "UNKNOWN"),
                 base_time=datetime.datetime.now(datetime.timezone.utc),
                 language_pack_info=LanguagePackInfo.from_dict(message.get("language_pack_info", {})),
@@ -798,7 +800,7 @@ class VoiceAgentClient(AsyncClient):
                         AgentServerMessageType.ADD_SEGMENT,
                         {
                             "message": AgentServerMessageType.ADD_SEGMENT.value,
-                            "segments": final_segments,
+                            "segments": [s.to_dict(self._config.include_results) for s in final_segments],
                             "metadata": metadata,
                         },
                     )
@@ -813,7 +815,7 @@ class VoiceAgentClient(AsyncClient):
                         AgentServerMessageType.ADD_PARTIAL_SEGMENT,
                         {
                             "message": AgentServerMessageType.ADD_PARTIAL_SEGMENT.value,
-                            "segments": interim_segments,
+                            "segments": [s.to_dict(self._config.include_results) for s in interim_segments],
                             "metadata": metadata,
                         },
                     )

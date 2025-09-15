@@ -9,7 +9,6 @@ from speechmatics.rt import Microphone
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import DiarizationSpeakerConfig
 from speechmatics.voice import EndOfUtteranceMode
-from speechmatics.voice import SpeakerSegment
 from speechmatics.voice import VoiceAgentClient
 from speechmatics.voice import VoiceAgentConfig
 
@@ -68,10 +67,10 @@ async def main() -> None:
 def _register_event_handlers(client: VoiceAgentClient, logger) -> None:
     """Register event handlers for real-time transcription events."""
 
-    def _format_segment(segment: SpeakerSegment) -> str:
+    def _format_segment(segment) -> str:
         """Format speaker segment for display."""
         template = "@{speaker_id}: {text}" if segment.is_active else "@{speaker_id} (background): {text}"
-        return segment.format_text(template)
+        return template.format(**segment)
 
     @client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT)
     def handle_partial_segments(message):

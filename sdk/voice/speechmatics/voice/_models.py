@@ -171,6 +171,9 @@ class VoiceAgentConfig:
             Refer to our examples on the format of the known_speakers parameter.
             Defaults to [].
 
+        include_results: Include word data in the response. This is useful for debugging and
+            understanding the STT engine's behavior. Defaults to False.
+
         sample_rate: Audio sample rate for streaming. Defaults to 16000.
         audio_encoding: Audio encoding format. Defaults to AudioEncoding.PCM_S16LE.
     """
@@ -196,6 +199,9 @@ class VoiceAgentConfig:
     prefer_current_speaker: bool = False
     speaker_config: DiarizationSpeakerConfig = field(default_factory=DiarizationSpeakerConfig)
     known_speakers: list[DiarizationKnownSpeaker] = field(default_factory=list)
+
+    # Advanced features
+    include_results: bool = False
 
     # Audio
     sample_rate: int = 16000
@@ -383,11 +389,13 @@ class SessionInfo:
     """Information about the session.
 
     Attributes:
+        config (VoiceAgentConfig): The configuration for the session.
         session_id (str): The session ID.
         base_time (datetime.datetime): The base time for the session.
         language_pack_info (LanguagePackInfo): The language pack info for the session.
     """
 
+    config: VoiceAgentConfig
     session_id: str
     base_time: datetime.datetime
     language_pack_info: LanguagePackInfo
@@ -510,15 +518,20 @@ class SpeakerSegment:
         """Return the end time of the segment."""
         return self.fragments[-1].end_time
 
-    def __str__(self) -> str:
-        """Return a string representation of the object."""
-        meta = {
+    def to_dict(self, include_results: bool = False) -> dict[str, Any]:
+        """Return a dictionary representation of the object."""
+        return {
             "speaker_id": self.speaker_id,
+            "is_active": self.is_active,
             "timestamp": self.timestamp,
             "language": self.language,
-            "annotation": str(self.annotation),
             "text": self.text,
+            **({"results": [f.result for f in self.fragments]} if include_results else {}),
         }
+
+    def __str__(self) -> str:
+        """Return a string representation of the object."""
+        meta = self.to_dict(include_results=True)
         return f"SpeakerSegment({', '.join(f'{k}={v}' for k, v in meta.items())})"
 
 

@@ -5,17 +5,16 @@ import json
 import os
 import sys
 import time
-from dataclasses import asdict
-from dataclasses import is_dataclass
 from typing import Callable
 from typing import Optional
 
 import aiofiles
 
+from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import VoiceAgentClient
-from speechmatics.voice import VoiceAgentConfig, AdditionalVocabEntry
+from speechmatics.voice import VoiceAgentConfig
 from speechmatics.voice._helpers import to_serializable
 
 

@@ -149,7 +149,7 @@ async def test_partial_segment():
             return
 
         # Get the first segment's text
-        transcription = segments[0].text
+        transcription = segments[0]["text"]
 
         # Check transcription starts with `Welcome to Speechmatics`
         if not transcription.lower().startswith("welcome to speech"):
