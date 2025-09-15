@@ -6,8 +6,6 @@ An SDK for working with the Speechmatics Real-Time API optimised for use in voic
 
 This uses the Python Real-Time API to process the transcription results from the STT engine and combine them into manageable segments of text. Taking advantage of speaker diarization, the transcription is grouped into individual speakers, with advanced options to focus on and/or ignore specific speakers.
 
-See [OVERVIEW.md](OVERVIEW.md) for more information.
-
 ## Installation
 
 ```bash
@@ -102,7 +100,94 @@ The `examples/` directory contains practical demonstrations of the Voice Agent S
 
 ## Client Configuration
 
-The `VoiceAgentClient` can be configured with a number of options to control the behavior of the client.
+The `VoiceAgentClient` can be configured with a number of options to control the behaviour of the client using the `VoiceAgentConfig` class.
+
+### VoiceAgentConfig Parameters
+
+#### Service Configuration
+
+- **`operating_point`** (`OperatingPoint`): Operating point for transcription accuracy vs. latency tradeoff. It is recommended to use `OperatingPoint.ENHANCED` for most use cases. Defaults to `OperatingPoint.ENHANCED`.
+- **`domain`** (`Optional[str]`): Domain for Speechmatics API. Defaults to `None`.
+- **`language`** (`str`): Language code for transcription. Defaults to `"en"`.
+- **`output_locale`** (`Optional[str]`): Output locale for transcription, e.g. `"en-GB"`. Defaults to `None`.
+
+#### Timing and Latency Features
+
+- **`max_delay`** (`float`): Maximum delay in seconds for transcription. This forces the STT engine to speed up the processing of transcribed words and reduces the interval between partial and final results. Lower values can have an impact on accuracy. Defaults to `0.7`.
+- **`end_of_utterance_silence_trigger`** (`float`): Maximum delay in seconds for end of utterance trigger. The delay is used to wait for any further transcribed words before emitting the final word frames. The value must be lower than `max_delay`. Defaults to `0.2`.
+- **`end_of_utterance_max_delay`** (`float`): Maximum delay in seconds for end of utterance delay. The delay is used to wait for any further transcribed words before emitting the final word frames. The value must be greater than `end_of_utterance_silence_trigger`. Defaults to `10.0`.
+- **`end_of_utterance_mode`** (`EndOfUtteranceMode`): End of utterance delay mode. When `ADAPTIVE` is used, the delay can be adjusted on the content of what the most recent speaker has said, such as rate of speech and whether they have any pauses or disfluencies. When `FIXED` is used, the delay is fixed to the value of `end_of_utterance_silence_trigger`. Use of `EXTERNAL` disables end of utterance detection and uses a fallback timer. Defaults to `EndOfUtteranceMode.FIXED`.
+
+#### Language and Vocabulary Features
+
+- **`additional_vocab`** (`list[AdditionalVocabEntry]`): List of additional vocabulary entries. If you supply a list of additional vocabulary entries, this will increase the weight of the words in the vocabulary and help the STT engine to better transcribe the words. Defaults to `[]`.
+- **`punctuation_overrides`** (`Optional[dict]`): Punctuation overrides. This allows you to override the punctuation in the STT engine. This is useful for languages that use different punctuation than English. See documentation for more information. Defaults to `None`.
+
+#### Speaker Diarization
+
+- **`enable_diarization`** (`bool`): Enable speaker diarization. When enabled, the STT engine will determine and attribute words to unique speakers. The `speaker_sensitivity` parameter can be used to adjust the sensitivity of diarization. Defaults to `False`.
+- **`speaker_sensitivity`** (`float`): Diarization sensitivity. A higher value increases the sensitivity of diarization and helps when two or more speakers have similar voices. Defaults to `0.5`.
+- **`max_speakers`** (`Optional[int]`): Maximum number of speakers to detect. This forces the STT engine to cluster words into a fixed number of speakers. It should not be used to limit the number of speakers, unless it is clear that there will only be a known number of speakers. Defaults to `None`.
+- **`prefer_current_speaker`** (`bool`): Prefer current speaker ID. When set to true, groups of words close together are given extra weight to be identified as the same speaker. Defaults to `False`.
+- **`speaker_config`** (`DiarizationSpeakerConfig`): Configuration to specify speakers to focus on, ignore and how to deal with speakers that are not in focus. Defaults to `DiarizationSpeakerConfig()`.
+- **`known_speakers`** (`list[DiarizationKnownSpeaker]`): List of known speaker labels and identifiers. If you supply a list of labels and identifiers for speakers, then the STT engine will use them to attribute any spoken words to that speaker. This is useful when you want to attribute words to a specific speaker, such as the assistant or a specific user. Labels and identifiers can be obtained from a running STT session and then used in subsequent sessions. Identifiers are unique to each Speechmatics account and cannot be used across accounts. Defaults to `[]`.
+
+#### Advanced Features
+
+- **`include_results`** (`bool`): Include word data in the response. This is useful for debugging and understanding the STT engine's behaviour. Defaults to `False`.
+
+#### Audio Configuration
+
+- **`sample_rate`** (`int`): Audio sample rate for streaming. Defaults to `16000`.
+- **`audio_encoding`** (`AudioEncoding`): Audio encoding format. Defaults to `AudioEncoding.PCM_S16LE`.
+
+### Example Configuration
+
+```python
+from speechmatics.voice import (
+    VoiceAgentConfig,
+    EndOfUtteranceMode,
+    DiarizationSpeakerConfig,
+    AdditionalVocabEntry
+)
+from speechmatics.rt import OperatingPoint, AudioEncoding
+
+# Basic configuration
+config = VoiceAgentConfig(
+    language="en",
+    enable_diarization=True,
+    end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
+)
+
+# Advanced configuration with custom settings
+advanced_config = VoiceAgentConfig(
+    operating_point=OperatingPoint.ENHANCED,
+    language="en-GB",
+    output_locale="en-GB",
+    max_delay=0.5,
+    end_of_utterance_silence_trigger=0.15,
+    end_of_utterance_max_delay=8.0,
+    end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
+    enable_diarization=True,
+    speaker_sensitivity=0.7,
+    max_speakers=3,
+    prefer_current_speaker=True,
+    speaker_config=DiarizationSpeakerConfig(
+        focus_speakers=["S1", "S2"],
+        ignore_speakers=["S3"],
+        focus_mode=DiarizationFocusMode.RETAIN,
+    ),
+    additional_vocab=[
+        AdditionalVocabEntry(
+            content="Speechmatics",
+            sounds_like=["speech matters", "speech magic"]
+        )
+    ],
+    include_results=True,
+    sample_rate=16000,
+    audio_encoding=AudioEncoding.PCM_S16LE
+)
+```
 
 ## Messages
 
@@ -229,9 +314,14 @@ The `end_of_utterance_silence_trigger` is used to calculate the baseline `FIXED`
 
 When using `EXTERNAL` mode, call `client.finalize()` to force the end of turn.
 
+## Environment Variables
+
+- `SPEECHMATICS_API_KEY` - Your Speechmatics API key
+- `SPEECHMATICS_RT_URL` - Custom WebSocket endpoint (optional)
+- `SPEECHMATICS_DEBUG_MORE` - Enable verbose debugging
+
 ## Documentation
 
-- **SDK Overview**: See [OVERVIEW.md](OVERVIEW.md) for comprehensive API documentation
 - **Speechmatics API**: https://docs.speechmatics.com
 
 ## License

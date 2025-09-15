@@ -258,7 +258,6 @@ class VoiceAgentClient(AsyncClient):
 
             @self.on(ServerMessageType.END_OF_UTTERANCE)
             def _evt_on_end_of_utterance(message: dict[str, Any]) -> None:
-                self._logger.debug("End of utterance")
                 self.emit(
                     AgentServerMessageType.END_OF_TURN,
                     {"message": AgentServerMessageType.END_OF_TURN.value, "metadata": message.get("metadata", {})},
