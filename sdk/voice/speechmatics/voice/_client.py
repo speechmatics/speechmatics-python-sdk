@@ -177,7 +177,7 @@ class VoiceAgentClient(AsyncClient):
             transcription_config.additional_vocab = [
                 {
                     "content": e.content,
-                    "sounds_like": e.sounds_like,
+                    **({"sounds_like": e.sounds_like} if e.sounds_like else {}),
                 }
                 for e in config.additional_vocab
             ]
