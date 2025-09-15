@@ -224,7 +224,7 @@ async def test_end_of_utterance_fixed():
             client.emit(message["payload"]["message"], message["payload"])
 
     # Add listener for first interim segment
-    client.once(AgentServerMessageType.END_OF_UTTERANCE, message_rx)
+    client.once(AgentServerMessageType.END_OF_TURN, message_rx)
 
     # Inject conversation
     await send_message(0, count=13, use_ttl=False)
@@ -234,10 +234,10 @@ async def test_end_of_utterance_fixed():
         await asyncio.wait_for(event_rx.wait(), timeout=5.0)
         assert last_message is not None
     except asyncio.TimeoutError:
-        pytest.fail("END_OF_UTTERANCE event was not received within 5 seconds")
+        pytest.fail("END_OF_TURN event was not received within 5 seconds")
 
     # Check the right message was received
-    assert last_message.get("message") == AgentServerMessageType.END_OF_UTTERANCE
+    assert last_message.get("message") == AgentServerMessageType.END_OF_TURN
 
 
 @pytest.mark.asyncio
@@ -263,7 +263,7 @@ async def test_external_vad():
         api_key="NONE",
         connect=False,
         config=VoiceAgentConfig(
-            end_of_utterance_silence_trigger=adaptive_timeout, end_of_utterance_mode=EndOfUtteranceMode.NONE
+            end_of_utterance_silence_trigger=adaptive_timeout, end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL
         ),
     )
     assert client is not None
@@ -359,15 +359,26 @@ async def test_end_of_utterance_adaptive_vad():
     assert client is not None
 
     # Event to wait
-    event_rx: asyncio.Event = asyncio.Event()
+    eot_received: asyncio.Event = asyncio.Event()
     last_message: Optional[dict[str, Any]] = None
 
-    # Message receiver
-    def message_rx(message: dict[str, Any]):
+    # Time for last final (used to calculate the interval)
+    last_final_time: Optional[float] = None
+    receive_interval: Optional[float] = None
+
+    # Transcript receiver
+    def transcript_rx(message: dict[str, Any]):
+        if not eot_received.is_set():
+            nonlocal last_final_time
+            last_final_time = datetime.datetime.now()
+
+    # End of turn receiver
+    def eot_rx(message: dict[str, Any]):
         nonlocal last_message
+        nonlocal receive_interval
         last_message = message
-        event_rx.set()
-        print(message)
+        receive_interval = (datetime.datetime.now() - last_final_time).total_seconds()
+        eot_received.set()
 
     # Send a message from the conversation
     async def send_message(idx: int, count: int = 1, use_ttl: bool = True):
@@ -386,30 +397,32 @@ async def test_end_of_utterance_adaptive_vad():
             # Emit the message
             client.emit(message["payload"]["message"], message["payload"])
 
-    # Add listener for first interim segment
-    client.once(AgentServerMessageType.END_OF_UTTERANCE, message_rx)
+    # Add listener for partials (as these will trigger the adaptive timer))
+    client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, transcript_rx)
 
-    # Inject conversation
+    # Add listener for end of turn
+    client.once(AgentServerMessageType.END_OF_TURN, eot_rx)
+
+    # Inject conversation up to the penultimate final from the STT
     await send_message(0, count=12, use_ttl=True)
+
+    # Check we have had a final
+    assert last_final_time is not None
 
     # Timing info
     timeout = adaptive_timeout * 1.5
-    start_time = datetime.datetime.now()
-    receive_interval = None
 
     # Wait for EndOfUtterance
     try:
-        await asyncio.wait_for(event_rx.wait(), timeout=timeout)
+        await asyncio.wait_for(eot_received.wait(), timeout=timeout)
         assert last_message is not None
-        receive_interval = (datetime.datetime.now() - start_time).total_seconds()
     except asyncio.TimeoutError:
-        pytest.fail(f"END_OF_UTTERANCE event was not received within {timeout} seconds")
+        pytest.fail(f"END_OF_TURN event was not received within {timeout} seconds")
 
     # Check the right message was received
-    assert last_message.get("message") == AgentServerMessageType.END_OF_UTTERANCE
+    assert last_message.get("message") == AgentServerMessageType.END_OF_TURN
 
     # Check the interval was within +/- 10% of the adaptive trigger of 0.5 the timeout (see client code)
-    print(f"receive_interval={round(receive_interval, 3)}")
     expected_min_interval = adaptive_timeout * 0.5 * 0.9
     expected_max_interval = adaptive_timeout * 0.5 * 1.1
     assert receive_interval >= expected_min_interval

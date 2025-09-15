@@ -18,7 +18,7 @@ from speechmatics.rt import OperatingPoint
 class EndOfUtteranceMode(str, Enum):
     """End of turn delay options for transcription."""
 
-    NONE = "none"
+    EXTERNAL = "external"
     FIXED = "fixed"
     ADAPTIVE = "adaptive"
 

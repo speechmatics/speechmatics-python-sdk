@@ -257,8 +257,10 @@ class VoiceAgentClient(AsyncClient):
             @self.on(ServerMessageType.END_OF_UTTERANCE)
             def _evt_on_end_of_utterance(message: dict[str, Any]) -> None:
                 self._logger.debug("End of utterance")
-                # self.finalize()
-                # pass
+                self.emit(
+                    AgentServerMessageType.END_OF_TURN,
+                    {"message": AgentServerMessageType.END_OF_TURN, "metadata": message.get("metadata", {})},
+                )
 
     async def connect(self) -> None:
         """Connect to the Speechmatics API.
@@ -624,7 +626,7 @@ class VoiceAgentClient(AsyncClient):
             async def emit(delay: float | None) -> None:
                 if delay and delay > 0:
                     await asyncio.sleep(delay)
-                asyncio.create_task(self._emit_segments(finalize=True, end_of_utterance=True))
+                asyncio.create_task(self._emit_segments(finalize=True, end_of_turn=True))
 
             # Finalize after delay
             if should_emit:
@@ -753,7 +755,7 @@ class VoiceAgentClient(AsyncClient):
 
         asyncio.create_task(emit())
 
-    async def _emit_segments(self, finalize: bool = False, end_of_utterance: bool = False) -> None:
+    async def _emit_segments(self, finalize: bool = False, end_of_turn: bool = False) -> None:
         """Emit segments to listeners.
 
         This function will emit segments in the view without any further checks
@@ -762,7 +764,7 @@ class VoiceAgentClient(AsyncClient):
 
         Args:
             finalize: Whether to finalize all segments.
-            end_of_utterance: Whether to emit an end of turn event.
+            end_of_turn: Whether to emit an end of turn event.
         """
 
         # Metadata
@@ -819,12 +821,12 @@ class VoiceAgentClient(AsyncClient):
                 # Update the current view
                 self._update_current_view()
 
-        # Emit end of utterance
-        if end_of_utterance:
+        # Emit end of turn
+        if end_of_turn:
             self.emit(
-                AgentServerMessageType.END_OF_UTTERANCE,
+                AgentServerMessageType.END_OF_TURN,
                 {
-                    "message": AgentServerMessageType.END_OF_UTTERANCE.value,
+                    "message": AgentServerMessageType.END_OF_TURN.value,
                     "metadata": metadata,
                 },
             )
