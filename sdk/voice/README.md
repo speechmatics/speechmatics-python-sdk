@@ -4,7 +4,48 @@
 
 An SDK for working with the Speechmatics Real-Time API optimised for use in voice agents or transcription services.
 
-This uses the Python Real-Time API to process the transcription results from the STT engine and combine them into manageable segments of text. Taking advantage of speaker diarization, the transcription is grouped into individual speakers, with advanced options to focus on and/or ignore specific speakers.
+## Overview
+
+The Voice Agent SDK is designed to be a set of helper classes that use the Real-Time AsyncClient to connect to the Speechmatics Real-Time API and process the transcription results from the STT engine and combine them into manageable segments of text. Taking advantage of speaker diarization, the transcription is grouped into individual speakers, with advanced options to focus on and/or ignore specific speakers.
+
+```mermaid
+graph TD
+    A[Client connects] --> B[Recognition started]
+    B --> C[Audio chunks sent]
+    C --> D[STT processing]
+
+    D --> E[Partial transcripts rx]
+    D --> F[Final transcripts rx]
+
+    E --> G[Process transcripts]
+    F --> G
+
+    G --> H[Accumulate speech fragments]
+    H --> I{Changes detected?}
+
+    I -->|No| J[Skip]
+    I -->|Yes| K[Create speaker segments]
+
+    K --> L{Segment type?}
+    L -->|Final| M[Emit final segments]
+    L -->|Partial| N[Emit partial segments]
+
+    M --> O[Trim fragments]
+    N --> P{End of utterance?}
+    O --> P
+
+    P -->|FIXED mode| Q[Wait for STT signal]
+    P -->|ADAPTIVE mode| R[Calculate timing]
+
+    Q --> S[Emit END_OF_TURN]
+    R --> S
+
+    style A fill:#e1f5fe
+    style B fill:#e8f5e8
+    style M fill:#fff3e0
+    style N fill:#fff3e0
+    style S fill:#fce4ec
+```
 
 ## Installation
 
@@ -14,7 +55,7 @@ pip install speechmatics-voice
 
 ## Requirements
 
-You must have a valid Speechmatics API key to use this SDK. You can get one from the [Speechmatics Console](https://console.speechmatics.com).
+You must have a valid Speechmatics API key to use this SDK. You can get one from the [Speechmatics Portal](https://portal.speechmatics.com/).
 
 Store this as `SPEECHMATICS_API_KEY` environment variable in your `.env` file or use `export SPEECHMATICS_API_KEY="your_api_key_here"` in your terminal.
 
