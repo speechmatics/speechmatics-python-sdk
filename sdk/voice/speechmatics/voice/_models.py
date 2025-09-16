@@ -543,6 +543,7 @@ class SpeakerSegment:
             "timestamp": self.timestamp,
             "language": self.language,
             "text": self.text,
+            "annotation": self.annotation,
             **({"results": [f.result for f in self.fragments]} if include_results else {}),
         }
 
