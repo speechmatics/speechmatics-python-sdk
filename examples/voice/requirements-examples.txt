@@ -1,2 +1,3 @@
-pyaudio
 colorama
+pyaudio
+speechmatics-voice

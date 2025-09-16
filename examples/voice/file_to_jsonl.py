@@ -12,6 +12,8 @@ import aiofiles
 
 from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
+from speechmatics.voice import DiarizationFocusMode
+from speechmatics.voice import DiarizationSpeakerConfig
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import VoiceAgentClient
 from speechmatics.voice import VoiceAgentConfig
@@ -29,15 +31,26 @@ async def main() -> None:
         print(f"Error: Input file '{args.input_file}' not found", file=sys.stderr)
         sys.exit(1)
 
+    # Create speaker configuration if speaker options are provided
+    speaker_config = None
+    if args.focus_speakers or args.ignore_speakers:
+        focus_mode = DiarizationFocusMode.IGNORE if args.ignore_mode else DiarizationFocusMode.RETAIN
+        speaker_config = DiarizationSpeakerConfig(
+            focus_speakers=args.focus_speakers,
+            ignore_speakers=args.ignore_speakers,
+            focus_mode=focus_mode,
+        )
+
     # Client
     client = VoiceAgentClient(
         api_key=args.api_key,
         url=args.url,
         config=VoiceAgentConfig(
-            end_of_utterance_silence_trigger=0.5,
-            max_delay=0.7,
-            end_of_utterance_mode=EndOfUtteranceMode.FIXED,
+            end_of_utterance_silence_trigger=args.end_of_utterance_silence_trigger,
+            max_delay=args.max_delay,
+            end_of_utterance_mode=args.end_of_utterance_mode,
             enable_diarization=True,
+            speaker_config=speaker_config,
             additional_vocab=[
                 AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matters", "speech magic"])
             ],
@@ -78,17 +91,11 @@ async def main() -> None:
 
     # Add listeners
     client.once(AgentServerMessageType.RECOGNITION_STARTED, log_message)
-    client.once(AgentServerMessageType.INFO, log_message)
-    client.on(AgentServerMessageType.WARNING, log_message)
-    client.on(AgentServerMessageType.ERROR, log_message)
-    client.once(AgentServerMessageType.END_OF_TRANSCRIPT, log_message)
-    client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, log_message)
-    client.on(AgentServerMessageType.ADD_TRANSCRIPT, log_message)
-    client.on(AgentServerMessageType.END_OF_UTTERANCE, log_message)
     client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, log_message)
     client.on(AgentServerMessageType.ADD_SEGMENT, log_message)
     client.on(AgentServerMessageType.SPEAKER_STARTED, log_message)
     client.on(AgentServerMessageType.SPEAKER_ENDED, log_message)
+    client.on(AgentServerMessageType.END_OF_TURN, log_message)
 
     # Clear output file if it exists
     if args.output and os.path.exists(args.output):
@@ -149,16 +156,64 @@ async def send_audio_file(
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="Transcribe an audio file to JSONL format using Speechmatics Voice API"
+        description="Transcribe an audio file to JSONL format using Speechmatics Voice API",
+        epilog="Example: python file_to_jsonl.py audio.wav --output transcription.jsonl --focus-speakers S1 S2",
     )
     parser.add_argument("input_file", help="Path to the input audio file (WAV format)")
     parser.add_argument(
         "--api-key",
+        default=os.getenv("SPEECHMATICS_API_KEY"),
         help="Speechmatics API key (defaults to SPEECHMATICS_API_KEY environment variable)",
     )
     parser.add_argument("--url", help="Speechmatics server URL (optional)")
     parser.add_argument("--output", "-o", help="Output JSONL file (defaults to stdout)")
-    return parser.parse_args()
+
+    # Speaker configuration arguments
+    parser.add_argument(
+        "--focus-speakers",
+        nargs="*",
+        help="Speakers to focus on (e.g., S1 S2). Use with --ignore-mode to ignore these speakers instead",
+    )
+    parser.add_argument(
+        "--ignore-speakers",
+        nargs="*",
+        help="Specific speakers to ignore (e.g., S1 S2)",
+    )
+    parser.add_argument(
+        "--ignore-mode",
+        action="store_true",
+        help="Use ignore mode instead of focus mode for --focus-speakers",
+    )
+
+    # Voice Agent configuration arguments
+    parser.add_argument(
+        "--max-delay",
+        type=float,
+        default=0.7,
+        help="Maximum delay for transcription results in seconds (default: 0.7)",
+    )
+    parser.add_argument(
+        "--end-of-utterance-silence-trigger",
+        type=float,
+        default=0.5,
+        help="Silence duration to trigger end of utterance in seconds (default: 0.5)",
+    )
+    parser.add_argument(
+        "--end-of-utterance-mode",
+        choices=["FIXED", "ADAPTIVE"],
+        default="FIXED",
+        help="End of utterance detection mode (default: FIXED)",
+    )
+
+    args = parser.parse_args()
+
+    # Convert string to EndOfUtteranceMode enum
+    if args.end_of_utterance_mode == "FIXED":
+        args.end_of_utterance_mode = EndOfUtteranceMode.FIXED
+    else:
+        args.end_of_utterance_mode = EndOfUtteranceMode.ADAPTIVE
+
+    return args
 
 
 if __name__ == "__main__":

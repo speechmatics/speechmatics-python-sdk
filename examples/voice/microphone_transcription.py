@@ -1,4 +1,6 @@
+import argparse
 import asyncio
+import os
 
 from colorama import init as colorama_init
 from utils import CustomLevels
@@ -7,6 +9,7 @@ from utils import select_audio_device
 
 from speechmatics.rt import Microphone
 from speechmatics.voice import AgentServerMessageType
+from speechmatics.voice import DiarizationFocusMode
 from speechmatics.voice import DiarizationSpeakerConfig
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import VoiceAgentClient
@@ -27,27 +30,43 @@ async def main() -> None:
     - Performance metrics (TTFB)
     - Works with any PyAudio-compatible input device
     """
+    # Parse command line arguments
+    args = parse_args()
 
     # Audio configuration for real-time processing
-    sample_rate = 16000
-    chunk_size = 320
+    sample_rate = args.sample_rate
+    chunk_size = args.chunk_size
 
     # Setup microphone with user device selection
     mic = _setup_microphone(sample_rate, chunk_size)
     if not mic:
         return
 
+    # Create speaker configuration if speaker options are provided
+    speaker_config = None
+    if args.focus_speakers or args.ignore_speakers:
+        focus_mode = DiarizationFocusMode.IGNORE if args.ignore_mode else DiarizationFocusMode.FOCUS
+        speaker_config = DiarizationSpeakerConfig(
+            focus_speakers=args.focus_speakers,
+            ignore_speakers=args.ignore_speakers,
+            focus_mode=focus_mode,
+        )
+    else:
+        # Default behaviour: focus on first speaker
+        speaker_config = DiarizationSpeakerConfig(focus_speakers=["S1"])
+
     # Configure Voice Agent with microphone-specific settings
     config = VoiceAgentConfig(
         sample_rate=sample_rate,
-        end_of_utterance_silence_trigger=0.5,
+        end_of_utterance_silence_trigger=args.end_of_utterance_silence_trigger,
+        max_delay=args.max_delay,
         enable_diarization=True,
-        end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
-        speaker_config=DiarizationSpeakerConfig(focus_speakers=["S1"]),
+        end_of_utterance_mode=args.end_of_utterance_mode,
+        speaker_config=speaker_config,
     )
 
     # Create Voice Agent client and start transcription
-    async with VoiceAgentClient(config=config) as client:
+    async with VoiceAgentClient(api_key=args.api_key, url=args.url, config=config) as client:
         # Register event handlers for real-time transcription events
         _register_event_handlers(client, logger)
 
@@ -125,6 +144,69 @@ async def _stream_microphone(mic: Microphone, client: VoiceAgentClient, chunk_si
     while True:
         frame = await mic.read(chunk_size)
         await client.send_audio(frame)
+
+
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Live microphone transcription with speaker diarisation using Speechmatics Voice API",
+        epilog="Example: python microphone_transcription.py --focus-speakers S1 S2 --max-delay 1.0",
+    )
+    parser.add_argument(
+        "--api-key",
+        default=os.getenv("SPEECHMATICS_API_KEY"),
+        help="Speechmatics API key (defaults to SPEECHMATICS_API_KEY environment variable)",
+    )
+    parser.add_argument("--url", help="Speechmatics server URL (optional)")
+    parser.add_argument("--sample-rate", type=int, default=16000, help="Audio sample rate in Hz (default: 16000)")
+    parser.add_argument("--chunk-size", type=int, default=320, help="Audio chunk size in bytes (default: 320)")
+
+    # Speaker configuration arguments
+    parser.add_argument(
+        "--focus-speakers",
+        nargs="*",
+        help="Speakers to focus on (e.g., S1 S2). Use with --ignore-mode to ignore these speakers instead",
+    )
+    parser.add_argument(
+        "--ignore-speakers",
+        nargs="*",
+        help="Specific speakers to ignore (e.g., S1 S2)",
+    )
+    parser.add_argument(
+        "--ignore-mode",
+        action="store_true",
+        help="Use ignore mode instead of focus mode for --focus-speakers",
+    )
+
+    # Voice Agent configuration arguments
+    parser.add_argument(
+        "--max-delay",
+        type=float,
+        default=0.7,
+        help="Maximum delay for transcription results in seconds (default: 0.7)",
+    )
+    parser.add_argument(
+        "--end-of-utterance-silence-trigger",
+        type=float,
+        default=0.5,
+        help="Silence duration to trigger end of utterance in seconds (default: 0.5)",
+    )
+    parser.add_argument(
+        "--end-of-utterance-mode",
+        choices=["FIXED", "ADAPTIVE"],
+        default="ADAPTIVE",
+        help="End of utterance detection mode (default: ADAPTIVE)",
+    )
+
+    args = parser.parse_args()
+
+    # Convert string to EndOfUtteranceMode enum
+    if args.end_of_utterance_mode == "FIXED":
+        args.end_of_utterance_mode = EndOfUtteranceMode.FIXED
+    else:
+        args.end_of_utterance_mode = EndOfUtteranceMode.ADAPTIVE
+
+    return args
 
 
 if __name__ == "__main__":

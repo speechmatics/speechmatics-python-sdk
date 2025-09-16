@@ -1,4 +1,6 @@
+import argparse
 import asyncio
+import os
 import sys
 import wave
 from pathlib import Path
@@ -29,16 +31,17 @@ async def main() -> None:
     - Real-time audio playback during transcription
     - Speaker diarisation with voice activity detection
     - Comprehensive event handling and logging
+    - This example will **only** show transcription from the second speaker
     """
-    # Parse command line arguments for audio file path
-    # Default to example.wav if no file specified
-    audio_file_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).parent / "../example2.wav"
+    # Parse command line arguments
+    args = parse_args()
+
+    audio_file_path = Path(args.audio_file)
 
     # Validate that the audio file exists
     if not audio_file_path.exists():
         print(f"Error: Audio file not found: {audio_file_path}")
-        print("Usage: python file_transcription.py [audio_file.wav]")
-        return
+        sys.exit(1)
 
     # Load and validate the audio file format
     # Only mono 16-bit WAV files are supported
@@ -53,17 +56,31 @@ async def main() -> None:
     # User can select from available output devices
     audio_player = _setup_audio_player(sample_rate, channels, sample_width)
 
+    # Create speaker configuration if speaker options are provided
+    speaker_config = None
+    if args.focus_speakers or args.ignore_speakers:
+        focus_mode = DiarizationFocusMode.IGNORE if args.ignore_mode else DiarizationFocusMode.FOCUS
+        speaker_config = DiarizationSpeakerConfig(
+            focus_speakers=args.focus_speakers,
+            ignore_speakers=args.ignore_speakers,
+            focus_mode=focus_mode,
+        )
+    else:
+        # Default behaviour: focus on second speaker and ignore first
+        speaker_config = DiarizationSpeakerConfig(focus_speakers=["S2"], focus_mode=DiarizationFocusMode.IGNORE)
+
     # Configure Voice Agent with transcription settings
     config = VoiceAgentConfig(
         sample_rate=sample_rate,
-        end_of_utterance_silence_trigger=0.5,
+        end_of_utterance_silence_trigger=args.end_of_utterance_silence_trigger,
+        max_delay=args.max_delay,
         enable_diarization=True,
-        end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
-        speaker_config=DiarizationSpeakerConfig(focus_speakers=["S2"], focus_mode=DiarizationFocusMode.IGNORE),
+        end_of_utterance_mode=args.end_of_utterance_mode,
+        speaker_config=speaker_config,
     )
 
     # Create Voice Agent client and start transcription
-    async with VoiceAgentClient(config=config) as client:
+    async with VoiceAgentClient(api_key=args.api_key, url=args.url, config=config) as client:
         # Register event handlers for transcription events
         _register_event_handlers(client, logger)
 
@@ -151,6 +168,11 @@ def _register_event_handlers(client: VoiceAgentClient, logger) -> None:
         """Handle speech end events."""
         logger.log(CustomLevels.SPEAKER, f"🛑 Speech ended: {message}")
 
+    @client.on(AgentServerMessageType.END_OF_TURN)
+    def handle_end_of_turn(message):
+        """Handle end of turn events."""
+        logger.log(CustomLevels.SPEAKER, f"🤖 End of turn: {message}")
+
     @client.on(AgentServerMessageType.TTFB_METRICS)
     def handle_metrics(message):
         """Handle time-to-first-byte metrics."""
@@ -181,6 +203,73 @@ async def _stream_audio_file(
                 audio_player.play(audio_data)
 
             await asyncio.sleep(chunk_duration)
+
+
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Transcribe an audio file with real-time playback and speaker diarisation using Speechmatics Voice API",
+        epilog="Example: python file_transcription.py audio.wav --focus-speakers S1 --max-delay 1.0",
+    )
+    parser.add_argument(
+        "audio_file",
+        nargs="?",
+        default="../example2.wav",
+        help="Path to the input audio file (WAV format, mono 16-bit). Defaults to '../example2.wav'",
+    )
+    parser.add_argument(
+        "--api-key",
+        default=os.getenv("SPEECHMATICS_API_KEY"),
+        help="Speechmatics API key (defaults to SPEECHMATICS_API_KEY environment variable)",
+    )
+    parser.add_argument("--url", help="Speechmatics server URL (optional)")
+
+    # Speaker configuration arguments
+    parser.add_argument(
+        "--focus-speakers",
+        nargs="*",
+        help="Speakers to focus on (e.g., S1 S2). Use with --ignore-mode to ignore these speakers instead",
+    )
+    parser.add_argument(
+        "--ignore-speakers",
+        nargs="*",
+        help="Specific speakers to ignore (e.g., S1 S2)",
+    )
+    parser.add_argument(
+        "--ignore-mode",
+        action="store_true",
+        help="Use ignore mode instead of focus mode for --focus-speakers",
+    )
+
+    # Voice Agent configuration arguments
+    parser.add_argument(
+        "--max-delay",
+        type=float,
+        default=0.7,
+        help="Maximum delay for transcription results in seconds (default: 0.7)",
+    )
+    parser.add_argument(
+        "--end-of-utterance-silence-trigger",
+        type=float,
+        default=0.5,
+        help="Silence duration to trigger end of utterance in seconds (default: 0.5)",
+    )
+    parser.add_argument(
+        "--end-of-utterance-mode",
+        choices=["FIXED", "ADAPTIVE"],
+        default="ADAPTIVE",
+        help="End of utterance detection mode (default: ADAPTIVE)",
+    )
+
+    args = parser.parse_args()
+
+    # Convert string to EndOfUtteranceMode enum
+    if args.end_of_utterance_mode == "FIXED":
+        args.end_of_utterance_mode = EndOfUtteranceMode.FIXED
+    else:
+        args.end_of_utterance_mode = EndOfUtteranceMode.ADAPTIVE
+
+    return args
 
 
 if __name__ == "__main__":
