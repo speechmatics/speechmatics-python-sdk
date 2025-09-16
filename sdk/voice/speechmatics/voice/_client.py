@@ -604,13 +604,6 @@ class VoiceAgentClient(AsyncClient):
             # Trim the view
             self._current_view.trim(start_time=self._current_view.start_time, end_time=last_segment.end_time)
 
-        # Emit the segments
-        asyncio.create_task(self._emit_segments())
-
-        # Only do this for ADAPTIVE end of utterance
-        if self._end_of_utterance_mode == EndOfUtteranceMode.ADAPTIVE:
-            """If ADAPTIVE, then calculate whether the turn has completed."""
-
             # Compare previous view to this view
             if self._previous_view:
                 changes = FragmentUtils.compare_views(self._session, self._previous_view, self._current_view)
@@ -619,6 +612,14 @@ class VoiceAgentClient(AsyncClient):
 
             # Update the previous view
             self._previous_view = self._current_view
+
+        # Emit the segments
+        if changes.any(AnnotationFlags.NEW, AnnotationFlags.UPDATED_FULL):
+            asyncio.create_task(self._emit_segments())
+
+        # Only do this for ADAPTIVE end of utterance
+        if self._end_of_utterance_mode == EndOfUtteranceMode.ADAPTIVE:
+            """If ADAPTIVE, then calculate whether the turn has completed."""
 
             # Calculate delay to end of utterance
             should_emit, emit_final_delay = self._calc_delay_to_end_of_utterance(self._current_view, changes)
