@@ -234,6 +234,8 @@ class VoiceAgentClient(AsyncClient):
         # Recognition started event
         @self.once(ServerMessageType.RECOGNITION_STARTED)
         def _evt_on_recognition_started(message: dict[str, Any]) -> None:
+            if DEBUG_MORE:
+                self._logger.debug(json.dumps(message))
             self._is_ready_for_audio = True
             self._session = SessionInfo(
                 config=self._config,
@@ -245,22 +247,26 @@ class VoiceAgentClient(AsyncClient):
         # Partial transcript event
         @self.on(ServerMessageType.ADD_PARTIAL_TRANSCRIPT)
         def _evt_on_partial_transcript(message: dict[str, Any]) -> None:
+            if DEBUG_MORE:
+                self._logger.debug(json.dumps(message))
             self._handle_transcript(message, is_final=False)
 
         # Final transcript event
         @self.on(ServerMessageType.ADD_TRANSCRIPT)
         def _evt_on_final_transcript(message: dict[str, Any]) -> None:
+            if DEBUG_MORE:
+                self._logger.debug(json.dumps(message))
             self._handle_transcript(message, is_final=True)
 
         # End of utterance event
-        if self._end_of_utterance_mode == EndOfUtteranceMode.FIXED:
-
-            @self.on(ServerMessageType.END_OF_UTTERANCE)
-            def _evt_on_end_of_utterance(message: dict[str, Any]) -> None:
-                self.emit(
-                    AgentServerMessageType.END_OF_TURN,
-                    {"message": AgentServerMessageType.END_OF_TURN.value, "metadata": message.get("metadata", {})},
-                )
+        @self.on(ServerMessageType.END_OF_UTTERANCE)
+        def _evt_on_end_of_utterance(message: dict[str, Any]) -> None:
+            if DEBUG_MORE:
+                self._logger.debug(json.dumps(message))
+            self.emit(
+                AgentServerMessageType.END_OF_TURN,
+                {"message": AgentServerMessageType.END_OF_TURN.value, "metadata": message.get("metadata", {})},
+            )
 
     async def connect(self) -> None:
         """Connect to the Speechmatics API.
@@ -399,10 +405,6 @@ class VoiceAgentClient(AsyncClient):
             message: The new Partial or Final from the STT engine.
             is_final: Whether the data is final or partial.
         """
-
-        # Debug
-        if DEBUG_MORE:
-            self._logger.debug(json.dumps(message))
 
         # Add the speech fragments
         fragments_available = await self._add_speech_fragments(
