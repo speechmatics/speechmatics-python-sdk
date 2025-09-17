@@ -37,7 +37,6 @@ from ._models import SpeechFragment
 from ._models import VoiceAgentConfig
 
 DEBUG_MORE = os.getenv("SPEECHMATICS_DEBUG_MORE", "0").lower() in ["1", "true"]
-PREVIEW_FEATURES = os.getenv("SPEECHMATICS_PREVIEW_FEATURES", "0").lower() in ["1", "true"]
 
 
 if DEBUG_MORE:
@@ -748,12 +747,15 @@ class VoiceAgentClient(AsyncClient):
         """
 
         async def emit() -> None:
+            # Yield until the delay has passed
             if ttl is not None and ttl > 0:
                 await asyncio.sleep(ttl)
-            if PREVIEW_FEATURES:
+
+            # Finalize the segments
+            if self._config.enable_preview_features:
                 await self.send_message({"message": "Finalize"})
             else:
-                await self._emit_segments(finalize=True)
+                await self._emit_segments(finalize=True, end_of_turn=True)
 
         asyncio.create_task(emit())
 
