@@ -256,7 +256,7 @@ Emitted when the recognition has started and contains the session ID and base ti
 
 ### `SPEAKER_STARTED`
 
-Emitted when a speaker starts speaking. Contains the speaker ID and the VAD status. If there are multiple speakers, this will be emitted each time a speaker starts speaking. There will only be one active speaker at any given time.
+Emitted when a speaker starts speaking. Contains the speaker ID and the VAD status. If there are multiple speakers, this will be emitted each time a speaker starts speaking. There will only be one active speaker at any given time. As speakers switch during a turn, separate `SPEAKER_ENDED` and `SPEAKER_STARTED` events will be emitted.
 
 ```json
 {

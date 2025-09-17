@@ -174,6 +174,9 @@ class VoiceAgentConfig:
         include_results: Include word data in the response. This is useful for debugging and
             understanding the STT engine's behavior. Defaults to False.
 
+        enable_preview_features: Enable preview features using a preview endpoint provided by
+            Speechmatics. Defaults to False.
+
         sample_rate: Audio sample rate for streaming. Defaults to 16000.
         audio_encoding: Audio encoding format. Defaults to AudioEncoding.PCM_S16LE.
     """
@@ -202,6 +205,7 @@ class VoiceAgentConfig:
 
     # Advanced features
     include_results: bool = False
+    enable_preview_features: bool = False
 
     # Audio
     sample_rate: int = 16000
@@ -326,6 +330,7 @@ class AnnotationFlags(str, Enum):
     UPDATED_FINALS = "updated_finals"
     UPDATED_PARTIALS = "updated_partials"
     UPDATED_SPEAKERS = "updated_speakers"
+    FINALIZED = "finalized"
 
     # Content of segments
     ONLY_ACTIVE_SPEAKERS = "only_active_speakers"
@@ -924,6 +929,8 @@ class FragmentUtils:
     ) -> AnnotationResult:
         """Compare two SpeakerSegmentView objects and return the differences.
 
+        View 1 (new) is compared to view 2 (old).
+
         Args:
             session: SessionInfo object.
             view1: The first SpeakerSegmentView object to compare.
@@ -964,6 +971,10 @@ class FragmentUtils:
         # Assume this is new
         elif view1.segment_count > 0:
             result.add(AnnotationFlags.NEW)
+
+        # Finalized (last segment only has finals)
+        if view1.segment_count > 0 and view1.partial_count == 0:
+            result.add(AnnotationFlags.FINALIZED)
 
         # Return the result
         return result
