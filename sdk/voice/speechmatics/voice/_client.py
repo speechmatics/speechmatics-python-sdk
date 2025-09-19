@@ -9,7 +9,9 @@ import datetime
 import os
 import re
 import time
+from collections.abc import Awaitable
 from typing import Any
+from typing import Callable
 from typing import Optional
 from urllib.parse import urlencode
 
@@ -95,6 +97,10 @@ class VoiceAgentClient(AsyncClient):
             language_pack_info=LanguagePackInfo.from_dict({}),
         )
 
+        # STT message received queue
+        self._stt_message_queue: asyncio.Queue[Callable[[], Awaitable[None]]] = asyncio.Queue()
+        self._stt_queue_task: Optional[asyncio.Task] = None
+
         # Timing info
         self._total_time: float = 0
         self._total_bytes: int = 0
@@ -126,14 +132,6 @@ class VoiceAgentClient(AsyncClient):
 
         # Timers for EndOfUtterance and EndOfTurn
         self._finalize_task: Optional[asyncio.Task] = None
-        self._eot_task: Optional[asyncio.Task] = None
-
-        # Segment processor
-        self._processor_wait_time: float = 0.005
-        self._processor_task: Optional[asyncio.Task] = None
-
-        # Emitter task
-        self._finals_emitter_task: Optional[asyncio.Task] = None
 
         # Metrics emitter task
         self._metrics_emitter_interval: float = 10.0
@@ -250,24 +248,36 @@ class VoiceAgentClient(AsyncClient):
         def _evt_on_partial_transcript(message: dict[str, Any]) -> None:
             if DEBUG_MORE:
                 self._logger.debug(json.dumps(message))
-            self._handle_transcript(message, is_final=False)
+
+            async def _handle() -> None:
+                await self._handle_transcript(message, is_final=False)
+
+            self._stt_message_queue.put_nowait(_handle)
 
         # Final transcript event
         @self.on(ServerMessageType.ADD_TRANSCRIPT)
         def _evt_on_final_transcript(message: dict[str, Any]) -> None:
             if DEBUG_MORE:
                 self._logger.debug(json.dumps(message))
-            self._handle_transcript(message, is_final=True)
+
+            async def _handle() -> None:
+                await self._handle_transcript(message, is_final=True)
+
+            self._stt_message_queue.put_nowait(_handle)
 
         # End of utterance event
         @self.on(ServerMessageType.END_OF_UTTERANCE)
         def _evt_on_end_of_utterance(message: dict[str, Any]) -> None:
             if DEBUG_MORE:
                 self._logger.debug(json.dumps(message))
-            self.emit(
-                AgentServerMessageType.END_OF_TURN,
-                {"message": AgentServerMessageType.END_OF_TURN.value, "metadata": message.get("metadata", {})},
-            )
+
+            async def _handle() -> None:
+                self.emit(
+                    AgentServerMessageType.END_OF_TURN,
+                    {"message": AgentServerMessageType.END_OF_TURN.value, "metadata": message.get("metadata", {})},
+                )
+
+            self._stt_message_queue.put_nowait(_handle)
 
     async def connect(self) -> None:
         """Connect to the Speechmatics API.
@@ -284,6 +294,9 @@ class VoiceAgentClient(AsyncClient):
                 {"message": AgentServerMessageType.ERROR.value, "reason": "Already connected"},
             )
             return
+
+        # Start the processor task
+        self._stt_queue_task = asyncio.create_task(self._run_stt_queue())
 
         # Connect to API
         try:
@@ -318,6 +331,11 @@ class VoiceAgentClient(AsyncClient):
             self._is_ready_for_audio = False
             self._stop_metrics_task()
 
+        # Stop the task
+        if self._stt_queue_task:
+            self._stt_queue_task.cancel()
+            self._stt_queue_task = None
+
     def update_diarization_config(self, config: DiarizationSpeakerConfig) -> None:
         """Update the diarization configuration.
 
@@ -329,6 +347,25 @@ class VoiceAgentClient(AsyncClient):
             config: The new diarization configuration.
         """
         self._dz_config = config
+
+    async def _run_stt_queue(self) -> None:
+        """Run the STT message queue."""
+        while True:
+            callback = await self._stt_message_queue.get()
+
+            if asyncio.iscoroutine(callback):
+                await callback
+            elif asyncio.iscoroutinefunction(callback):
+                await callback()
+            elif callable(callback):
+                result = callback()
+                if asyncio.iscoroutine(result):
+                    await result
+
+    def _cancel_stt_queue(self) -> None:
+        """Cancel the STT message queue."""
+        if self._stt_queue_task:
+            self._stt_queue_task.cancel()
 
     async def send_audio(self, payload: bytes) -> None:
         """Send an audio frame through the WebSocket.
@@ -389,18 +426,11 @@ class VoiceAgentClient(AsyncClient):
             self._metrics_emitter_task.cancel()
             self._metrics_emitter_task = None
 
-    def _handle_transcript(self, message: dict[str, Any], is_final: bool) -> None:
-        """Handle the partial and final transcript events.
-
-        Args:
-            message: The new Partial or Final from the STT engine.
-            is_final: Whether the data is final or partial.
-        """
-        # Handle async
-        asyncio.create_task(self._handle_transcript_async(message, is_final))
-
-    async def _handle_transcript_async(self, message: dict[str, Any], is_final: bool) -> None:
+    async def _handle_transcript(self, message: dict[str, Any], is_final: bool) -> None:
         """Handle the partial and final transcript events (async).
+
+        As `AddTranscript` messages are _always_ followed by `AddPartialTranscript` messages,
+        we can skip processing. Also skop if there are no fragments in the buffer.
 
         Args:
             message: The new Partial or Final from the STT engine.
@@ -413,22 +443,12 @@ class VoiceAgentClient(AsyncClient):
             is_final=is_final,
         )
 
-        # Skip if unchanged
-        if not fragments_available:
+        # Skip if no fragments or `AddTranscript`
+        if not fragments_available or is_final:
             return
 
-        # Clear any existing timer
-        if self._processor_task is not None:
-            self._processor_task.cancel()
-
-        # Send transcription frames after delay
-        async def process_after_delay(delay: float) -> None:
-            await asyncio.sleep(delay)
-            await self._process_speech_fragments()
-            self._processor_task = None
-
-        # Send frames after delay
-        self._processor_task = asyncio.create_task(process_after_delay(self._processor_wait_time))
+        # Process
+        await self._process_speech_fragments()
 
     def _calculate_ttfb(self, end_time: float) -> None:
         """Calculate the time to first text.
@@ -615,9 +635,14 @@ class VoiceAgentClient(AsyncClient):
             # Update the previous view
             self._previous_view = self._current_view
 
+        # Catch no changes for ADAPTIVE mode
+        if self._end_of_utterance_mode == EndOfUtteranceMode.ADAPTIVE and not changes.any(
+            AnnotationFlags.NEW, AnnotationFlags.UPDATED_FULL
+        ):
+            return
+
         # Emit the segments
-        if changes.any(AnnotationFlags.NEW, AnnotationFlags.UPDATED_FULL):
-            asyncio.create_task(self._emit_segments())
+        await self._emit_segments()
 
         # Only do this for ADAPTIVE end of utterance
         if self._end_of_utterance_mode == EndOfUtteranceMode.ADAPTIVE:
@@ -754,13 +779,16 @@ class VoiceAgentClient(AsyncClient):
             if ttl is not None and ttl > 0:
                 await asyncio.sleep(ttl)
 
-            # Finalize the segments
+            # Finalize the segments using `Finalize` message to STT
             if self._config.enable_preview_features:
                 await self.send_message({"message": AgentClientMessageType.FINALIZE_TURN})
+
+            # Force finalizing of segments in the buffer
             else:
                 await self._emit_segments(finalize=True, end_of_turn=True)
 
-        asyncio.create_task(emit())
+        # Add to queue
+        self._stt_message_queue.put_nowait(emit)
 
     async def _emit_segments(self, finalize: bool = False, end_of_turn: bool = False) -> None:
         """Emit segments to listeners.
