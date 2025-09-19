@@ -22,6 +22,7 @@ from speechmatics.rt import TranscriptionConfig
 
 from . import __version__
 from ._logging import get_logger
+from ._models import AgentClientMessageType
 from ._models import AgentServerMessageType
 from ._models import AnnotationFlags
 from ._models import AnnotationResult
@@ -138,7 +139,7 @@ class VoiceAgentClient(AsyncClient):
         self._metrics_emitter_interval: float = 10.0
         self._metrics_emitter_task: Optional[asyncio.Task] = None
 
-        # Audi sampling info
+        # Audio sampling info
         self._audio_sample_rate: float = self._audio_format.sample_rate * 1.0
         self._audio_sample_width: float = {
             AudioEncoding.PCM_F32LE: 4.0,
@@ -755,7 +756,7 @@ class VoiceAgentClient(AsyncClient):
 
             # Finalize the segments
             if self._config.enable_preview_features:
-                await self.send_message({"message": "Finalize"})
+                await self.send_message({"message": AgentClientMessageType.FINALIZE_TURN})
             else:
                 await self._emit_segments(finalize=True, end_of_turn=True)
 

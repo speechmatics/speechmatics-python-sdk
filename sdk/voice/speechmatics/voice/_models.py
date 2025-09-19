@@ -238,7 +238,7 @@ class AgentClientMessageType(str, Enum):
         >>> await client.send_message(end_message)
     """
 
-    FINALIZE_TURN = "FinalizeTurn"
+    FINALIZE_TURN = "Finalize"
     END_OF_STREAM = "EndOfStream"
     GET_SPEAKERS = "GetSpeakers"
 
