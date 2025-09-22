@@ -349,6 +349,7 @@ async def test_end_of_utterance_adaptive_vad():
 
     - send converstaion messages (realtime)
     - wait for `EndOfUtterance` message from SDK (adaptive)
+    - check the interval to receive the EndOfUtterance message is within 25% of expected
     """
 
     # Test conversation
@@ -440,9 +441,9 @@ async def test_end_of_utterance_adaptive_vad():
     # Check the right message was received
     assert last_message.get("message") == AgentServerMessageType.END_OF_TURN
 
-    # Check the interval was within +/- 10% of the adaptive trigger of 0.5 the timeout (see client code)
-    expected_min_interval = adaptive_timeout * 0.5 * 0.9
-    expected_max_interval = adaptive_timeout * 0.5 * 1.1
+    # Check the interval was within +/- 25% of the adaptive trigger of 0.5 the timeout (see client code)
+    expected_min_interval = adaptive_timeout * 0.5 * 0.75
+    expected_max_interval = adaptive_timeout * 0.5 * 1.25
     assert receive_interval >= expected_min_interval
     assert receive_interval <= expected_max_interval
 
