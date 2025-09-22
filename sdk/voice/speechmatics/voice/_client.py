@@ -354,14 +354,18 @@ class VoiceAgentClient(AsyncClient):
         while True:
             callback = await self._stt_message_queue.get()
 
-            if asyncio.iscoroutine(callback):
-                await callback
-            elif asyncio.iscoroutinefunction(callback):
-                await callback()
-            elif callable(callback):
-                result = callback()
-                if asyncio.iscoroutine(result):
-                    await result
+            try:
+                if asyncio.iscoroutine(callback):
+                    await callback
+                elif asyncio.iscoroutinefunction(callback):
+                    await callback()
+                elif callable(callback):
+                    result = callback()
+                    if asyncio.iscoroutine(result):
+                        await result
+
+            except Exception:
+                self._logger.warning("Exception in STT message queue", exc_info=True)
 
     def _stop_stt_queue(self) -> None:
         """Stop the STT message queue."""
@@ -811,17 +815,12 @@ class VoiceAgentClient(AsyncClient):
             end_of_turn: Whether to emit an end of turn event.
         """
 
-        # Metadata
-        if self._current_view:
-            metadata = {"start_time": self._current_view.start_time, "end_time": self._current_view.end_time}
-        elif self._previous_view:
-            metadata = {"start_time": self._previous_view.start_time, "end_time": self._previous_view.end_time}
-        else:
-            metadata = None
-
         # Lock the speech fragments
         if self._current_view and self._current_view.segment_count > 0:
             async with self._speech_fragments_lock:
+                # Metadata
+                metadata = {"start_time": self._current_view.start_time, "end_time": self._current_view.end_time}
+
                 # Force finalize
                 if finalize:
                     final_segments = self._current_view.segments
@@ -866,7 +865,11 @@ class VoiceAgentClient(AsyncClient):
                 self._update_current_view()
 
         # Emit end of turn
-        if end_of_turn:
+        if end_of_turn and self._previous_view:
+            # Metadata (for LAST view)
+            metadata = {"start_time": self._previous_view.start_time, "end_time": self._previous_view.end_time}
+
+            # Emit
             self.emit(
                 AgentServerMessageType.END_OF_TURN,
                 {
@@ -874,6 +877,9 @@ class VoiceAgentClient(AsyncClient):
                     "metadata": metadata,
                 },
             )
+
+            # Reset the previous view
+            self._previous_view = None
 
     def _vad_evaluation(self, fragments: list[SpeechFragment]) -> None:
         """Emit a VAD event.
