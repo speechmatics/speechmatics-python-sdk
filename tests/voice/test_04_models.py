@@ -279,6 +279,7 @@ async def test_external_vad():
 
     # Start the queue
     client._start_stt_queue()
+
     # Event to wait
     event_rx: asyncio.Event = asyncio.Event()
     last_message: Optional[dict[str, Any]] = None

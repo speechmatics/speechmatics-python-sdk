@@ -23,7 +23,9 @@ async def test_end_of_thought():
 
     # Test conversation
     log = ConversationLog(os.path.join(os.path.dirname(__file__), "./assets/chat2.jsonl"))
-    chat = log.get_conversation(["AddPartialTranscript", "AddTranscript", "EndOfUtterance"])
+    chat = log.get_conversation(
+        ["Info", "RecognitionStarted", "AddPartialTranscript", "AddTranscript", "EndOfUtterance"]
+    )
 
     # Start time
     start_time = datetime.datetime.now()
@@ -36,10 +38,15 @@ async def test_end_of_thought():
         api_key="NONE",
         connect=False,
         config=VoiceAgentConfig(
-            end_of_utterance_silence_trigger=adaptive_timeout, end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE
+            end_of_utterance_silence_trigger=adaptive_timeout,
+            end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
+            enable_diarization=False,
         ),
     )
     assert client is not None
+
+    # Start the queue
+    client._start_stt_queue()
 
     # Event to wait
     had_speaking_ended: asyncio.Event = asyncio.Event()
@@ -78,7 +85,7 @@ async def test_end_of_thought():
     try:
         await asyncio.wait_for(had_speaking_ended.wait(), timeout=10.0)
     except asyncio.TimeoutError:
-        pytest.fail("SPEAKING_ENDED event was not received within 10 seconds")
+        pytest.fail("SPEAKER_ENDED event was not received within 10 seconds")
 
     # Check the last message was expected
     assert last_message is not None
@@ -90,3 +97,6 @@ async def test_end_of_thought():
 
     # Debug
     print(segment["text"])
+
+    # Stop the queue
+    client._stop_stt_queue()
