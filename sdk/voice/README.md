@@ -176,6 +176,7 @@ The `VoiceAgentClient` can be configured with a number of options to control the
 #### Advanced Features
 
 - **`include_results`** (`bool`): Include word data in the response. This is useful for debugging and understanding the STT engine's behaviour. Defaults to `False`.
+- **`enable_preview_features`** (`bool`): Enable preview features. Defaults to `False`.
 
 #### Audio Configuration
 
