@@ -272,10 +272,7 @@ class VoiceAgentClient(AsyncClient):
                 self._logger.debug(json.dumps(message))
 
             async def _handle() -> None:
-                self.emit(
-                    AgentServerMessageType.END_OF_TURN,
-                    {"message": AgentServerMessageType.END_OF_TURN.value, "metadata": message.get("metadata", {})},
-                )
+                await self._emit_segments(finalize=True, end_of_turn=True)
 
             self._stt_message_queue.put_nowait(_handle)
 
@@ -348,6 +345,10 @@ class VoiceAgentClient(AsyncClient):
         """
         self._dz_config = config
 
+    def _start_stt_queue(self) -> None:
+        """Start the STT message queue."""
+        self._stt_queue_task = asyncio.create_task(self._run_stt_queue())
+
     async def _run_stt_queue(self) -> None:
         """Run the STT message queue."""
         while True:
@@ -362,8 +363,8 @@ class VoiceAgentClient(AsyncClient):
                 if asyncio.iscoroutine(result):
                     await result
 
-    def _cancel_stt_queue(self) -> None:
-        """Cancel the STT message queue."""
+    def _stop_stt_queue(self) -> None:
+        """Stop the STT message queue."""
         if self._stt_queue_task:
             self._stt_queue_task.cancel()
 
@@ -579,6 +580,14 @@ class VoiceAgentClient(AsyncClient):
             self._speech_fragments = retained_fragments.copy()
             self._speech_fragments.extend(fragments)
             self._speech_fragments.sort(key=lambda x: x.idx)
+
+            # Remove fragment at head that is for previous
+            if (
+                self._speech_fragments
+                and self._speech_fragments[0].is_punctuation
+                and self._speech_fragments[0].attaches_to == "previous"
+            ):
+                self._speech_fragments.pop(0)
 
             # Debug the fragments
             if DEBUG_MORE:

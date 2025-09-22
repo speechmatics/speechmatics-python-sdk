@@ -78,7 +78,9 @@ async def test_speech_fragments():
 
     # Test conversation
     log = ConversationLog(os.path.join(os.path.dirname(__file__), "./assets/chat2.jsonl"))
-    chat = log.get_conversation(["AddPartialTranscript", "AddTranscript", "EndOfUtterance"])
+    chat = log.get_conversation(
+        ["Info", "RecognitionStarted", "AddPartialTranscript", "AddTranscript", "EndOfUtterance"]
+    )
 
     # Start time
     start_time = datetime.datetime.now()
@@ -86,6 +88,9 @@ async def test_speech_fragments():
     # Create a client
     client = await get_client(api_key="NONE", connect=False)
     assert client is not None
+
+    # Start the queue
+    client._start_stt_queue()
 
     # Event to wait
     event_rx: asyncio.Event = asyncio.Event()
@@ -125,14 +130,14 @@ async def test_speech_fragments():
     client.once(AgentServerMessageType.ADD_PARTIAL_SEGMENT, message_rx)
 
     # Inject first partial
-    await send_message(0, count=3, use_ttl=False)
+    await send_message(0, count=6, use_ttl=False)
 
     # Wait for first segment
     try:
         await asyncio.wait_for(event_rx.wait(), timeout=5.0)
         assert last_message is not None
     except asyncio.TimeoutError:
-        pytest.fail("ADD_INTERIM_SEGMENTS event was not received within 5 seconds")
+        pytest.fail("ADD_PARTIAL_SEGMENT event was not received within 5 seconds")
 
     # Check the right message was received
     assert last_message.get("message") == AgentServerMessageType.ADD_PARTIAL_SEGMENT
@@ -150,14 +155,14 @@ async def test_speech_fragments():
     client.once(AgentServerMessageType.ADD_SEGMENT, message_rx)
 
     # Send a more partials and finals
-    await send_message(3, count=10, use_ttl=False)
+    await send_message(5, count=8, use_ttl=False)
 
     # Wait for final segment
     try:
         await asyncio.wait_for(event_rx.wait(), timeout=5.0)
         assert last_message is not None
     except asyncio.TimeoutError:
-        pytest.fail("ADD_SEGMENTS event was not received within 5 seconds")
+        pytest.fail("ADD_SEGMENT event was not received within 5 seconds")
 
     # Check the right message was received
     assert last_message.get("message") == AgentServerMessageType.ADD_SEGMENT
@@ -170,6 +175,9 @@ async def test_speech_fragments():
     assert seg0["text"] == "Welcome to Speechmatics."
     assert f"{seg0['speaker_id']}: {seg0['text']}" == "S1: Welcome to Speechmatics."
 
+    # Stop the queue
+    client._stop_stt_queue()
+
 
 @pytest.mark.asyncio
 async def test_end_of_utterance_fixed():
@@ -181,7 +189,9 @@ async def test_end_of_utterance_fixed():
 
     # Test conversation
     log = ConversationLog(os.path.join(os.path.dirname(__file__), "./assets/chat2.jsonl"))
-    chat = log.get_conversation(["AddPartialTranscript", "AddTranscript", "EndOfUtterance"])
+    chat = log.get_conversation(
+        ["Info", "RecognitionStarted", "AddPartialTranscript", "AddTranscript", "EndOfUtterance"]
+    )
 
     # Start time
     start_time = datetime.datetime.now()
@@ -189,6 +199,9 @@ async def test_end_of_utterance_fixed():
     # Create a client
     client = await get_client(api_key="NONE", connect=False)
     assert client is not None
+
+    # Start the queue
+    client._start_stt_queue()
 
     # Event to wait
     event_rx: asyncio.Event = asyncio.Event()
@@ -221,7 +234,7 @@ async def test_end_of_utterance_fixed():
     client.once(AgentServerMessageType.END_OF_TURN, message_rx)
 
     # Inject conversation
-    await send_message(0, count=13, use_ttl=False)
+    await send_message(0, count=14, use_ttl=False)
 
     # Wait for EndOfTurn
     try:
@@ -244,7 +257,9 @@ async def test_external_vad():
 
     # Test conversation
     log = ConversationLog(os.path.join(os.path.dirname(__file__), "./assets/chat2.jsonl"))
-    chat = log.get_conversation(["AddPartialTranscript", "AddTranscript", "EndOfUtterance"])
+    chat = log.get_conversation(
+        ["Info", "RecognitionStarted", "AddPartialTranscript", "AddTranscript", "EndOfUtterance"]
+    )
 
     # Start time
     start_time = datetime.datetime.now()
@@ -262,6 +277,8 @@ async def test_external_vad():
     )
     assert client is not None
 
+    # Start the queue
+    client._start_stt_queue()
     # Event to wait
     event_rx: asyncio.Event = asyncio.Event()
     last_message: Optional[dict[str, Any]] = None
@@ -290,13 +307,16 @@ async def test_external_vad():
             client.emit(message["payload"]["message"], message["payload"])
 
     # Inject conversation
-    await send_message(0, count=11, use_ttl=False)
+    await send_message(0, count=12, use_ttl=False)
 
     # Momentary pause
     await asyncio.sleep(0.5)
 
     # Add listener for first interim segment
     client.once(AgentServerMessageType.ADD_SEGMENT, message_rx)
+
+    # Pause for a moment
+    await asyncio.sleep(0.5)
 
     # Send finalize
     client.finalize()
@@ -306,7 +326,7 @@ async def test_external_vad():
         await asyncio.wait_for(event_rx.wait(), timeout=4)
         assert last_message is not None
     except asyncio.TimeoutError:
-        pytest.fail("ADD_SEGMENTS event was not received within 4 seconds")
+        pytest.fail("ADD_SEGMENT event was not received within 4 seconds")
 
     # Check the right message was received
     assert last_message.get("message") == AgentServerMessageType.ADD_SEGMENT
@@ -319,6 +339,9 @@ async def test_external_vad():
     assert seg0["text"] == "Welcome to Speechmatics"
     assert f"{seg0['speaker_id']}: {seg0['text']}" == "S1: Welcome to Speechmatics"
 
+    # Stop the queue
+    client._stop_stt_queue()
+
 
 @pytest.mark.asyncio
 async def test_end_of_utterance_adaptive_vad():
@@ -330,7 +353,9 @@ async def test_end_of_utterance_adaptive_vad():
 
     # Test conversation
     log = ConversationLog(os.path.join(os.path.dirname(__file__), "./assets/chat2.jsonl"))
-    chat = log.get_conversation(["AddPartialTranscript", "AddTranscript", "EndOfUtterance"])
+    chat = log.get_conversation(
+        ["Info", "RecognitionStarted", "AddPartialTranscript", "AddTranscript", "EndOfUtterance"]
+    )
 
     # Start time
     start_time = datetime.datetime.now()
@@ -347,6 +372,9 @@ async def test_end_of_utterance_adaptive_vad():
         ),
     )
     assert client is not None
+
+    # Start the queue
+    client._start_stt_queue()
 
     # Event to wait
     eot_received: asyncio.Event = asyncio.Event()
@@ -417,3 +445,6 @@ async def test_end_of_utterance_adaptive_vad():
     expected_max_interval = adaptive_timeout * 0.5 * 1.1
     assert receive_interval >= expected_min_interval
     assert receive_interval <= expected_max_interval
+
+    # Stop the queue
+    client._stop_stt_queue()
