@@ -8,6 +8,7 @@ from typing import Any
 from typing import Optional
 
 import pytest
+from _utils import cer
 from _utils import get_client
 from _utils import normalize
 from _utils import send_audio_file
@@ -26,6 +27,7 @@ class AudioSample:
     language: str
     path: str
     transcript: str
+    use_cer: bool = False
     vocab: list[str] = field(default_factory=list)
 
 
@@ -33,12 +35,29 @@ SAMPLES: list[AudioSample] = [
     AudioSample(
         language="fr",
         path="./assets/languages/fr_fr_000378.wav",
-        transcript="la partie extérieure que nous voyons lorsque nous regardons le soleil s’appelle la photosphère ce qui signifie « boule de lumière »",
+        transcript=(
+            "la partie extérieure que nous voyons lorsque nous regardons le soleil "
+            "s’appelle la photosphère ce qui signifie « boule de lumière »"
+        ),
     ),
     AudioSample(
         language="de",
         path="./assets/languages/de_de_000675.wav",
-        transcript="Die Einreise in das südliche Afrika mit dem Auto ist eine erstaunliche Möglichkeit, die ganze Schönheit der Region zu sehen und an Orte abseits der normalen Touristenrouten zu gelangen.",
+        transcript=(
+            "Die Einreise in das südliche Afrika mit dem Auto ist eine erstaunliche Möglichkeit, "
+            "die ganze Schönheit der Region zu sehen und an Orte abseits der normalen Touristenrouten zu gelangen."
+        ),
+    ),
+    AudioSample(
+        language="he",
+        path="./assets/languages/he_il_000432.wav",
+        transcript="טורקיה מוקפת ים משלושה כיוונים: הים האגאי ממערב, הים השחור מצפון והים התיכון מדרום.",
+    ),
+    AudioSample(
+        language="cmn",
+        path="./assets/languages/cmn_hans_cn_000328.wav",
+        transcript="博贝克出生于克罗地亚首都萨格勒布，在为贝尔格莱德游击队足球俱乐部效力时成名",
+        use_cer=True,
     ),
 ]
 
@@ -46,10 +65,12 @@ SAMPLES: list[AudioSample] = [
 @pytest.mark.asyncio
 @pytest.mark.parametrize("sample", SAMPLES, ids=lambda s: f"{s.language}:{s.path}")
 async def test_transcribe_languages(sample: AudioSample):
-    """Test transcription.
+    """Test foreign language transcription.
 
     This test will:
-        - log messages
+        - use samples from the FLEURS dataset
+        - use different languages
+        - compare the normalized transcriptions with the reference transcription
     """
 
     # API key
@@ -125,13 +146,23 @@ async def test_transcribe_languages(sample: AudioSample):
     # Check language
     assert seg0.get("language") == sample.language
 
-    # Check contents
+    # Get normalized versions of the transcription and reference
     str_original = normalize(sample.transcript)
     str_transcribed = normalize(seg0.get("text", "UNKNOWN"))
-    if str_original != str_transcribed:
+    str_cer = cer(str_original, str_transcribed)
+
+    # Assert the CER
+    if sample.use_cer:
+        ok = str_cer < 0.05  # < 5% CER acceptable
+    else:
+        ok = str_original == str_transcribed  # Exact match required
+
+    # Compare transcriptions
+    if not ok:
         print("\n".join(messages))
         print(f"Original: [{str_original}]")
         print(f"Transcribed: [{str_transcribed}]")
+        print(f"CER: {str_cer}")
         raise AssertionError("Transcription does not match original")
 
     # Close session
