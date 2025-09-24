@@ -28,6 +28,7 @@ class AudioSample:
     path: str
     transcript: str
     use_cer: bool = False
+    cer_pass: float = 0.05
     vocab: list[str] = field(default_factory=list)
 
 
@@ -56,8 +57,15 @@ SAMPLES: list[AudioSample] = [
     AudioSample(
         language="cmn",
         path="./assets/languages/cmn_hans_cn_000328.wav",
-        transcript="博贝克出生于克罗地亚首都萨格勒布，在为贝尔格莱德游击队足球俱乐部效力时成名",
+        transcript="博贝克出生于克罗地亚首都萨格勒布，在为贝尔格莱德游击队足球俱乐部效力时成名。",
         use_cer=True,
+    ),
+    AudioSample(
+        language="ja",
+        path="./assets/languages/ja_jp_000595.wav",
+        transcript="動物は地球上のいたるところに生息しています。地面を掘ったり、海を泳ぎ回ったり、空を飛んだりしています。",
+        use_cer=True,
+        cer_pass=0.07,
     ),
 ]
 
@@ -153,7 +161,7 @@ async def test_transcribe_languages(sample: AudioSample):
 
     # Assert the CER
     if sample.use_cer:
-        ok = str_cer < 0.05  # < 5% CER acceptable
+        ok = str_cer < sample.cer_pass  # < 5% CER acceptable (default)
     else:
         ok = str_original == str_transcribed  # Exact match required
 
