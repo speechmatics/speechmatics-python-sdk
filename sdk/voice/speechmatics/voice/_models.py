@@ -533,12 +533,12 @@ class SpeakerSegment:
     @property
     def start_time(self) -> float:
         """Return the start time of the segment."""
-        return self.fragments[0].start_time
+        return self.fragments[0].start_time if self.fragments else 0.0
 
     @property
     def end_time(self) -> float:
         """Return the end time of the segment."""
-        return self.fragments[-1].end_time
+        return self.fragments[-1].end_time if self.fragments else 0.0
 
     def to_dict(self, include_results: bool = False) -> dict[str, Any]:
         """Return a dictionary representation of the object."""
@@ -593,11 +593,11 @@ class SpeakerSegmentView:
 
     @property
     def start_time(self) -> float:
-        return self.fragments[0].start_time
+        return self.fragments[0].start_time if self.fragments else 0.0
 
     @property
     def end_time(self) -> float:
-        return self.fragments[-1].end_time
+        return self.fragments[-1].end_time if self.fragments else 0.0
 
     @property
     def final_count(self) -> int:

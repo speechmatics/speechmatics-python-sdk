@@ -1,7 +1,9 @@
 import asyncio
 import json
 import os
+import re
 import time
+import unicodedata
 from typing import Any
 from typing import Callable
 from typing import Optional
@@ -107,6 +109,59 @@ async def send_audio_file(
             if sleep_time > 0:
                 await asyncio.sleep(sleep_time)
             next_time += delay
+
+
+def normalize(text: str) -> str:
+    """Normalise text."""
+
+    # Lowercase
+    text = text.lower()
+
+    # Remove punctuation (Unicode category "P")
+    text = "".join(ch for ch in text if unicodedata.category(ch)[0] != "P")
+
+    # Collapse whitespace
+    text = re.sub(r"\s+", " ", text).strip()
+
+    # Return cleaned text
+    return text
+
+
+def cer(ref: str, hyp: str) -> float:
+    """
+    Compute Character Error Rate (CER) between reference and hypothesis.
+
+    CER = (S + D + I) / N
+    where
+        S = substitutions
+        D = deletions
+        I = insertions
+        N = number of characters in reference
+    """
+
+    # Initialise DP matrix
+    n, m = len(ref), len(hyp)
+    dp = [[0] * (m + 1) for _ in range(n + 1)]
+
+    # Base cases
+    for i in range(n + 1):
+        dp[i][0] = i
+    for j in range(m + 1):
+        dp[0][j] = j
+
+    # Fill DP matrix
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            cost = 0 if ref[i - 1] == hyp[j - 1] else 1
+            dp[i][j] = min(
+                dp[i - 1][j] + 1,  # deletion
+                dp[i][j - 1] + 1,  # insertion
+                dp[i - 1][j - 1] + cost,  # substitution
+            )
+
+    # Return CER
+    distance = dp[n][m]
+    return distance / n if n > 0 else float("inf")
 
 
 class ConversationLog:
