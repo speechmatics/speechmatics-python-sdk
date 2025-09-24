@@ -648,10 +648,8 @@ class VoiceAgentClient(AsyncClient):
             # Update the previous view
             self._previous_view = self._current_view
 
-        # Catch no changes for ADAPTIVE mode
-        if self._end_of_utterance_mode == EndOfUtteranceMode.ADAPTIVE and not changes.any(
-            AnnotationFlags.NEW, AnnotationFlags.UPDATED_FULL
-        ):
+        # Catch no changes
+        if not changes.any(AnnotationFlags.NEW, AnnotationFlags.UPDATED_FULL):
             return
 
         # Emit the segments
@@ -663,6 +661,12 @@ class VoiceAgentClient(AsyncClient):
 
             # Calculate delay to end of utterance
             should_emit, emit_final_delay = self._calc_delay_to_end_of_utterance(self._current_view, changes)
+
+            # Debug
+            if DEBUG_MORE:
+                self._logger.debug(
+                    f"changes: {changes}, should_emit: {should_emit}, emit_final_delay: {emit_final_delay}"
+                )
 
             # Emit finalized segments
             async def emit(delay: float | None) -> None:
@@ -829,9 +833,7 @@ class VoiceAgentClient(AsyncClient):
                 # Split between finals and interim segments
                 else:
                     final_segments = [
-                        s
-                        for s in self._current_view.segments
-                        if s.annotation.has(AnnotationFlags.ENDS_WITH_FINAL, AnnotationFlags.ENDS_WITH_EOS)
+                        s for s in self._current_view.segments if s.annotation.has(AnnotationFlags.ENDS_WITH_FINAL)
                     ]
                     interim_segments = [s for s in self._current_view.segments if s not in final_segments]
 
@@ -884,7 +886,7 @@ class VoiceAgentClient(AsyncClient):
     def _vad_evaluation(self, fragments: list[SpeechFragment]) -> None:
         """Emit a VAD event.
 
-        This will emit `SPEECH_STARTED` and `SPEECH_ENDED` events to the client and is
+        This will emit `SPEAKER_STARTED` and `SPEAKER_ENDED` events to the client and is
         based on valid transcription for active speakers. Ignored or speakers not in
         focus will not be considered an active participant.
 
