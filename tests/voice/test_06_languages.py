@@ -50,6 +50,15 @@ SAMPLES: list[AudioSample] = [
         ),
     ),
     AudioSample(
+        language="es",
+        path="./assets/languages/es_419_000896.wav",
+        transcript=(
+            "Es esencial que cuente, cuando menos, con calzado con suelas apropiadas. "
+            "Los zapatos de verano por lo general resbalan mucho en el hielo y la nieve, "
+            "incluso hay botas de invierno que no son adecuadas."
+        ),
+    ),
+    AudioSample(
         language="he",
         path="./assets/languages/he_il_000432.wav",
         transcript="טורקיה מוקפת ים משלושה כיוונים: הים האגאי ממערב, הים השחור מצפון והים התיכון מדרום.",
@@ -66,6 +75,13 @@ SAMPLES: list[AudioSample] = [
         transcript="動物は地球上のいたるところに生息しています。地面を掘ったり、海を泳ぎ回ったり、空を飛んだりしています。",
         use_cer=True,
         cer_pass=0.07,
+    ),
+    AudioSample(
+        language="th",
+        path="./assets/languages/th_th_000208.wav",
+        transcript="ข้สภาพอากาศเลวร้ายที่เป็นสาเหตุของการยกเลิกการลงจอดทำให้การค้นหายากลำบาก",
+        use_cer=True,
+        cer_pass=0.03,
     ),
 ]
 
@@ -103,6 +119,9 @@ async def test_transcribe_languages(sample: AudioSample):
     bytes_sent: int = 0
     last_message: Optional[dict[str, Any]] = None
 
+    # Segments
+    segments: list[dict[str, Any]] = []
+
     # Start time
     start_time = datetime.datetime.now()
 
@@ -120,9 +139,14 @@ async def test_transcribe_languages(sample: AudioSample):
         log = json.dumps({"ts": ts, "audio_ts": audio_ts, "payload": to_serializable(message)})
         messages.append(log)
 
+    # Log a segment
+    def log_segment(message):
+        segments.extend(message["segments"])
+
     # Add listeners
     client.once(AgentServerMessageType.RECOGNITION_STARTED, log_message)
     client.on(AgentServerMessageType.ADD_SEGMENT, log_message)
+    client.on(AgentServerMessageType.ADD_SEGMENT, log_segment)
 
     # Load the audio file
     audio_file = sample.path
@@ -147,16 +171,18 @@ async def test_transcribe_languages(sample: AudioSample):
     assert last_message.get("message") == AgentServerMessageType.ADD_SEGMENT
 
     # Check the segment
-    segments = last_message.get("segments", [])
-    assert len(segments) == 1
+    assert len(segments) >= 1
     seg0 = segments[0]
 
     # Check language
     assert seg0.get("language") == sample.language
 
+    # Concatenate text from segments
+    transcribed = " ".join([seg["text"] for seg in segments])
+
     # Get normalized versions of the transcription and reference
     str_original = normalize(sample.transcript)
-    str_transcribed = normalize(seg0.get("text", "UNKNOWN"))
+    str_transcribed = normalize(transcribed)
     str_cer = cer(str_original, str_transcribed)
 
     # Assert the CER
