@@ -715,12 +715,16 @@ class FragmentUtils:
         else:
             fragments = segment.fragments
 
-        # Assemble the text (LTR)
+        # Assemble the text
+        previous_frag: Optional[SpeechFragment] = None
         for frag in fragments:
-            if content == "" or frag.attaches_to == "previous":
+            if not previous_frag:
+                content = frag.content
+            elif frag.attaches_to == "previous" or previous_frag.attaches_to == "next":
                 content += frag.content
             else:
                 content += session.language_pack_info.word_delimiter + frag.content
+            previous_frag = frag
 
         # Return the formatted text
         return format.format(
