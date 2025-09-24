@@ -1,7 +1,9 @@
 import asyncio
 import json
 import os
+import re
 import time
+import unicodedata
 from typing import Any
 from typing import Callable
 from typing import Optional
@@ -107,6 +109,22 @@ async def send_audio_file(
             if sleep_time > 0:
                 await asyncio.sleep(sleep_time)
             next_time += delay
+
+
+def normalize(text: str) -> str:
+    """Normalise text."""
+
+    # Lowercase
+    text = text.lower()
+
+    # Remove punctuation (Unicode category "P")
+    text = "".join(ch for ch in text if unicodedata.category(ch)[0] != "P")
+
+    # Collapse whitespace
+    text = re.sub(r"\s+", " ", text).strip()
+
+    # Return cleaned text
+    return text
 
 
 class ConversationLog:
