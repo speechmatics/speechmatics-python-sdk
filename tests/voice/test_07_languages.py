@@ -17,7 +17,6 @@ from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import VoiceAgentConfig
-from speechmatics.voice._helpers import to_serializable
 
 api_key = os.getenv("SPEECHMATICS_API_KEY")
 
@@ -136,7 +135,7 @@ async def test_transcribe_languages(sample: AudioSample):
         last_message = message
         ts = (datetime.datetime.now() - start_time).total_seconds()
         audio_ts = bytes_sent / 16000 / 2
-        log = json.dumps({"ts": ts, "audio_ts": audio_ts, "payload": to_serializable(message)})
+        log = json.dumps({"ts": ts, "audio_ts": audio_ts, "payload": message.model_dump()})
         messages.append(log)
 
     # Log a segment

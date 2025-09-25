@@ -1,19 +1,52 @@
-import asyncio
-import datetime
 import json
-import os
-from typing import Any
-from typing import Optional
 
 import pytest
-from _utils import ConversationLog
-from _utils import get_client
 
-from speechmatics.voice import AgentServerMessageType
-from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import VoiceAgentConfig
+from speechmatics.voice._models import AdditionalVocabEntry
 from speechmatics.voice._models import AnnotationFlags
 from speechmatics.voice._models import AnnotationResult
+from speechmatics.voice._models import DiarizationFocusMode
+from speechmatics.voice._models import DiarizationKnownSpeaker
+from speechmatics.voice._models import DiarizationSpeakerConfig
+from speechmatics.voice._models import SpeakerSegment
+from speechmatics.voice._models import SpeechFragment
+
+
+@pytest.mark.asyncio
+async def test_voice_agent_config():
+    """Test VoiceAgentConfig Pydantic serialisation and deserialisation."""
+    # Create instance with custom values
+    config = VoiceAgentConfig(
+        language="en",
+        max_delay=1.5,
+        enable_diarization=True,
+        speaker_sensitivity=0.7,
+        additional_vocab=[AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"])],
+        known_speakers=[DiarizationKnownSpeaker(label="John", speaker_identifiers=["78673523465237xx"])],
+    )
+
+    # Test JSON serialisation
+    json_data = config.model_dump()
+    assert json_data["language"] == "en"
+    assert json_data["max_delay"] == 1.5
+    assert json_data["enable_diarization"] is True
+    assert json_data["speaker_sensitivity"] == 0.7
+    assert len(json_data["additional_vocab"]) == 1
+    assert json_data["additional_vocab"][0]["content"] == "Speechmatics"
+    assert len(json_data["known_speakers"]) == 1
+    assert json_data["known_speakers"][0]["label"] == "John"
+
+    # Test JSON deserialisation
+    config_from_json = VoiceAgentConfig.model_validate(json_data)
+    assert config_from_json.language == config.language
+    assert config_from_json.max_delay == config.max_delay
+    assert config_from_json.enable_diarization == config.enable_diarization
+    assert config_from_json.speaker_sensitivity == config.speaker_sensitivity
+    assert len(config_from_json.additional_vocab) == 1
+    assert config_from_json.additional_vocab[0].content == "Speechmatics"
+    assert len(config_from_json.known_speakers) == 1
+    assert config_from_json.known_speakers[0].label == "John"
 
 
 @pytest.mark.asyncio
@@ -68,385 +101,170 @@ async def test_annotation_result():
 
 
 @pytest.mark.asyncio
-async def test_speech_fragments():
-    """Test SpeechFragment.
+async def test_additional_vocab_entry():
+    """Test AdditionalVocabEntry serialisation and deserialisation.
 
-    - create fragment(s)
-    - check output from processing conversation
+    - create instance
     - serialize to JSON
+    - deserialize from JSON
     """
 
-    # Test conversation
-    log = ConversationLog(os.path.join(os.path.dirname(__file__), "./assets/chat2.jsonl"))
-    chat = log.get_conversation(
-        ["Info", "RecognitionStarted", "AddPartialTranscript", "AddTranscript", "EndOfUtterance"]
-    )
+    # Create instance
+    entry = AdditionalVocabEntry(content="hello", sounds_like=["helo", "hallo"])
 
-    # Start time
-    start_time = datetime.datetime.now()
+    # Test JSON serialisation
+    json_data = entry.model_dump()
+    assert json_data["content"] == "hello"
+    assert json_data["sounds_like"] == ["helo", "hallo"]
 
-    # Create a client
-    client = await get_client(api_key="NONE", connect=False)
-    assert client is not None
+    # Test JSON deserialisation
+    entry_from_json = AdditionalVocabEntry.model_validate(json_data)
+    assert entry_from_json.content == entry.content
+    assert entry_from_json.sounds_like == entry.sounds_like
 
-    # Start the queue
-    client._start_stt_queue()
-
-    # Event to wait
-    event_rx: asyncio.Event = asyncio.Event()
-    last_message: Optional[dict[str, Any]] = None
-
-    # Reset message
-    def message_reset():
-        nonlocal last_message
-        last_message = None
-        event_rx.clear()
-
-    # Message receiver
-    def message_rx(message: dict[str, Any]):
-        nonlocal last_message
-        last_message = message
-        event_rx.set()
-
-    # Send a message from the conversation
-    async def send_message(idx: int, count: int = 1, use_ttl: bool = True):
-        for i in range(count):
-            # Get the message from the chat
-            message = chat[idx + i]
-
-            # Wait for TTL to expire
-            if use_ttl:
-                ttl = (start_time + datetime.timedelta(seconds=message["ts"])) - datetime.datetime.now()
-                if ttl.total_seconds() > 0:
-                    await asyncio.sleep(ttl.total_seconds())
-            else:
-                await asyncio.sleep(0.05)
-
-            # Emit the message
-            client.emit(message["payload"]["message"], message["payload"])
-
-    # Add listener for first interim segment
-    message_reset()
-    client.once(AgentServerMessageType.ADD_PARTIAL_SEGMENT, message_rx)
-
-    # Inject first partial
-    await send_message(0, count=6, use_ttl=False)
-
-    # Wait for first segment
-    try:
-        await asyncio.wait_for(event_rx.wait(), timeout=5.0)
-        assert last_message is not None
-    except asyncio.TimeoutError:
-        pytest.fail("ADD_PARTIAL_SEGMENT event was not received within 5 seconds")
-
-    # Check the right message was received
-    assert last_message.get("message") == AgentServerMessageType.ADD_PARTIAL_SEGMENT
-
-    # Check the segment
-    segments = last_message.get("segments", [])
-    assert len(segments) == 1
-    seg0 = segments[0]
-    assert seg0["speaker_id"] == "S1"
-    assert seg0["text"] == "Welcome"
-    assert f"{seg0['speaker_id']}: {seg0['text']}" == "S1: Welcome"
-
-    # Add listener for final segment
-    message_reset()
-    client.once(AgentServerMessageType.ADD_SEGMENT, message_rx)
-
-    # Send a more partials and finals
-    await send_message(5, count=8, use_ttl=False)
-
-    # Wait for final segment
-    try:
-        await asyncio.wait_for(event_rx.wait(), timeout=5.0)
-        assert last_message is not None
-    except asyncio.TimeoutError:
-        pytest.fail("ADD_SEGMENT event was not received within 5 seconds")
-
-    # Check the right message was received
-    assert last_message.get("message") == AgentServerMessageType.ADD_SEGMENT
-
-    # Check the segment
-    segments = last_message.get("segments", [])
-    assert len(segments) == 1
-    seg0 = segments[0]
-    assert seg0["speaker_id"] == "S1"
-    assert seg0["text"] == "Welcome to Speechmatics."
-    assert f"{seg0['speaker_id']}: {seg0['text']}" == "S1: Welcome to Speechmatics."
-
-    # Stop the queue
-    client._stop_stt_queue()
+    # Test with defaults
+    entry_minimal = AdditionalVocabEntry(content="test")
+    json_minimal = entry_minimal.model_dump()
+    assert json_minimal["sounds_like"] == []
 
 
 @pytest.mark.asyncio
-async def test_end_of_utterance_fixed():
-    """Test EndOfUtterance from STT engine.
+async def test_diarization_known_speaker():
+    """Test DiarizationKnownSpeaker serialisation and deserialisation.
 
-    - send converstaion messages (fast)
-    - wait for `EndOfUtterance` message
+    - create instance
+    - serialize to JSON
+    - deserialize from JSON
     """
 
-    # Test conversation
-    log = ConversationLog(os.path.join(os.path.dirname(__file__), "./assets/chat2.jsonl"))
-    chat = log.get_conversation(
-        ["Info", "RecognitionStarted", "AddPartialTranscript", "AddTranscript", "EndOfUtterance"]
-    )
+    # Create instance
+    speaker = DiarizationKnownSpeaker(label="Speaker1", speaker_identifiers=["id1", "id2", "id3"])
 
-    # Start time
-    start_time = datetime.datetime.now()
+    # Test JSON serialisation
+    json_data = speaker.model_dump()
+    assert json_data["label"] == "Speaker1"
+    assert json_data["speaker_identifiers"] == ["id1", "id2", "id3"]
 
-    # Create a client
-    client = await get_client(api_key="NONE", connect=False)
-    assert client is not None
-
-    # Start the queue
-    client._start_stt_queue()
-
-    # Event to wait
-    event_rx: asyncio.Event = asyncio.Event()
-    last_message: Optional[dict[str, Any]] = None
-
-    # Message receiver
-    def message_rx(message: dict[str, Any]):
-        nonlocal last_message
-        last_message = message
-        event_rx.set()
-
-    # Send a message from the conversation
-    async def send_message(idx: int, count: int = 1, use_ttl: bool = True):
-        for i in range(count):
-            # Get the message from the chat
-            message = chat[idx + i]
-
-            # Wait for TTL to expire
-            if use_ttl:
-                ttl = (start_time + datetime.timedelta(seconds=message["ts"])) - datetime.datetime.now()
-                if ttl.total_seconds() > 0:
-                    await asyncio.sleep(ttl.total_seconds())
-            else:
-                await asyncio.sleep(0.005)
-
-            # Emit the message
-            client.emit(message["payload"]["message"], message["payload"])
-
-    # Add listener for first interim segment
-    client.once(AgentServerMessageType.END_OF_TURN, message_rx)
-
-    # Inject conversation
-    await send_message(0, count=14, use_ttl=False)
-
-    # Wait for EndOfTurn
-    try:
-        await asyncio.wait_for(event_rx.wait(), timeout=5.0)
-        assert last_message is not None
-    except asyncio.TimeoutError:
-        pytest.fail("END_OF_TURN event was not received within 5 seconds")
-
-    # Check the right message was received
-    assert last_message.get("message") == AgentServerMessageType.END_OF_TURN
+    # Test JSON deserialisation
+    speaker_from_json = DiarizationKnownSpeaker.model_validate(json_data)
+    assert speaker_from_json.label == speaker.label
+    assert speaker_from_json.speaker_identifiers == speaker.speaker_identifiers
 
 
 @pytest.mark.asyncio
-async def test_external_vad():
-    """Test EndOfUtterance from STT engine.
+async def test_diarization_speaker_config():
+    """Test DiarizationSpeakerConfig serialisation and deserialisation.
 
-    - send converstaion messages (realtime)
-    - finalizes based on external VAD (e.g. Pipecat's `UserStoppedSpeakingFrame` frame)
+    - create instance with custom values
+    - serialize to JSON
+    - deserialize from JSON
     """
 
-    # Test conversation
-    log = ConversationLog(os.path.join(os.path.dirname(__file__), "./assets/chat2.jsonl"))
-    chat = log.get_conversation(
-        ["Info", "RecognitionStarted", "AddPartialTranscript", "AddTranscript", "EndOfUtterance"]
+    # Create instance with custom values
+    config = DiarizationSpeakerConfig(
+        focus_speakers=["S1", "S2"],
+        ignore_speakers=["__ASSISTANT__", "__SYSTEM__"],
+        focus_mode=DiarizationFocusMode.IGNORE,
     )
 
-    # Start time
-    start_time = datetime.datetime.now()
+    # Test JSON serialisation
+    json_data = config.model_dump()
+    assert json_data["focus_speakers"] == ["S1", "S2"]
+    assert json_data["ignore_speakers"] == ["__ASSISTANT__", "__SYSTEM__"]
+    assert json_data["focus_mode"] == DiarizationFocusMode.IGNORE
 
-    # Adaptive timeout
-    adaptive_timeout = 1.0
+    # Test JSON deserialisation
+    config_from_json = DiarizationSpeakerConfig.model_validate(json_data)
+    assert config_from_json.focus_speakers == config.focus_speakers
+    assert config_from_json.ignore_speakers == config.ignore_speakers
+    assert config_from_json.focus_mode == config.focus_mode
 
-    # Create a client
-    client = await get_client(
-        api_key="NONE",
-        connect=False,
-        config=VoiceAgentConfig(
-            end_of_utterance_silence_trigger=adaptive_timeout, end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL
-        ),
-    )
-    assert client is not None
-
-    # Start the queue
-    client._start_stt_queue()
-
-    # Event to wait
-    event_rx: asyncio.Event = asyncio.Event()
-    last_message: Optional[dict[str, Any]] = None
-
-    # Message receiver
-    def message_rx(message: dict[str, Any]):
-        nonlocal last_message
-        last_message = message
-        event_rx.set()
-
-    # Send a message from the conversation
-    async def send_message(idx: int, count: int = 1, use_ttl: bool = True):
-        for i in range(count):
-            # Get the message from the chat
-            message = chat[idx + i]
-
-            # Wait for TTL to expire
-            if use_ttl:
-                ttl = (start_time + datetime.timedelta(seconds=message["ts"])) - datetime.datetime.now()
-                if ttl.total_seconds() > 0:
-                    await asyncio.sleep(ttl.total_seconds())
-            else:
-                await asyncio.sleep(0.005)
-
-            # Emit the message
-            client.emit(message["payload"]["message"], message["payload"])
-
-    # Inject conversation
-    await send_message(0, count=12, use_ttl=False)
-
-    # Momentary pause
-    await asyncio.sleep(0.5)
-
-    # Add listener for first interim segment
-    client.once(AgentServerMessageType.ADD_SEGMENT, message_rx)
-
-    # Pause for a moment
-    await asyncio.sleep(0.5)
-
-    # Send finalize
-    client.finalize()
-
-    # Wait for AddSegments
-    try:
-        await asyncio.wait_for(event_rx.wait(), timeout=4)
-        assert last_message is not None
-    except asyncio.TimeoutError:
-        pytest.fail("ADD_SEGMENT event was not received within 4 seconds")
-
-    # Check the right message was received
-    assert last_message.get("message") == AgentServerMessageType.ADD_SEGMENT
-
-    # Check the segment
-    segments = last_message.get("segments", [])
-    assert len(segments) == 1
-    seg0 = segments[0]
-    assert seg0["speaker_id"] == "S1"
-    assert seg0["text"] == "Welcome to Speechmatics"
-    assert f"{seg0['speaker_id']}: {seg0['text']}" == "S1: Welcome to Speechmatics"
-
-    # Stop the queue
-    client._stop_stt_queue()
+    # Test with defaults
+    config_default = DiarizationSpeakerConfig()
+    json_default = config_default.model_dump()
+    assert json_default["focus_speakers"] == []
+    assert json_default["ignore_speakers"] == []
+    assert json_default["focus_mode"] == DiarizationFocusMode.RETAIN
 
 
 @pytest.mark.asyncio
-async def test_end_of_utterance_adaptive_vad():
-    """Test EndOfUtterance from STT engine.
+async def test_speech_fragment():
+    """Test SpeechFragment serialisation and deserialisation.
 
-    - send converstaion messages (realtime)
-    - wait for `EndOfUtterance` message from SDK (adaptive)
-    - check the interval to receive the EndOfUtterance message is within 25% of expected
+    - create instance with annotation
+    - serialize to JSON
+    - deserialize from JSON
     """
 
-    # Test conversation
-    log = ConversationLog(os.path.join(os.path.dirname(__file__), "./assets/chat2.jsonl"))
-    chat = log.get_conversation(
-        ["Info", "RecognitionStarted", "AddPartialTranscript", "AddTranscript", "EndOfUtterance"]
+    # Create instance with annotation
+    annotation = AnnotationResult.from_flags(AnnotationFlags.HAS_FINAL, AnnotationFlags.ENDS_WITH_EOS)
+
+    # Create fragment
+    fragment = SpeechFragment(
+        idx=1,
+        start_time=0.5,
+        end_time=1.2,
+        language="en",
+        content="Hello",
+        speaker="S1",
+        is_final=True,
+        confidence=0.95,
+        annotation=annotation,
     )
 
-    # Start time
-    start_time = datetime.datetime.now()
+    # Test JSON serialisation
+    json_data = fragment.model_dump()
+    assert json_data["idx"] == 1
+    assert json_data["start_time"] == 0.5
+    assert json_data["end_time"] == 1.2
+    assert json_data["content"] == "Hello"
+    assert json_data["speaker"] == "S1"
+    assert json_data["is_final"] is True
+    assert json_data["confidence"] == 0.95
+    assert isinstance(json_data["annotation"], list)
 
-    # Adaptive timeout
-    adaptive_timeout = 0.5
 
-    # Create a client
-    client = await get_client(
-        api_key="NONE",
-        connect=False,
-        config=VoiceAgentConfig(
-            end_of_utterance_silence_trigger=adaptive_timeout, end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE
-        ),
+@pytest.mark.asyncio
+async def test_speaker_segment():
+    """Test SpeakerSegment serialisation and deserialisation.
+
+    - create instance with annotation
+    - serialize to JSON
+    - deserialize from JSON
+    """
+
+    # Create fragments
+    fragment1 = SpeechFragment(idx=1, start_time=0.5, end_time=1.0, content="Hello", speaker="S1")
+    fragment2 = SpeechFragment(idx=2, start_time=1.0, end_time=1.5, content="world", speaker="S1")
+
+    # Create annotation
+    annotation = AnnotationResult.from_flags(AnnotationFlags.HAS_FINAL, AnnotationFlags.MULTIPLE_SPEAKERS)
+
+    # Create instance
+    segment = SpeakerSegment(
+        speaker_id="S1",
+        is_active=True,
+        timestamp="2025-01-01T12:00:00.500",
+        language="en",
+        fragments=[fragment1, fragment2],
+        text="Hello world",
+        annotation=annotation,
     )
-    assert client is not None
 
-    # Start the queue
-    client._start_stt_queue()
+    # Test model_dump() default behavior (should exclude fragments by default)
+    json_data = segment.model_dump()
+    assert json_data["speaker_id"] == "S1"
+    assert json_data["is_active"] is True
+    assert json_data["timestamp"] == "2025-01-01T12:00:00.500"
+    assert json_data["text"] == "Hello world"
+    assert "fragments" not in json_data
+    assert "results" not in json_data
+    assert isinstance(json_data["annotation"], list)
 
-    # Event to wait
-    eot_received: asyncio.Event = asyncio.Event()
-    last_message: Optional[dict[str, Any]] = None
-
-    # Time for last final (used to calculate the interval)
-    last_final_time: Optional[float] = None
-    receive_interval: Optional[float] = None
-
-    # Transcript receiver
-    def transcript_rx(message: dict[str, Any]):
-        if not eot_received.is_set():
-            nonlocal last_final_time
-            last_final_time = datetime.datetime.now()
-
-    # End of turn receiver
-    def eot_rx(message: dict[str, Any]):
-        nonlocal last_message
-        nonlocal receive_interval
-        last_message = message
-        receive_interval = (datetime.datetime.now() - last_final_time).total_seconds()
-        eot_received.set()
-
-    # Send a message from the conversation
-    async def send_message(idx: int, count: int = 1, use_ttl: bool = True):
-        for i in range(count):
-            # Get the message from the chat
-            message = chat[idx + i]
-
-            # Wait for TTL to expire
-            if use_ttl:
-                ttl = (start_time + datetime.timedelta(seconds=message["ts"])) - datetime.datetime.now()
-                if ttl.total_seconds() > 0:
-                    await asyncio.sleep(ttl.total_seconds())
-            else:
-                await asyncio.sleep(0.005)
-
-            # Emit the message
-            client.emit(message["payload"]["message"], message["payload"])
-
-    # Add listener for partials (as these will trigger the adaptive timer))
-    client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, transcript_rx)
-
-    # Add listener for end of turn
-    client.once(AgentServerMessageType.END_OF_TURN, eot_rx)
-
-    # Inject conversation up to the penultimate final from the STT
-    await send_message(0, count=12, use_ttl=True)
-
-    # Check we have had a final
-    assert last_final_time is not None
-
-    # Timing info
-    timeout = adaptive_timeout * 1.5
-
-    # Wait for EndOfUtterance
-    try:
-        await asyncio.wait_for(eot_received.wait(), timeout=timeout)
-        assert last_message is not None
-    except asyncio.TimeoutError:
-        pytest.fail(f"END_OF_TURN event was not received within {timeout} seconds")
-
-    # Check the right message was received
-    assert last_message.get("message") == AgentServerMessageType.END_OF_TURN
-
-    # Check the interval was within +/- 25% of the adaptive trigger of 0.5 the timeout (see client code)
-    expected_min_interval = adaptive_timeout * 0.5 * 0.75
-    expected_max_interval = adaptive_timeout * 0.5 * 1.25
-    assert receive_interval >= expected_min_interval
-    assert receive_interval <= expected_max_interval
-
-    # Stop the queue
-    client._stop_stt_queue()
+    # Test model_dump with include_results=True
+    dict_data_results = segment.model_dump(include_results=True)
+    assert dict_data_results["speaker_id"] == "S1"
+    assert dict_data_results["text"] == "Hello world"
+    assert "results" in dict_data_results
+    assert "fragments" not in dict_data_results
+    assert len(dict_data_results["results"]) == 2

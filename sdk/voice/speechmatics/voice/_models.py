@@ -5,11 +5,12 @@
 from __future__ import annotations
 
 import datetime
-from dataclasses import dataclass
-from dataclasses import field
 from enum import Enum
 from typing import Any
 from typing import Optional
+
+from pydantic import BaseModel
+from pydantic import Field
 
 from speechmatics.rt import AudioEncoding
 from speechmatics.rt import OperatingPoint
@@ -30,8 +31,7 @@ class DiarizationFocusMode(str, Enum):
     IGNORE = "ignore"
 
 
-@dataclass
-class AdditionalVocabEntry:
+class AdditionalVocabEntry(BaseModel):
     """Additional vocabulary entry.
 
     Parameters:
@@ -40,11 +40,10 @@ class AdditionalVocabEntry:
     """
 
     content: str
-    sounds_like: list[str] = field(default_factory=list)
+    sounds_like: list[str] = Field(default_factory=list)
 
 
-@dataclass
-class DiarizationKnownSpeaker:
+class DiarizationKnownSpeaker(BaseModel):
     """Known speakers for speaker diarization.
 
     Parameters:
@@ -56,8 +55,7 @@ class DiarizationKnownSpeaker:
     speaker_identifiers: list[str]
 
 
-@dataclass
-class DiarizationSpeakerConfig:
+class DiarizationSpeakerConfig(BaseModel):
     """Speaker Diarization Config.
 
     List of speakers to focus on, ignore and how to deal with speakers that are not
@@ -86,13 +84,12 @@ class DiarizationSpeakerConfig:
             Defaults to `DiarizationFocusMode.RETAIN`.
     """
 
-    focus_speakers: list[str] = field(default_factory=list)
-    ignore_speakers: list[str] = field(default_factory=list)
+    focus_speakers: list[str] = Field(default_factory=list)
+    ignore_speakers: list[str] = Field(default_factory=list)
     focus_mode: DiarizationFocusMode = DiarizationFocusMode.RETAIN
 
 
-@dataclass
-class VoiceAgentConfig:
+class VoiceAgentConfig(BaseModel):
     """Voice Agent configuration.
 
     A framework-independent configuration object for the Speechmatics Voice Agent. This uses
@@ -192,7 +189,7 @@ class VoiceAgentConfig:
     end_of_utterance_silence_trigger: float = 0.2
     end_of_utterance_max_delay: float = 10.0
     end_of_utterance_mode: EndOfUtteranceMode = EndOfUtteranceMode.FIXED
-    additional_vocab: list[AdditionalVocabEntry] = field(default_factory=list)
+    additional_vocab: list[AdditionalVocabEntry] = Field(default_factory=list)
     punctuation_overrides: Optional[dict] = None
 
     # Diarization
@@ -200,8 +197,8 @@ class VoiceAgentConfig:
     speaker_sensitivity: float = 0.5
     max_speakers: Optional[int] = None
     prefer_current_speaker: bool = False
-    speaker_config: DiarizationSpeakerConfig = field(default_factory=DiarizationSpeakerConfig)
-    known_speakers: list[DiarizationKnownSpeaker] = field(default_factory=list)
+    speaker_config: DiarizationSpeakerConfig = Field(default_factory=DiarizationSpeakerConfig)
+    known_speakers: list[DiarizationKnownSpeaker] = Field(default_factory=list)
 
     # Advanced features
     include_results: bool = False
@@ -359,8 +356,7 @@ class AnnotationFlags(str, Enum):
     END_OF_UTTERANCE = "end_of_utterance"
 
 
-@dataclass
-class LanguagePackInfo:
+class LanguagePackInfo(BaseModel):
     """Information about the language pack used in a session.
 
     Attributes:
@@ -371,35 +367,14 @@ class LanguagePackInfo:
         writing_direction (str): The writing direction ('ltr' or 'rtl').
     """
 
-    adapted: bool
-    itn: bool
-    language_description: str
-    word_delimiter: str
-    writing_direction: str
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> LanguagePackInfo:
-        """Create LanguagePackInfo from dictionary."""
-        return cls(
-            adapted=data.get("adapted", False),
-            itn=data.get("itn", True),
-            language_description=data.get("language_description", "English"),
-            word_delimiter=data.get("word_delimiter", " "),
-            writing_direction="rtl" if data.get("writing_direction", "left-to-right") == "right-to-left" else "ltr",
-        )
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "adapted": self.adapted,
-            "itn": self.itn,
-            "language_description": self.language_description,
-            "word_delimiter": self.word_delimiter,
-            "writing_direction": self.writing_direction,
-        }
+    adapted: bool = False
+    itn: bool = True
+    language_description: str = "English"
+    word_delimiter: str = " "
+    writing_direction: str = "ltr"
 
 
-@dataclass
-class SessionInfo:
+class SessionInfo(BaseModel):
     """Information about the session.
 
     Attributes:
@@ -413,14 +388,6 @@ class SessionInfo:
     session_id: str
     base_time: datetime.datetime
     language_pack_info: LanguagePackInfo
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "config": self.config,
-            "session_id": self.session_id,
-            "base_time": self.base_time,
-            "language_pack_info": self.language_pack_info.to_dict(),
-        }
 
 
 class AnnotationResult(list):
@@ -459,13 +426,8 @@ class AnnotationResult(list):
             return set(self) == set(other)
         return False
 
-    # def __repr__(self) -> str:
-    #     """Return a representation of the object."""
-    #     return repr([f.value for f in self])
 
-
-@dataclass
-class SpeechFragment:
+class SpeechFragment(BaseModel):
     """Fragment of a speech event.
 
     As the transcript is processed (partials and finals), a list of SpeechFragments
@@ -507,9 +469,10 @@ class SpeechFragment:
     result: Optional[Any] = None
     annotation: Optional[AnnotationResult] = None
 
+    model_config = {"arbitrary_types_allowed": True}
 
-@dataclass
-class SpeakerSegment:
+
+class SpeakerSegment(BaseModel):
     """SpeechFragment items grouped by speaker_id and whether the speaker is active.
 
     Parameters:
@@ -526,9 +489,11 @@ class SpeakerSegment:
     is_active: bool = False
     timestamp: Optional[str] = None
     language: Optional[str] = None
-    fragments: list[SpeechFragment] = field(default_factory=list)
+    fragments: list[SpeechFragment] = Field(default_factory=list)
     text: str | None = None
-    annotation: AnnotationResult = field(default_factory=AnnotationResult)
+    annotation: AnnotationResult = Field(default_factory=AnnotationResult)
+
+    model_config = {"arbitrary_types_allowed": True}
 
     @property
     def start_time(self) -> float:
@@ -540,26 +505,22 @@ class SpeakerSegment:
         """Return the end time of the segment."""
         return self.fragments[-1].end_time if self.fragments else 0.0
 
-    def to_dict(self, include_results: bool = False) -> dict[str, Any]:
-        """Return a dictionary representation of the object."""
-        return {
-            "speaker_id": self.speaker_id,
-            "is_active": self.is_active,
-            "timestamp": self.timestamp,
-            "language": self.language,
-            "text": self.text,
-            "annotation": self.annotation,
-            **({"results": [f.result for f in self.fragments]} if include_results else {}),
-        }
+    def model_dump(self, include_results: bool = False, **kwargs: Any) -> dict[str, Any]:
+        """Override model_dump to control fragments/results inclusion."""
 
-    def __str__(self) -> str:
-        """Return a string representation of the object."""
-        meta = self.to_dict(include_results=True)
-        return f"SpeakerSegment({', '.join(f'{k}={v}' for k, v in meta.items())})"
+        # Always exclude fragments from the base dump
+        kwargs["exclude"] = {"fragments"}
+        data: dict[str, Any] = super().model_dump(**kwargs)
+
+        # Add results if requested
+        if include_results:
+            data["results"] = [f.result for f in self.fragments]
+
+        # Return the dump
+        return data
 
 
-@dataclass
-class SpeakerSegmentView:
+class SpeakerSegmentView(BaseModel):
     """View for speaker fragments.
 
     Parameters:
@@ -570,7 +531,8 @@ class SpeakerSegmentView:
 
     session: SessionInfo
     fragments: list[SpeechFragment]
-    segments: list[SpeakerSegment]
+    segments: list[SpeakerSegment] = Field(default_factory=list)
+    focus_speakers: Optional[list[str]] = None
 
     def __init__(
         self,
@@ -578,18 +540,17 @@ class SpeakerSegmentView:
         fragments: list[SpeechFragment],
         focus_speakers: Optional[list[str]] = None,
         annotate_segments: bool = True,
-    ):
-        self.session = session
-        self.fragments = fragments
-        self.focus_speakers = focus_speakers
-
+        **data: Any,
+    ) -> None:
         # Process fragments into a list of segments
-        self.segments = FragmentUtils.segment_list_from_fragments(
+        segments = FragmentUtils.segment_list_from_fragments(
             session=session,
             fragments=fragments,
             focus_speakers=focus_speakers,
             annotate_segments=annotate_segments,
         )
+
+        super().__init__(session=session, fragments=fragments, segments=segments, focus_speakers=focus_speakers, **data)
 
     @property
     def start_time(self) -> float:
@@ -666,8 +627,7 @@ class SpeakerSegmentView:
         )
 
 
-@dataclass
-class SpeakerVADStatus:
+class SpeakerVADStatus(BaseModel):
     """Emitted when a speaker starts or ends speaking.
 
     The speaker id is taken from the last word in the segment when
@@ -680,12 +640,6 @@ class SpeakerVADStatus:
 
     is_active: bool
     speaker_id: Optional[str] = None
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "is_active": self.is_active,
-            "speaker_id": self.speaker_id,
-        }
 
 
 class FragmentUtils:

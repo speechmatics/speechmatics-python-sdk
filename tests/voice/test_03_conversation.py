@@ -9,7 +9,6 @@ from _utils import send_audio_file
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import VoiceAgentConfig
-from speechmatics.voice._helpers import to_serializable
 
 api_key = os.getenv("SPEECHMATICS_API_KEY")
 
@@ -56,7 +55,7 @@ async def test_log_messages():
     def log_message(message):
         ts = (datetime.datetime.now() - start_time).total_seconds()
         audio_ts = bytes_sent / 16000 / 2
-        log = json.dumps({"ts": ts, "audio_ts": audio_ts, "payload": to_serializable(message)})
+        log = json.dumps({"ts": ts, "audio_ts": audio_ts, "payload": message})
         messages.append(log)
         print(log)
 
@@ -82,9 +81,9 @@ async def test_log_messages():
     print()
     print("---")
     log_message({"message": "AudioFile", "path": audio_file})
-    log_message({"message": "VoiceAgentConfig", **to_serializable(client._config)})
-    log_message({"message": "TranscriptionConfig", **to_serializable(client._transcription_config)})
-    log_message({"message": "AudioFormat", **to_serializable(client._audio_format)})
+    log_message({"message": "VoiceAgentConfig", **client._config.model_dump()})
+    log_message({"message": "TranscriptionConfig", **client._transcription_config.to_dict()})
+    log_message({"message": "AudioFormat", **client._audio_format.to_dict()})
 
     # Connect
     await client.connect()

@@ -94,7 +94,7 @@ class VoiceAgentClient(AsyncClient):
             config=self._config,
             session_id="NOT_SET",
             base_time=datetime.datetime.now(datetime.timezone.utc),
-            language_pack_info=LanguagePackInfo.from_dict({}),
+            language_pack_info=LanguagePackInfo.model_validate({}),
         )
 
         # STT message received queue
@@ -240,7 +240,7 @@ class VoiceAgentClient(AsyncClient):
                 config=self._config,
                 session_id=message.get("id", "UNKNOWN"),
                 base_time=datetime.datetime.now(datetime.timezone.utc),
-                language_pack_info=LanguagePackInfo.from_dict(message.get("language_pack_info", {})),
+                language_pack_info=LanguagePackInfo.model_validate(message.get("language_pack_info", {})),
             )
 
         # Partial transcript event
@@ -843,7 +843,7 @@ class VoiceAgentClient(AsyncClient):
                         AgentServerMessageType.ADD_SEGMENT,
                         {
                             "message": AgentServerMessageType.ADD_SEGMENT.value,
-                            "segments": [s.to_dict(self._config.include_results) for s in final_segments],
+                            "segments": [s.model_dump(self._config.include_results) for s in final_segments],
                             "metadata": metadata,
                         },
                     )
@@ -858,7 +858,7 @@ class VoiceAgentClient(AsyncClient):
                         AgentServerMessageType.ADD_PARTIAL_SEGMENT,
                         {
                             "message": AgentServerMessageType.ADD_PARTIAL_SEGMENT.value,
-                            "segments": [s.to_dict(self._config.include_results) for s in interim_segments],
+                            "segments": [s.model_dump(self._config.include_results) for s in interim_segments],
                             "metadata": metadata,
                         },
                     )
@@ -931,14 +931,14 @@ class VoiceAgentClient(AsyncClient):
                     AgentServerMessageType.SPEAKER_ENDED,
                     {
                         "message": AgentServerMessageType.SPEAKER_ENDED.value,
-                        "status": SpeakerVADStatus(speaker_id=current_speaker, is_active=False).to_dict(),
+                        "status": SpeakerVADStatus(speaker_id=current_speaker, is_active=False).model_dump(),
                     },
                 )
                 self.emit(
                     AgentServerMessageType.SPEAKER_STARTED,
                     {
                         "message": AgentServerMessageType.SPEAKER_STARTED.value,
-                        "status": SpeakerVADStatus(speaker_id=speaker, is_active=True).to_dict(),
+                        "status": SpeakerVADStatus(speaker_id=speaker, is_active=True).model_dump(),
                     },
                 )
 
@@ -960,7 +960,7 @@ class VoiceAgentClient(AsyncClient):
             msg,
             {
                 "message": msg.value,
-                "status": SpeakerVADStatus(speaker_id=speaker, is_active=self._is_speaking).to_dict(),
+                "status": SpeakerVADStatus(speaker_id=speaker, is_active=self._is_speaking).model_dump(),
             },
         )
 

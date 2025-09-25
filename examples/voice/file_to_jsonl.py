@@ -17,7 +17,6 @@ from speechmatics.voice import DiarizationSpeakerConfig
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import VoiceAgentClient
 from speechmatics.voice import VoiceAgentConfig
-from speechmatics.voice._helpers import to_serializable
 
 
 async def main() -> None:
@@ -73,7 +72,7 @@ async def main() -> None:
     def log_message(message):
         ts = (datetime.datetime.now() - start_time).total_seconds()
         audio_ts = bytes_sent / 16000 / 2
-        log = json.dumps({"ts": ts, "audio_ts": audio_ts, "payload": to_serializable(message)})
+        log = json.dumps({"ts": ts, "audio_ts": audio_ts, "payload": message.model_dump()})
         messages.append(log)
 
         # Output to file or stdout
@@ -85,9 +84,9 @@ async def main() -> None:
 
     # Log script info
     log_message({"message": "AudioFile", "path": args.input_file})
-    log_message({"message": "VoiceAgentConfig", **to_serializable(client._config)})
-    log_message({"message": "TranscriptionConfig", **to_serializable(client._transcription_config)})
-    log_message({"message": "AudioFormat", **to_serializable(client._audio_format)})
+    log_message({"message": "VoiceAgentConfig", **client._config.model_dump()})
+    log_message({"message": "TranscriptionConfig", **client._transcription_config.to_dict()})
+    log_message({"message": "AudioFormat", **client._audio_format.to_dict()})
 
     # Add listeners
     client.once(AgentServerMessageType.RECOGNITION_STARTED, log_message)
