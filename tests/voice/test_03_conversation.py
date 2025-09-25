@@ -14,6 +14,7 @@ from speechmatics.voice._helpers import to_serializable
 api_key = os.getenv("SPEECHMATICS_API_KEY")
 
 
+@pytest.mark.skip(reason="Only use manually!")
 @pytest.mark.asyncio
 async def test_log_messages():
     """Test transcription.

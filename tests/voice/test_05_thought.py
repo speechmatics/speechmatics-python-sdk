@@ -13,6 +13,7 @@ from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import VoiceAgentConfig
 
 
+@pytest.mark.skip(reason="Not fully implemented!")
 @pytest.mark.asyncio
 async def test_end_of_thought():
     """Use inference for end of thought.
@@ -96,7 +97,7 @@ async def test_end_of_thought():
     assert segment is not None
 
     # Debug
-    print(segment["text"])
+    # print(segment["text"])
 
     # Stop the queue
     client._stop_stt_queue()

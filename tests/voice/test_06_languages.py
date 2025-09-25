@@ -160,11 +160,9 @@ async def test_transcribe_languages(sample: AudioSample):
     # Individual payloads
     await send_audio_file(client, audio_file, progress_callback=log_bytes_sent)
 
-    # Send finalize after a short delay
-    await asyncio.sleep(2.0)
+    # Send finalize
+    await asyncio.sleep(1.5)
     client.finalize()
-
-    # Wait for 5 seconds
     await asyncio.sleep(1.5)
 
     # Extract the last message
