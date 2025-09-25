@@ -11,7 +11,7 @@ from speechmatics.batch import JobType
 from speechmatics.batch import Transcript
 from speechmatics.batch import TranscriptionConfig
 
-audio_file = os.getenv("AUDIO_FILE_PATH", os.path.join(os.path.dirname(__file__), "../example.wav"))
+audio_file = os.getenv("AUDIO_FILE_PATH", os.path.join(os.path.dirname(__file__), "../example1.wav"))
 
 
 async def main() -> None:
