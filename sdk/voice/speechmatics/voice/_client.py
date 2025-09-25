@@ -231,7 +231,7 @@ class VoiceAgentClient(AsyncClient):
         """
 
         # Recognition started event
-        @self.once(ServerMessageType.RECOGNITION_STARTED)
+        @self.once(ServerMessageType.RECOGNITION_STARTED)  # type: ignore[misc]
         def _evt_on_recognition_started(message: dict[str, Any]) -> None:
             if DEBUG_MORE:
                 self._logger.debug(json.dumps(message))
@@ -244,7 +244,7 @@ class VoiceAgentClient(AsyncClient):
             )
 
         # Partial transcript event
-        @self.on(ServerMessageType.ADD_PARTIAL_TRANSCRIPT)
+        @self.on(ServerMessageType.ADD_PARTIAL_TRANSCRIPT)  # type: ignore[misc]
         def _evt_on_partial_transcript(message: dict[str, Any]) -> None:
             if DEBUG_MORE:
                 self._logger.debug(json.dumps(message))
@@ -255,7 +255,7 @@ class VoiceAgentClient(AsyncClient):
             self._stt_message_queue.put_nowait(_handle)
 
         # Final transcript event
-        @self.on(ServerMessageType.ADD_TRANSCRIPT)
+        @self.on(ServerMessageType.ADD_TRANSCRIPT)  # type: ignore[misc]
         def _evt_on_final_transcript(message: dict[str, Any]) -> None:
             if DEBUG_MORE:
                 self._logger.debug(json.dumps(message))
@@ -266,7 +266,7 @@ class VoiceAgentClient(AsyncClient):
             self._stt_message_queue.put_nowait(_handle)
 
         # End of utterance event
-        @self.on(ServerMessageType.END_OF_UTTERANCE)
+        @self.on(ServerMessageType.END_OF_UTTERANCE)  # type: ignore[misc]
         def _evt_on_end_of_utterance(message: dict[str, Any]) -> None:
             if DEBUG_MORE:
                 self._logger.debug(json.dumps(message))
