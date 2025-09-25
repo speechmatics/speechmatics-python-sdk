@@ -490,7 +490,7 @@ class SpeakerSegment(BaseModel):
     timestamp: Optional[str] = None
     language: Optional[str] = None
     fragments: list[SpeechFragment] = Field(default_factory=list)
-    text: str | None = None
+    text: Optional[str] = None
     annotation: AnnotationResult = Field(default_factory=AnnotationResult)
 
     model_config = {"arbitrary_types_allowed": True}
