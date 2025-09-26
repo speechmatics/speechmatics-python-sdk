@@ -18,6 +18,7 @@ from urllib.parse import urlencode
 from speechmatics.rt import AsyncClient
 from speechmatics.rt import AudioEncoding
 from speechmatics.rt import AudioFormat
+from speechmatics.rt import ClientMessageType
 from speechmatics.rt import ConversationConfig
 from speechmatics.rt import ServerMessageType
 from speechmatics.rt import TranscriptionConfig
@@ -28,12 +29,12 @@ from ._models import AgentClientMessageType
 from ._models import AgentServerMessageType
 from ._models import AnnotationFlags
 from ._models import AnnotationResult
+from ._models import ClientSessionInfo
 from ._models import DiarizationFocusMode
 from ._models import DiarizationSpeakerConfig
 from ._models import EndOfUtteranceMode
 from ._models import FragmentUtils
 from ._models import LanguagePackInfo
-from ._models import SessionInfo
 from ._models import SpeakerSegmentView
 from ._models import SpeakerVADStatus
 from ._models import SpeechFragment
@@ -90,7 +91,7 @@ class VoiceAgentClient(AsyncClient):
         self._is_ready_for_audio: bool = False
 
         # Session info (updated on session created)
-        self._session: SessionInfo = SessionInfo(
+        self._client_session: ClientSessionInfo = ClientSessionInfo(
             config=self._config,
             session_id="NOT_SET",
             base_time=datetime.datetime.now(datetime.timezone.utc),
@@ -236,7 +237,7 @@ class VoiceAgentClient(AsyncClient):
             if DEBUG_MORE:
                 self._logger.debug(json.dumps(message))
             self._is_ready_for_audio = True
-            self._session = SessionInfo(
+            self._client_session = ClientSessionInfo(
                 config=self._config,
                 session_id=message.get("id", "UNKNOWN"),
                 base_time=datetime.datetime.now(datetime.timezone.utc),
@@ -313,6 +314,11 @@ class VoiceAgentClient(AsyncClient):
         # Check if we are already connected
         if not self._is_connected:
             return
+
+        # Send end of transcript to release resources
+        await self.send_message(
+            {"message": ClientMessageType.END_OF_STREAM, "last_seq_no": self._session.sequence_number}
+        )
 
         # Disconnect from API
         try:
@@ -641,7 +647,7 @@ class VoiceAgentClient(AsyncClient):
 
             # Compare previous view to this view
             if self._previous_view:
-                changes = FragmentUtils.compare_views(self._session, self._previous_view, self._current_view)
+                changes = FragmentUtils.compare_views(self._client_session, self._previous_view, self._current_view)
             else:
                 changes = AnnotationResult.from_flags(AnnotationFlags.NEW)
 
@@ -683,7 +689,7 @@ class VoiceAgentClient(AsyncClient):
     def _update_current_view(self) -> None:
         """Load the current view of the speech fragments."""
         self._current_view = SpeakerSegmentView(
-            session=self._session,
+            session=self._client_session,
             fragments=self._speech_fragments.copy(),
             focus_speakers=self._dz_config.focus_speakers,
         )

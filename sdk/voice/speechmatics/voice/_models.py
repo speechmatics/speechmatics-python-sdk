@@ -374,7 +374,7 @@ class LanguagePackInfo(BaseModel):
     writing_direction: str = "ltr"
 
 
-class SessionInfo(BaseModel):
+class ClientSessionInfo(BaseModel):
     """Information about the session.
 
     Attributes:
@@ -524,19 +524,19 @@ class SpeakerSegmentView(BaseModel):
     """View for speaker fragments.
 
     Parameters:
-        session: SessionInfo object.
+        session: ClientSessionInfo object.
         fragments: List of fragments.
         focus_speakers: List of speakers to focus on or None.
     """
 
-    session: SessionInfo
+    session: ClientSessionInfo
     fragments: list[SpeechFragment]
     segments: list[SpeakerSegment] = Field(default_factory=list)
     focus_speakers: Optional[list[str]] = None
 
     def __init__(
         self,
-        session: SessionInfo,
+        session: ClientSessionInfo,
         fragments: list[SpeechFragment],
         focus_speakers: Optional[list[str]] = None,
         annotate_segments: bool = True,
@@ -647,12 +647,12 @@ class FragmentUtils:
 
     @staticmethod
     def format_segment_text(
-        session: SessionInfo, segment: SpeakerSegment, format: str = "{text}", words_only: bool = False
+        session: ClientSessionInfo, segment: SpeakerSegment, format: str = "{text}", words_only: bool = False
     ) -> str:
         """Format a segment's text based on the language pack info.
 
         Args:
-            session: SessionInfo object.
+            session: ClientSessionInfo object.
             segment: SpeakerSegment object.
             words_only: Whether to include only word fragments.
 
@@ -692,7 +692,7 @@ class FragmentUtils:
 
     @staticmethod
     def segment_list_from_fragments(
-        session: SessionInfo,
+        session: ClientSessionInfo,
         fragments: list[SpeechFragment],
         focus_speakers: Optional[list[str]] = None,
         annotate_segments: bool = True,
@@ -700,7 +700,7 @@ class FragmentUtils:
         """Create SpeakerSegment objects from a list of SpeechFragment objects.
 
         Args:
-            session: SessionInfo object.
+            session: ClientSessionInfo object.
             fragments: List of SpeechFragment objects.
             focus_speakers: List of speakers to focus on or None.
             annotate_segments: Whether to annotate segments.
@@ -739,7 +739,7 @@ class FragmentUtils:
 
     @staticmethod
     def segment_from_fragments(
-        session: SessionInfo,
+        session: ClientSessionInfo,
         fragments: list[SpeechFragment],
         focus_speakers: Optional[list[str]] = None,
         annotate: bool = True,
@@ -754,7 +754,7 @@ class FragmentUtils:
         be removed.
 
         Args:
-            session: SessionInfo object.
+            session: ClientSessionInfo object.
             fragments: List of SpeechFragment objects.
             focus_speakers: List of speakers to focus on.
             annotate: Whether to annotate the segment.
@@ -883,14 +883,14 @@ class FragmentUtils:
 
     @staticmethod
     def compare_views(
-        session: SessionInfo, view1: SpeakerSegmentView, view2: Optional[SpeakerSegmentView]
+        session: ClientSessionInfo, view1: SpeakerSegmentView, view2: Optional[SpeakerSegmentView]
     ) -> AnnotationResult:
         """Compare two SpeakerSegmentView objects and return the differences.
 
         View 1 (new) is compared to view 2 (old).
 
         Args:
-            session: SessionInfo object.
+            session: ClientSessionInfo object.
             view1: The first SpeakerSegmentView object to compare.
             view2: The second SpeakerSegmentView object to compare to or None.
 
