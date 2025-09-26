@@ -193,6 +193,9 @@ async def test_known_speakers():
     speakers = [segment.get("speaker_id") for segment in final_segments]
     assert set(speakers) == set({"Assistant", "John Doe"})
 
+    # Should be 5 segments
+    assert len(final_segments) == 5
+
     # Close session
     await client.disconnect()
     assert not client._is_connected
@@ -256,6 +259,13 @@ async def test_ignoring_assistant():
     # Check only speakers present
     speakers = [segment.get("speaker_id") for segment in final_segments]
     assert set(speakers) == set({"John Doe"})
+
+    # Should be only 2 segments
+    assert len(final_segments) == 2
+
+    # No segment should contain `Rickmansworth`
+    for segment in final_segments:
+        assert "Rickmansworth" not in segment.get("text", "")
 
     # Close session
     await client.disconnect()
