@@ -150,9 +150,6 @@ async def test_multiple_speakers(sample: SpeakerTest):
     # Log ADD_SEGMENT
     client.on(AgentServerMessageType.ADD_SEGMENT, log_final_segment)
 
-    # Load the audio file `./assets/audio_01_16kHz.wav`
-    audio_file = "./assets/audio_02_8kHz.wav"
-
     # HEADER
     if show_log:
         print()
@@ -170,7 +167,7 @@ async def test_multiple_speakers(sample: SpeakerTest):
     assert client._is_connected
 
     # Individual payloads
-    await send_audio_file(client, audio_file, progress_callback=log_bytes_sent)
+    await send_audio_file(client, sample.path, progress_callback=log_bytes_sent)
 
     # FOOTER
     if show_log:
