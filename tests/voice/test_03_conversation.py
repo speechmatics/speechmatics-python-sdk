@@ -73,8 +73,8 @@ async def test_log_messages():
     client.on(AgentServerMessageType.SPEAKER_ENDED, log_message)
     client.on(AgentServerMessageType.END_OF_TURN, log_message)
 
-    # Load the audio file `./assets/audio_01.wav`
-    audio_file = "./assets/audio_01.wav"
+    # Load the audio file `./assets/audio_01_16kHz.wav`
+    audio_file = "./assets/audio_01_16kHz.wav"
 
     # HEADER
     print()

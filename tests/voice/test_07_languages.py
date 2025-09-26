@@ -112,6 +112,7 @@ async def test_transcribe_languages(sample: AudioSample):
             additional_vocab=[AdditionalVocabEntry(content=vocab) for vocab in sample.vocab],
         ),
     )
+    assert client is not None
 
     # Create an event to track when the callback is called
     messages: list[str] = []

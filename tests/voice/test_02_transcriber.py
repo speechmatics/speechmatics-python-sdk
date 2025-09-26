@@ -53,8 +53,8 @@ async def test_transcribe_partial():
     # Add listener for PARTIALS
     client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, on_partial_received)
 
-    # Load the audio file `./assets/audio_01.wav`
-    await send_audio_file(client, "./assets/audio_01.wav", event_received)
+    # Load the audio file `./assets/audio_01_16kHz.wav`
+    await send_audio_file(client, "./assets/audio_01_16kHz.wav", event_received)
 
     # Wait for the callback with timeout
     try:
@@ -101,8 +101,8 @@ async def test_transcribe_final():
     # Add listener for PARTIALS
     client.on(AgentServerMessageType.ADD_TRANSCRIPT, on_final_received)
 
-    # Load the audio file `./assets/audio_01.wav`
-    await send_audio_file(client, "./assets/audio_01.wav", event_received)
+    # Load the audio file `./assets/audio_01_16kHz.wav`
+    await send_audio_file(client, "./assets/audio_01_16kHz.wav", event_received)
 
     # Wait for the callback with timeout
     try:
@@ -161,8 +161,8 @@ async def test_partial_segment():
     # Add listener for PARTIALS
     client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, on_segment_received)
 
-    # Load the audio file `./assets/audio_01.wav`
-    await send_audio_file(client=client, audio_file="./assets/audio_01.wav", terminate_event=event_received)
+    # Load the audio file `./assets/audio_01_16kHz.wav`
+    await send_audio_file(client=client, audio_file="./assets/audio_01_16kHz.wav", terminate_event=event_received)
 
     # Wait for the callback with timeout
     try:
