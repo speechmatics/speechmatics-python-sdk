@@ -66,7 +66,7 @@ async def test_finalize():
     def log_message(message):
         ts = (datetime.datetime.now() - start_time).total_seconds()
         audio_ts = bytes_sent / 16000 / 2
-        log = json.dumps({"ts": ts, "audio_ts": audio_ts, "payload": message})
+        log = json.dumps({"ts": round(ts, 3), "audio_ts": round(audio_ts, 2), "payload": message})
         messages.append(log)
         if SHOW_LOG:
             print(log)
@@ -94,16 +94,31 @@ async def test_finalize():
         log_message({"message": "AudioFormat", **client._audio_format.to_dict()})
 
     # Connect
-    await client.connect()
+    try:
+        await client.connect()
+    except Exception:
+        pytest.skip(f"Failed to connect to server: {URL}")
 
     # Check we are connected
     assert client._is_connected
 
-    # Individual payloads
-    await send_audio_file(client, AUDIO_FILE, chunk_size=160, progress_callback=log_bytes_sent)
+    # Set chunk size
+    chunk_size = 160
+
+    # Send words twice with silence in-between
+    await send_audio_file(client, AUDIO_FILE, chunk_size=chunk_size, progress_callback=log_bytes_sent)
+    await send_silence(client, 1.0, chunk_size=chunk_size, progress_callback=log_bytes_sent)
+    await send_audio_file(client, AUDIO_FILE, chunk_size=chunk_size, progress_callback=log_bytes_sent)
 
     # Send silence in a thread
-    asyncio.create_task(send_silence(client, 10.0, chunk_size=160, terminate_event=eot_received))
+    asyncio.create_task(
+        send_silence(
+            client, 10.0, chunk_size=chunk_size, progress_callback=log_bytes_sent, terminate_event=eot_received
+        )
+    )
+
+    # Wait for 0.25 seconds
+    await asyncio.sleep(0.25)
 
     # Request the speakers result
     finalize_trigger_time = datetime.datetime.now()
@@ -121,6 +136,13 @@ async def test_finalize():
         print(f"--- latency {finalize_latency:.2f} ms")
         print()
         print()
+
+    # Debug result
+    print(f"{finalize_latency:.2f}ms")
+
+    # Make sure latency is within bounds
+    assert finalize_latency > 50
+    assert finalize_latency < 500
 
     # Close session
     await client.disconnect()

@@ -148,8 +148,11 @@ async def send_silence(
     delay = chunk_size / sample_rate / sample_size
     next_time = time.perf_counter() + delay
 
+    # Iterations required
+    iterations = int(duration / delay)
+
     # Keep sending
-    while not terminate_event.is_set() if terminate_event else True:
+    while (not terminate_event.is_set() if terminate_event else True) and iterations > 0:
         # Send audio to client
         await client.send_audio(silence)
 
@@ -162,6 +165,9 @@ async def send_silence(
         if sleep_time > 0:
             await asyncio.sleep(sleep_time)
         next_time += delay
+
+        # Reduce iterations
+        iterations -= 1
 
 
 def normalize(text: str) -> str:

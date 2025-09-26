@@ -129,7 +129,7 @@ async def test_multiple_speakers(sample: SpeakerTest):
     def log_message(message):
         ts = (datetime.datetime.now() - start_time).total_seconds()
         audio_ts = bytes_sent / sample.sample_rate / sample.sample_size
-        log = json.dumps({"ts": ts, "audio_ts": audio_ts, "payload": message})
+        log = json.dumps({"ts": round(ts, 3), "audio_ts": round(audio_ts, 2), "payload": message})
         messages.append(log)
         if SHOW_LOG:
             print(log)

@@ -71,7 +71,7 @@ async def test_extract_speaker_ids():
     def log_message(message):
         ts = (datetime.datetime.now() - start_time).total_seconds()
         audio_ts = bytes_sent / 8000
-        log = json.dumps({"ts": ts, "audio_ts": audio_ts, "payload": message})
+        log = json.dumps({"ts": round(ts, 3), "audio_ts": round(audio_ts, 2), "payload": message})
         messages.append(log)
         if SHOW_LOG:
             print(log)
@@ -104,7 +104,10 @@ async def test_extract_speaker_ids():
         log_message({"message": "AudioFormat", **client._audio_format.to_dict()})
 
     # Connect
-    await client.connect()
+    try:
+        await client.connect()
+    except Exception:
+        pytest.skip(f"Failed to connect to server: {URL}")
 
     # Check we are connected
     assert client._is_connected
@@ -183,7 +186,10 @@ async def test_known_speakers():
     client.on(AgentServerMessageType.ADD_SEGMENT, log_final_segment)
 
     # Connect
-    await client.connect()
+    try:
+        await client.connect()
+    except Exception:
+        pytest.skip(f"Failed to connect to server: {URL}")
 
     # Check we are connected
     assert client._is_connected
@@ -254,7 +260,10 @@ async def test_ignoring_assistant():
     client.on(AgentServerMessageType.ADD_SEGMENT, log_final_segment)
 
     # Connect
-    await client.connect()
+    try:
+        await client.connect()
+    except Exception:
+        pytest.skip(f"Failed to connect to server: {URL}")
 
     # Check we are connected
     assert client._is_connected
