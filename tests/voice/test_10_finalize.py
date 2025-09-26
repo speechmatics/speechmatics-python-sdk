@@ -1,25 +1,32 @@
+import asyncio
 import datetime
 import json
 import os
+from typing import Optional
 
 import pytest
 from _utils import get_client
 from _utils import send_audio_file
+from _utils import send_silence
 
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import VoiceAgentConfig
 
 API_KEY = os.getenv("SPEECHMATICS_API_KEY")
+URL: Optional[str] = "wss://jamesw.lab.speechmatics.io/v2"
 SHOW_LOG = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
+AUDIO_FILE = "./assets/audio_03_16kHz.wav"
 
 
 @pytest.mark.asyncio
-async def test_log_messages():
-    """Test transcription.
+async def test_finalize():
+    """Test finalization.
 
     This test will:
-        - log messages
+        - play a short audio clip
+        - finalize the segment
+        - this MUST use a preview / dev endpoint
     """
 
     # API key
@@ -30,18 +37,22 @@ async def test_log_messages():
     # Client
     client = await get_client(
         api_key=api_key,
+        url=URL,
         connect=False,
         config=VoiceAgentConfig(
-            end_of_utterance_silence_trigger=0.2,
-            max_delay=0.7,
-            end_of_utterance_mode=EndOfUtteranceMode.FIXED,
-            enable_diarization=True,
+            end_of_utterance_silence_trigger=0.7,
+            max_delay=1.2,
+            end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL,
+            enable_preview_features=True,
         ),
     )
 
     # Create an event to track when the callback is called
     messages: list[str] = []
     bytes_sent: int = 0
+
+    # Flag
+    eot_received = asyncio.Event()
 
     # Start time
     start_time = datetime.datetime.now()
@@ -60,29 +71,24 @@ async def test_log_messages():
         if SHOW_LOG:
             print(log)
 
+    # EOT received
+    def eot_received_callback(message):
+        eot_received.set()
+
     # Add listeners
     client.once(AgentServerMessageType.RECOGNITION_STARTED, log_message)
-    client.once(AgentServerMessageType.INFO, log_message)
-    client.on(AgentServerMessageType.WARNING, log_message)
-    client.on(AgentServerMessageType.ERROR, log_message)
-    client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, log_message)
-    client.on(AgentServerMessageType.ADD_TRANSCRIPT, log_message)
-    client.on(AgentServerMessageType.END_OF_UTTERANCE, log_message)
     client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, log_message)
     client.on(AgentServerMessageType.ADD_SEGMENT, log_message)
-    client.on(AgentServerMessageType.SPEAKER_STARTED, log_message)
-    client.on(AgentServerMessageType.SPEAKER_ENDED, log_message)
     client.on(AgentServerMessageType.END_OF_TURN, log_message)
 
-    # Load the audio file `./assets/audio_01_16kHz.wav`
-    audio_file = "./assets/audio_01_16kHz.wav"
+    # End of Turn
+    client.once(AgentServerMessageType.END_OF_TURN, eot_received_callback)
 
     # HEADER
     if SHOW_LOG:
         print()
         print()
         print("---")
-        log_message({"message": "AudioFile", "path": audio_file})
         log_message({"message": "VoiceAgentConfig", **client._config.model_dump()})
         log_message({"message": "TranscriptionConfig", **client._transcription_config.to_dict()})
         log_message({"message": "AudioFormat", **client._audio_format.to_dict()})
@@ -94,11 +100,25 @@ async def test_log_messages():
     assert client._is_connected
 
     # Individual payloads
-    await send_audio_file(client, audio_file, progress_callback=log_bytes_sent)
+    await send_audio_file(client, AUDIO_FILE, chunk_size=160, progress_callback=log_bytes_sent)
+
+    # Send silence in a thread
+    asyncio.create_task(send_silence(client, 10.0, chunk_size=160, terminate_event=eot_received))
+
+    # Request the speakers result
+    finalize_trigger_time = datetime.datetime.now()
+    client.finalize()
+
+    # Wait for the callback with timeout
+    try:
+        await asyncio.wait_for(eot_received.wait(), timeout=5.0)
+        finalize_latency = (datetime.datetime.now() - finalize_trigger_time).total_seconds() * 1000
+    except asyncio.TimeoutError:
+        pytest.fail("END_OF_TURN event was not received within 5 seconds of audio finish")
 
     # FOOTER
     if SHOW_LOG:
-        print("---")
+        print(f"--- latency {finalize_latency:.2f} ms")
         print()
         print()
 

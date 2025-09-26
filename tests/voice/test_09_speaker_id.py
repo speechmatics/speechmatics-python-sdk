@@ -15,9 +15,9 @@ from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import VoiceAgentConfig
 from speechmatics.voice._models import SpeakerSegment
 
-api_key = os.getenv("SPEECHMATICS_API_KEY")
-url: Optional[str] = "wss://preview.rt.speechmatics.com/v1"
-show_log = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
+API_KEY = os.getenv("SPEECHMATICS_API_KEY")
+URL: Optional[str] = "wss://preview.rt.speechmatics.com/v2"
+SHOW_LOG = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
 
 speaker_ids: list[DiarizationKnownSpeaker] = []
 
@@ -41,7 +41,7 @@ async def test_extract_speaker_ids():
     # Client
     client = await get_client(
         api_key=api_key,
-        url=url,
+        url=URL,
         connect=False,
         config=VoiceAgentConfig(
             end_of_utterance_silence_trigger=1.0,
@@ -73,7 +73,7 @@ async def test_extract_speaker_ids():
         audio_ts = bytes_sent / 8000
         log = json.dumps({"ts": ts, "audio_ts": audio_ts, "payload": message})
         messages.append(log)
-        if show_log:
+        if SHOW_LOG:
             print(log)
 
     # Log speakers result
@@ -95,7 +95,7 @@ async def test_extract_speaker_ids():
     client.once(AgentServerMessageType.SPEAKERS_RESULT, save_speakers_result)
 
     # HEADER
-    if show_log:
+    if SHOW_LOG:
         print()
         print()
         print("---")
@@ -110,7 +110,7 @@ async def test_extract_speaker_ids():
     assert client._is_connected
 
     # Individual payloads
-    await send_audio_file(client, "./assets/audio_02_8kHz.wav", progress_callback=log_bytes_sent)
+    await send_audio_file(client, "./assets/audio_02_8kHz.wav", sample_rate=8000, progress_callback=log_bytes_sent)
 
     # Request the speakers result
     await client.send_message({"message": AgentClientMessageType.GET_SPEAKERS})
@@ -122,7 +122,7 @@ async def test_extract_speaker_ids():
         pytest.fail("SPEAKERS_RESULT event was not received within 5 seconds of audio finish")
 
     # FOOTER
-    if show_log:
+    if SHOW_LOG:
         print("---")
         print()
         print()
@@ -159,7 +159,7 @@ async def test_known_speakers():
     # Client
     client = await get_client(
         api_key=api_key,
-        url=url,
+        url=URL,
         connect=False,
         config=VoiceAgentConfig(
             end_of_utterance_silence_trigger=1.0,
@@ -189,7 +189,11 @@ async def test_known_speakers():
     assert client._is_connected
 
     # Individual payloads
-    await send_audio_file(client, "./assets/audio_02_8kHz.wav")
+    await send_audio_file(
+        client,
+        "./assets/audio_02_8kHz.wav",
+        sample_rate=8000,
+    )
 
     # Check only speakers present
     speakers = [segment.get("speaker_id") for segment in final_segments]
@@ -226,7 +230,7 @@ async def test_ignoring_assistant():
     # Client
     client = await get_client(
         api_key=api_key,
-        url=url,
+        url=URL,
         connect=False,
         config=VoiceAgentConfig(
             end_of_utterance_silence_trigger=1.0,
@@ -256,7 +260,11 @@ async def test_ignoring_assistant():
     assert client._is_connected
 
     # Individual payloads
-    await send_audio_file(client, "./assets/audio_02_8kHz.wav")
+    await send_audio_file(
+        client,
+        "./assets/audio_02_8kHz.wav",
+        sample_rate=8000,
+    )
 
     # Check only speakers present
     speakers = [segment.get("speaker_id") for segment in final_segments]

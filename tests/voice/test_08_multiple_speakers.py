@@ -17,8 +17,8 @@ from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import VoiceAgentConfig
 from speechmatics.voice._models import SpeakerSegment
 
-api_key = os.getenv("SPEECHMATICS_API_KEY")
-show_log = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
+API_KEY = os.getenv("SPEECHMATICS_API_KEY")
+SHOW_LOG = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
 
 
 class SpeakerTest(BaseModel):
@@ -37,7 +37,6 @@ SAMPLES: list[SpeakerTest] = [
         id="multiple_speakers",
         path="./assets/audio_02_8kHz.wav",
         sample_rate=8000,
-        sample_size=1,
         segment_regex=["^Welcome", "Buckingham", "please repeat or clarify", "Notting Hill", "Rickmansworth"],
         speakers_present=["S1", "S2"],
     ),
@@ -45,7 +44,6 @@ SAMPLES: list[SpeakerTest] = [
         id="focus_s2",
         path="./assets/audio_02_8kHz.wav",
         sample_rate=8000,
-        sample_size=1,
         segment_regex=["^Welcome", "Buckingham", "please repeat or clarify", "Notting Hill"],
         speaker_config=DiarizationSpeakerConfig(
             focus_speakers=["S2"],
@@ -56,7 +54,6 @@ SAMPLES: list[SpeakerTest] = [
         id="only_s2",
         path="./assets/audio_02_8kHz.wav",
         sample_rate=8000,
-        sample_size=1,
         segment_regex=["Buckingham", "Notting Hill"],
         speaker_config=DiarizationSpeakerConfig(
             focus_speakers=["S2"],
@@ -68,7 +65,6 @@ SAMPLES: list[SpeakerTest] = [
         id="ignore_s2",
         path="./assets/audio_02_8kHz.wav",
         sample_rate=8000,
-        sample_size=1,
         segment_regex=["^Welcome", "please repeat or clarify", "Rickmansworth"],
         speaker_config=DiarizationSpeakerConfig(
             ignore_speakers=["S2"],
@@ -135,7 +131,7 @@ async def test_multiple_speakers(sample: SpeakerTest):
         audio_ts = bytes_sent / sample.sample_rate / sample.sample_size
         log = json.dumps({"ts": ts, "audio_ts": audio_ts, "payload": message})
         messages.append(log)
-        if show_log:
+        if SHOW_LOG:
             print(log)
 
     # Log final segments
@@ -158,7 +154,7 @@ async def test_multiple_speakers(sample: SpeakerTest):
     client.on(AgentServerMessageType.ADD_SEGMENT, log_final_segment)
 
     # HEADER
-    if show_log:
+    if SHOW_LOG:
         print()
         print()
         print("---")
@@ -174,10 +170,16 @@ async def test_multiple_speakers(sample: SpeakerTest):
     assert client._is_connected
 
     # Individual payloads
-    await send_audio_file(client, sample.path, progress_callback=log_bytes_sent)
+    await send_audio_file(
+        client,
+        sample.path,
+        sample_rate=sample.sample_rate,
+        sample_size=sample.sample_size,
+        progress_callback=log_bytes_sent,
+    )
 
     # FOOTER
-    if show_log:
+    if SHOW_LOG:
         print("---")
         print()
         print()

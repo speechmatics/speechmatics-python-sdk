@@ -9,7 +9,7 @@ from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import VoiceAgentConfig
 
-api_key = os.getenv("SPEECHMATICS_API_KEY")
+API_KEY = os.getenv("SPEECHMATICS_API_KEY")
 
 
 @pytest.mark.asyncio

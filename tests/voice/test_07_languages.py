@@ -18,7 +18,7 @@ from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import VoiceAgentConfig
 
-api_key = os.getenv("SPEECHMATICS_API_KEY")
+API_KEY = os.getenv("SPEECHMATICS_API_KEY")
 
 
 @dataclass
