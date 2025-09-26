@@ -153,7 +153,7 @@ build-voice: install-build
 	cd sdk/voice && python -m build
 
 # Cleaning targets
-clean-all: clean-rt clean-batch clean-flow clean-voice
+clean-all: clean-rt clean-batch clean-flow clean-voice clean-test clean-examples
 
 clean-rt:
 	rm -rf sdk/rt/dist sdk/rt/build sdk/rt/*.egg-info
@@ -170,3 +170,11 @@ clean-flow:
 clean-voice:
 	rm -rf sdk/voice/dist sdk/voice/build sdk/voice/*.egg-info
 	find sdk/voice -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+
+clean-test:
+	find tests -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	rm -rf .pytest_cache
+	rm -rf .mypy_cache
+
+clean-examples:
+	find examples -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
