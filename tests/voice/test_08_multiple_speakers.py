@@ -29,6 +29,7 @@ class SpeakerTest(BaseModel):
     segment_regex: list[str] = field(default_factory=list)
     config: Optional[VoiceAgentConfig] = None
     speaker_config: Optional[DiarizationSpeakerConfig] = None
+    speakers_present: list[str] = field(default_factory=list)
 
 
 SAMPLES: list[SpeakerTest] = [
@@ -38,6 +39,7 @@ SAMPLES: list[SpeakerTest] = [
         sample_rate=8000,
         sample_size=1,
         segment_regex=["^Welcome", "Buckingham", "please repeat or clarify", "Notting Hill", "Rickmansworth"],
+        speakers_present=["S1", "S2"],
     ),
     SpeakerTest(
         id="focus_s2",
@@ -48,6 +50,7 @@ SAMPLES: list[SpeakerTest] = [
         speaker_config=DiarizationSpeakerConfig(
             focus_speakers=["S2"],
         ),
+        speakers_present=["S1", "S2"],
     ),
     SpeakerTest(
         id="only_s2",
@@ -59,6 +62,7 @@ SAMPLES: list[SpeakerTest] = [
             focus_speakers=["S2"],
             focus_mode=DiarizationFocusMode.IGNORE,
         ),
+        speakers_present=["S2"],
     ),
     SpeakerTest(
         id="ignore_s2",
@@ -69,6 +73,7 @@ SAMPLES: list[SpeakerTest] = [
         speaker_config=DiarizationSpeakerConfig(
             ignore_speakers=["S2"],
         ),
+        speakers_present=["S1"],
     ),
 ]
 
@@ -133,6 +138,7 @@ async def test_multiple_speakers(sample: SpeakerTest):
         if show_log:
             print(log)
 
+    # Log final segments
     def log_final_segment(message):
         segments: list[SpeakerSegment] = message["segments"]
         final_segments.extend(segments)
@@ -179,6 +185,10 @@ async def test_multiple_speakers(sample: SpeakerTest):
     # Check final segments against regex
     for idx, _test in enumerate(sample.segment_regex):
         assert re.search(_test, final_segments[idx].get("text"))
+
+    # Check only speakers present
+    speakers = [segment.get("speaker_id") for segment in final_segments]
+    assert set(speakers) == set(sample.speakers_present)
 
     # Close session
     await client.disconnect()

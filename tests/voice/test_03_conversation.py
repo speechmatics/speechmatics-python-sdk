@@ -11,9 +11,9 @@ from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import VoiceAgentConfig
 
 api_key = os.getenv("SPEECHMATICS_API_KEY")
+show_log = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
 
 
-@pytest.mark.skip(reason="Only use manually!")
 @pytest.mark.asyncio
 async def test_log_messages():
     """Test transcription.
@@ -57,7 +57,8 @@ async def test_log_messages():
         audio_ts = bytes_sent / 16000 / 2
         log = json.dumps({"ts": ts, "audio_ts": audio_ts, "payload": message})
         messages.append(log)
-        print(log)
+        if show_log:
+            print(log)
 
     # Add listeners
     client.once(AgentServerMessageType.RECOGNITION_STARTED, log_message)
@@ -77,13 +78,14 @@ async def test_log_messages():
     audio_file = "./assets/audio_01_16kHz.wav"
 
     # HEADER
-    print()
-    print()
-    print("---")
-    log_message({"message": "AudioFile", "path": audio_file})
-    log_message({"message": "VoiceAgentConfig", **client._config.model_dump()})
-    log_message({"message": "TranscriptionConfig", **client._transcription_config.to_dict()})
-    log_message({"message": "AudioFormat", **client._audio_format.to_dict()})
+    if show_log:
+        print()
+        print()
+        print("---")
+        log_message({"message": "AudioFile", "path": audio_file})
+        log_message({"message": "VoiceAgentConfig", **client._config.model_dump()})
+        log_message({"message": "TranscriptionConfig", **client._transcription_config.to_dict()})
+        log_message({"message": "AudioFormat", **client._audio_format.to_dict()})
 
     # Connect
     await client.connect()
@@ -95,9 +97,10 @@ async def test_log_messages():
     await send_audio_file(client, audio_file, progress_callback=log_bytes_sent)
 
     # FOOTER
-    print("---")
-    print()
-    print()
+    if show_log:
+        print("---")
+        print()
+        print()
 
     # Close session
     await client.disconnect()
