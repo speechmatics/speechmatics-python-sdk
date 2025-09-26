@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import json
 import os
+from typing import Optional
 
 import pytest
 from _utils import get_client
@@ -15,6 +16,7 @@ from speechmatics.voice import VoiceAgentConfig
 from speechmatics.voice._models import SpeakerSegment
 
 api_key = os.getenv("SPEECHMATICS_API_KEY")
+url: Optional[str] = "wss://preview.rt.speechmatics.com/v1"
 show_log = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
 
 speaker_ids: list[DiarizationKnownSpeaker] = []
@@ -39,7 +41,7 @@ async def test_extract_speaker_ids():
     # Client
     client = await get_client(
         api_key=api_key,
-        url="wss://preview.rt.speechmatics.com/v1",
+        url=url,
         connect=False,
         config=VoiceAgentConfig(
             end_of_utterance_silence_trigger=1.0,
@@ -76,7 +78,6 @@ async def test_extract_speaker_ids():
 
     # Log speakers result
     def save_speakers_result(message):
-        speakers_event_received.set()
         for label, speaker_identifiers in message.get("results", {}).items():
             speaker_ids.append(
                 DiarizationKnownSpeaker(
@@ -84,6 +85,7 @@ async def test_extract_speaker_ids():
                     speaker_identifiers=speaker_identifiers,
                 )
             )
+        speakers_event_received.set()
 
     # Add listeners
     client.once(AgentServerMessageType.RECOGNITION_STARTED, log_message)
@@ -157,7 +159,7 @@ async def test_known_speakers():
     # Client
     client = await get_client(
         api_key=api_key,
-        url="wss://preview.rt.speechmatics.com/v1",
+        url=url,
         connect=False,
         config=VoiceAgentConfig(
             end_of_utterance_silence_trigger=1.0,
@@ -224,7 +226,7 @@ async def test_ignoring_assistant():
     # Client
     client = await get_client(
         api_key=api_key,
-        url="wss://preview.rt.speechmatics.com/v1",
+        url=url,
         connect=False,
         config=VoiceAgentConfig(
             end_of_utterance_silence_trigger=1.0,
