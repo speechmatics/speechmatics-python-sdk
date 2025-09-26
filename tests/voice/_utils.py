@@ -63,6 +63,8 @@ async def send_audio_file(
     audio_file: str,
     terminate_event: Optional[asyncio.Event] = None,
     chunk_size: int = 320,
+    sample_rate: int = 16000,
+    sample_size: int = 2,
     progress_callback: Optional[Callable[[int], None]] = None,
 ) -> None:
     """Send audio data to the API server."""
@@ -77,8 +79,12 @@ async def send_audio_file(
     file = os.path.join(os.path.dirname(__file__), audio_file)
     assert os.path.exists(file)
 
+    # Make sure progress callback is callable
+    if progress_callback:
+        assert callable(progress_callback)
+
     # Delay is based off 16kHz int16 and chunk size
-    delay = chunk_size / 16000 / 2
+    delay = chunk_size / sample_rate / sample_size
 
     # Load the file
     async with aiofiles.open(file, "rb") as wav_file:
@@ -109,6 +115,53 @@ async def send_audio_file(
             if sleep_time > 0:
                 await asyncio.sleep(sleep_time)
             next_time += delay
+
+
+async def send_silence(
+    client: VoiceAgentClient,
+    duration: float,
+    terminate_event: Optional[asyncio.Event] = None,
+    chunk_size: int = 320,
+    sample_rate: int = 16000,
+    sample_size: int = 2,
+    progress_callback: Optional[Callable[[int], None]] = None,
+):
+    """Send silence to the client (creates a chunk of silence and sends it to the client)"""
+
+    # Make sure client is connected
+    assert client._is_connected
+
+    # Make sure duration is positive
+    assert duration > 0
+
+    # Make sure chunk size is positive
+    assert chunk_size > 0
+
+    # Make sure progress callback is callable
+    if progress_callback:
+        assert callable(progress_callback)
+
+    # Send silence
+    silence = b"\x00" * chunk_size
+
+    # Timing
+    delay = chunk_size / sample_rate / sample_size
+    next_time = time.perf_counter() + delay
+
+    # Keep sending
+    while not terminate_event.is_set() if terminate_event else True:
+        # Send audio to client
+        await client.send_audio(silence)
+
+        # Do any callbacks
+        if progress_callback:
+            progress_callback(len(silence))
+
+        # Precision delay
+        sleep_time = next_time - time.perf_counter()
+        if sleep_time > 0:
+            await asyncio.sleep(sleep_time)
+        next_time += delay
 
 
 def normalize(text: str) -> str:
