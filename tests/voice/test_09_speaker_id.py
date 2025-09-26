@@ -169,7 +169,7 @@ async def test_known_speakers():
         ),
     )
 
-    # Create an event to track when the callback is called
+    # Finalised segments
     final_segments: list[dict] = []
 
     # Log final segments
@@ -236,7 +236,7 @@ async def test_ignoring_assistant():
         ),
     )
 
-    # Create an event to track when the callback is called
+    # Finalised segments
     final_segments: list[dict] = []
 
     # Log final segments
