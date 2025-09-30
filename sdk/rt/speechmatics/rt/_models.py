@@ -333,7 +333,7 @@ class TranscriptionConfig:
     operating_point: OperatingPoint = OperatingPoint.ENHANCED
     output_locale: Optional[str] = None
     diarization: Optional[str] = None
-    additional_vocab: Optional[dict] = None
+    additional_vocab: Optional[list[dict[str, Any]]] = None
     punctuation_overrides: Optional[dict] = None
     domain: Optional[str] = None
     enable_entities: Optional[bool] = None
