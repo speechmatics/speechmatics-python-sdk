@@ -75,7 +75,7 @@ class TranscriptionConfig:
         diarization: Type of diarization to use. Options: "none", "speaker".
         additional_vocab: Additional vocabulary for better recognition.
         punctuation_overrides: Custom punctuation configuration.
-        domain: Domain-specific language pack.
+        domain: Request a language pack optimized for a specific domain (e.g. 'medical')
         enable_entities: Whether to enable entity detection.
         speaker_diarization_config: Configuration for speaker diarization.
         channel_diarization_labels: Labels for channel diarization.
