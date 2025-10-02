@@ -15,7 +15,7 @@ async def main():
         async with AsyncMultiChannelClient() as client:
             @client.on(ServerMessageType.ADD_TRANSCRIPT)
             def handle_transcript(msg):
-                channel = msg['results'][0]['channel']
+                channel = msg.get('channel')
                 transcript = msg['metadata']['transcript']
                 print(f"[{channel}]: {transcript}")
 
