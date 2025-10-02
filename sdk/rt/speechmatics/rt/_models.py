@@ -278,7 +278,7 @@ class TranscriptionConfig:
             Defaults to None.
         punctuation_overrides: (Optional) Permitted punctuation marks for advanced punctuation.
             Defaults to None.
-        domain: (Optional) Optionally request a language pack optimized for a specific domain (e.g. 'finance').
+        domain: (Optional) Request a language pack optimized for a specific domain (e.g. 'medical').
             Defaults to None.
         enable_entities: (Optional) Whether to enable entity detection/recognition.
             Defaults to None.
