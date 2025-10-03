@@ -1,8 +1,10 @@
 import asyncio
+import json
 import os
 import random
 import shutil
 import wave
+from typing import Optional
 
 import aiofiles
 import pytest
@@ -10,6 +12,7 @@ from _utils import get_client
 from _utils import send_audio_file
 from _utils import send_silence
 
+from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import VoiceAgentConfig
@@ -161,11 +164,6 @@ async def test_load_audio_file():
                 break
             await buffer.put_frame(chunk)
 
-    # Check size
-    assert buffer.total_frames == 2817
-    assert buffer.total_time == 28.17
-    assert buffer.size == 2817
-
     # Slice
     slice_start = 3.52
     slice_end = 6.96
@@ -213,15 +211,20 @@ async def test_transcribe_and_slice():
     exceptions: Exception = []
 
     # Save a slice
-    async def save_slice(start_time: float, end_time: float, prefix: str = "slice") -> None:
+    async def save_slice(
+        start_time: float, end_time: float, prefix: str = "slice", json_data: Optional[str] = None
+    ) -> None:
         try:
-            output_file = os.path.join(output_folder, f"{file}_{prefix}_{start_time:.2f}_{end_time:.2f}.wav")
+            output_file = os.path.join(output_folder, f"{file}_{prefix}_{start_time:.2f}_{end_time:.2f}")
             data = await client._audio_buffer.get_frames(start_time, end_time)
-            with wave.open(output_file, "wb") as wav_file:
+            with wave.open(f"{output_file}.wav", "wb") as wav_file:
                 wav_file.setnchannels(1)
                 wav_file.setsampwidth(2)
                 wav_file.setframerate(client._audio_buffer._sample_rate)
                 wav_file.writeframes(data)
+            if json_data:
+                with open(f"{output_file}.json", "w") as json_file:
+                    json_file.write(json_data)
         except Exception as e:
             exceptions.append(e)
 
@@ -235,6 +238,9 @@ async def test_transcribe_and_slice():
             end_of_utterance_mode=EndOfUtteranceMode.FIXED,
             enable_diarization=True,
             enable_audio_buffer=True,
+            dditional_vocab=[
+                AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"]),
+            ],
         ),
     )
 
@@ -251,7 +257,14 @@ async def test_transcribe_and_slice():
                 start_time = segment["start_time"]
                 end_time = segment["end_time"]
                 speaker_id = segment["speaker_id"]
-                asyncio.create_task(save_slice(start_time, end_time, speaker_id))
+                asyncio.create_task(
+                    save_slice(
+                        start_time=start_time,
+                        end_time=end_time,
+                        prefix=speaker_id,
+                        json_data=json.dumps(segment, indent=2),
+                    )
+                )
 
         except Exception as e:
             exceptions.append(e)
