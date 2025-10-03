@@ -24,6 +24,7 @@ from speechmatics.rt import ServerMessageType
 from speechmatics.rt import TranscriptionConfig
 
 from . import __version__
+from ._audio import AudioBuffer
 from ._logging import get_logger
 from ._models import AgentClientMessageType
 from ._models import AgentServerMessageType
@@ -139,11 +140,17 @@ class VoiceAgentClient(AsyncClient):
         self._metrics_emitter_task: Optional[asyncio.Task] = None
 
         # Audio sampling info
-        self._audio_sample_rate: float = self._audio_format.sample_rate * 1.0
-        self._audio_sample_width: float = {
-            AudioEncoding.PCM_F32LE: 4.0,
-            AudioEncoding.PCM_S16LE: 2.0,
-        }.get(self._audio_format.encoding, 1.0)
+        self._audio_sample_rate: int = self._audio_format.sample_rate
+        self._audio_sample_width: int = {
+            AudioEncoding.PCM_F32LE: 4,
+            AudioEncoding.PCM_S16LE: 2,
+        }.get(self._audio_format.encoding, 1)
+
+        # Audio buffer
+        if self._config.enable_audio_buffer:
+            self._audio_buffer: AudioBuffer = AudioBuffer(
+                sample_rate=self._audio_format.sample_rate, frame_size=self._audio_format.chunk_size, total_seconds=20.0
+            )
 
         # Register handlers
         self._register_event_handlers()
@@ -394,6 +401,10 @@ class VoiceAgentClient(AsyncClient):
 
         # Send to the AsyncClient
         await super().send_audio(payload)
+
+        # Add to audio buffer (use put_bytes to handle variable chunk sizes)
+        if self._config.enable_audio_buffer:
+            await self._audio_buffer.put_bytes(payload)
 
         # Calculate the time (in seconds) for the payload
         if self._audio_format is not None:
@@ -797,6 +808,9 @@ class VoiceAgentClient(AsyncClient):
             ttl: Optional delay before finalizing partial segments.
         """
 
+        if DEBUG_MORE:
+            self._logger.debug("external finalise() called")
+
         async def emit() -> None:
             # Yield until the delay has passed
             if ttl is not None and ttl > 0:
@@ -828,9 +842,6 @@ class VoiceAgentClient(AsyncClient):
         # Lock the speech fragments
         if self._current_view and self._current_view.segment_count > 0:
             async with self._speech_fragments_lock:
-                # Metadata
-                metadata = {"start_time": self._current_view.start_time, "end_time": self._current_view.end_time}
-
                 # Force finalize
                 if finalize:
                     final_segments = self._current_view.segments
@@ -845,12 +856,17 @@ class VoiceAgentClient(AsyncClient):
 
                 # Emit finals first
                 if final_segments:
+                    # Metadata for final segments uses actual start/end times of the segments being emitted
+                    final_metadata = {
+                        "start_time": final_segments[0].start_time,
+                        "end_time": final_segments[-1].end_time,
+                    }
                     self.emit(
                         AgentServerMessageType.ADD_SEGMENT,
                         {
                             "message": AgentServerMessageType.ADD_SEGMENT.value,
                             "segments": [s.model_dump(self._config.include_results) for s in final_segments],
-                            "metadata": metadata,
+                            "metadata": final_metadata,
                         },
                     )
                     self._trim_before_time = final_segments[-1].end_time
@@ -860,12 +876,17 @@ class VoiceAgentClient(AsyncClient):
 
                 # Emit interim segments
                 if interim_segments:
+                    # Metadata for partial segments uses actual start/end times of the segments being emitted
+                    partial_metadata = {
+                        "start_time": interim_segments[0].start_time,
+                        "end_time": interim_segments[-1].end_time,
+                    }
                     self.emit(
                         AgentServerMessageType.ADD_PARTIAL_SEGMENT,
                         {
                             "message": AgentServerMessageType.ADD_PARTIAL_SEGMENT.value,
                             "segments": [s.model_dump(self._config.include_results) for s in interim_segments],
-                            "metadata": metadata,
+                            "metadata": partial_metadata,
                         },
                     )
 

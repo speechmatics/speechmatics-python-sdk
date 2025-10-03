@@ -174,6 +174,9 @@ class VoiceAgentConfig(BaseModel):
         enable_preview_features: Enable preview features using a preview endpoint provided by
             Speechmatics. Defaults to False.
 
+        enable_audio_buffer: Enable audio buffer to extract slices of recent audio for post-processing
+            by end of thought models. Defaults to False.
+
         sample_rate: Audio sample rate for streaming. Defaults to 16000.
         audio_encoding: Audio encoding format. Defaults to AudioEncoding.PCM_S16LE.
     """
@@ -203,6 +206,7 @@ class VoiceAgentConfig(BaseModel):
     # Advanced features
     include_results: bool = False
     enable_preview_features: bool = False
+    enable_audio_buffer: bool = False
 
     # Audio
     sample_rate: int = 16000
@@ -511,6 +515,10 @@ class SpeakerSegment(BaseModel):
         # Always exclude fragments from the base dump
         kwargs["exclude"] = {"fragments"}
         data: dict[str, Any] = super().model_dump(**kwargs)
+
+        # Add timing information
+        data["start_time"] = self.start_time
+        data["end_time"] = self.end_time
 
         # Add results if requested
         if include_results:
