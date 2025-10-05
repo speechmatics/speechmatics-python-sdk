@@ -238,11 +238,11 @@ async def test_transcribe_and_slice():
         api_key=api_key,
         connect=False,
         config=VoiceAgentConfig(
-            end_of_utterance_silence_trigger=0.2,
+            end_of_utterance_silence_trigger=0.35,
             max_delay=0.7,
             end_of_utterance_mode=EndOfUtteranceMode.FIXED,
             enable_diarization=True,
-            enable_audio_buffer=True,
+            audio_buffer_length=20.0,
             additional_vocab=[
                 AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"]),
             ],

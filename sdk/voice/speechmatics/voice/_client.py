@@ -147,9 +147,11 @@ class VoiceAgentClient(AsyncClient):
         }.get(self._audio_format.encoding, 1)
 
         # Audio buffer
-        if self._config.enable_audio_buffer:
+        if self._config.audio_buffer_length > 0:
             self._audio_buffer: AudioBuffer = AudioBuffer(
-                sample_rate=self._audio_format.sample_rate, frame_size=self._audio_format.chunk_size, total_seconds=20.0
+                sample_rate=self._audio_format.sample_rate,
+                frame_size=self._audio_format.chunk_size,
+                total_seconds=self._config.audio_buffer_length,
             )
 
         # Register handlers
@@ -403,7 +405,7 @@ class VoiceAgentClient(AsyncClient):
         await super().send_audio(payload)
 
         # Add to audio buffer (use put_bytes to handle variable chunk sizes)
-        if self._config.enable_audio_buffer:
+        if self._config.audio_buffer_length > 0:
             await self._audio_buffer.put_bytes(payload)
 
         # Calculate the time (in seconds) for the payload

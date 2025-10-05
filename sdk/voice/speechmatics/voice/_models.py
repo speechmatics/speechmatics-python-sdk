@@ -174,8 +174,8 @@ class VoiceAgentConfig(BaseModel):
         enable_preview_features: Enable preview features using a preview endpoint provided by
             Speechmatics. Defaults to False.
 
-        enable_audio_buffer: Enable audio buffer to extract slices of recent audio for post-processing
-            by end of thought models. Defaults to False.
+        audio_buffer_length: Length of audio buffer to extract slices of recent audio for post-processing
+            by end of thought models. Defaults to 0.0 seconds.
 
         sample_rate: Audio sample rate for streaming. Defaults to 16000.
         audio_encoding: Audio encoding format. Defaults to AudioEncoding.PCM_S16LE.
@@ -206,7 +206,7 @@ class VoiceAgentConfig(BaseModel):
     # Advanced features
     include_results: bool = False
     enable_preview_features: bool = False
-    enable_audio_buffer: bool = False
+    audio_buffer_length: float = 0.0
 
     # Audio
     sample_rate: int = 16000

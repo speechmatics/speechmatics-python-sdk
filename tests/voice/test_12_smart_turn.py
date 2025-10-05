@@ -80,9 +80,9 @@ async def test_transcribe_and_slice():
         config=VoiceAgentConfig(
             end_of_utterance_silence_trigger=1.0,
             max_delay=2.0,
-            end_of_utterance_mode=EndOfUtteranceMode.FIXED,
+            end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL,
             enable_diarization=True,
-            enable_audio_buffer=True,
+            audio_buffer_length=8.0,
         ),
     )
 
@@ -111,8 +111,9 @@ async def test_transcribe_and_slice():
         except Exception as e:
             exceptions.append(e)
 
-    # Bytes logger
+    # Partial segment
     def partial_segment(message):
+        print(message)
         try:
             segments = message.get("segments", [])
             assert segments
@@ -145,7 +146,6 @@ async def test_transcribe_and_slice():
 
     # Send audio
     await send_audio_file(client, input_file)
-    await send_silence(client, 2.0)
 
     # Close session
     await client.disconnect()
