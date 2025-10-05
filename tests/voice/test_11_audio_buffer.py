@@ -133,6 +133,11 @@ async def test_buffer_bytes():
 async def test_load_audio_file():
     """Test loading audio file into buffer"""
 
+    # API key
+    api_key = os.getenv("SPEECHMATICS_API_KEY")
+    if not api_key:
+        pytest.skip("Valid API key required for test")
+
     # File
     file = "audio_01_16kHz"
 
