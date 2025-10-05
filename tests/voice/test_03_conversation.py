@@ -6,6 +6,7 @@ import pytest
 from _utils import get_client
 from _utils import send_audio_file
 
+from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import VoiceAgentConfig
@@ -36,6 +37,9 @@ async def test_log_messages():
             max_delay=0.7,
             end_of_utterance_mode=EndOfUtteranceMode.FIXED,
             enable_diarization=True,
+            additional_vocab=[
+                AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"]),
+            ],
         ),
     )
 

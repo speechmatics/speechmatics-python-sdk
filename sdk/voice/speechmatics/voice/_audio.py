@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import asyncio
 
+import numpy as np
+
 
 class AudioBuffer:
     """Rolling audio buffer.
@@ -106,7 +108,7 @@ class AudioBuffer:
             if len(self._frames) > self._max_frames:
                 self._frames = self._frames[-self._max_frames :]
 
-    async def get_frames(self, start_time: float, end_time: float) -> bytes:
+    async def get_frames(self, start_time: float, end_time: float, fade_out: float = 0) -> bytes:
         """Get a slice of the buffer.
 
         Get a slice of the buffer between the start_time and end_time.
@@ -115,9 +117,13 @@ class AudioBuffer:
         is after the end of the buffer, then the end_time will be set to
         the end of the buffer.
 
+        If a fade out time is specified, then the end of the slice will be
+        faded out by the specified amount of seconds.
+
         Arguments:
             start_time: The start time of the slice.
             end_time: The end time of the slice.
+            fade_out: The fade out time in seconds.
 
         Returns:
             The slice of the buffer between the start_time and end_time.
@@ -148,8 +154,52 @@ class AudioBuffer:
             # Get what frames are available
             frames = self._frames[actual_start_index:actual_end_index]
 
+            # Bytes
+            data = b"".join(frames)
+
+            # Fade out
+            if fade_out > 0:
+                data = self._fade_out_audio(data, fade_out=fade_out)
+
             # Return the joined frames
-            return b"".join(frames)
+            return data
+
+    def _fade_out_audio(self, data: bytes, fade_out: float = 0.01) -> bytes:
+        """
+        Apply a fade-out over the final `fade_out` seconds of PCM audio data.
+
+        Args:
+            data: Raw PCM audio data as bytes.
+            fade_out: Duration of fade-out in seconds (e.g., 0.01 = 10 ms).
+
+        Returns:
+            Bytes with fade-out applied.
+        """
+        # Choose dtype
+        if self._sample_width == 1:
+            dtype = np.int8
+        elif self._sample_width == 2:
+            dtype = np.int16
+        else:
+            raise ValueError(f"Unsupported sample_width {self._sample_width}: must be 1 or 2")
+
+        # Convert bytes to NumPy array
+        samples = np.frombuffer(data, dtype=dtype)
+
+        # Number of samples to fade
+        fade_samples = int(self._sample_rate * fade_out)
+        if fade_samples <= 0 or fade_samples > len(samples):
+            return data
+
+        # Linear fade envelope
+        envelope = np.linspace(1.0, 0.0, fade_samples, endpoint=True)
+
+        # Apply fade
+        faded = samples.astype(np.float32)
+        faded[-fade_samples:] *= envelope
+
+        # Convert back to original dtype and bytes
+        return bytes(faded.astype(dtype).tobytes())
 
     async def reset(self) -> None:
         """Reset the buffer."""

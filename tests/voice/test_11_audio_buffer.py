@@ -243,7 +243,7 @@ async def test_transcribe_and_slice():
             end_of_utterance_mode=EndOfUtteranceMode.FIXED,
             enable_diarization=True,
             enable_audio_buffer=True,
-            dditional_vocab=[
+            additional_vocab=[
                 AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"]),
             ],
         ),
