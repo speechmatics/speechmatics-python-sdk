@@ -278,7 +278,7 @@ class TranscriptionConfig:
             Defaults to None.
         punctuation_overrides: (Optional) Permitted punctuation marks for advanced punctuation.
             Defaults to None.
-        domain: (Optional) Optionally request a language pack optimized for a specific domain (e.g. 'finance').
+        domain: (Optional) Request a language pack optimized for a specific domain (e.g. 'medical').
             Defaults to None.
         enable_entities: (Optional) Whether to enable entity detection/recognition.
             Defaults to None.
@@ -333,7 +333,7 @@ class TranscriptionConfig:
     operating_point: OperatingPoint = OperatingPoint.ENHANCED
     output_locale: Optional[str] = None
     diarization: Optional[str] = None
-    additional_vocab: Optional[dict] = None
+    additional_vocab: Optional[list[dict[str, Any]]] = None
     punctuation_overrides: Optional[dict] = None
     domain: Optional[str] = None
     enable_entities: Optional[bool] = None
