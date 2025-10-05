@@ -8,7 +8,6 @@ from typing import Optional
 import pytest
 from _utils import get_client
 from _utils import send_audio_file
-from _utils import send_silence
 
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
@@ -78,9 +77,9 @@ async def test_transcribe_and_slice():
         api_key=api_key,
         connect=False,
         config=VoiceAgentConfig(
-            end_of_utterance_silence_trigger=1.0,
+            end_of_utterance_silence_trigger=0.7,
             max_delay=2.0,
-            end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL,
+            end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
             enable_diarization=True,
             audio_buffer_length=8.0,
         ),
@@ -89,8 +88,13 @@ async def test_transcribe_and_slice():
     # Check audio buffer is enabled
     assert client._audio_buffer
 
+    # Log raw messages
+    def log_raw(message):
+        print(message)
+
     # Final segment
     def final_segment(message):
+        print(message)
         try:
             segments = message.get("segments", [])
             assert segments
@@ -135,6 +139,8 @@ async def test_transcribe_and_slice():
             exceptions.append(e)
 
     # Add listeners
+    client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, log_raw)
+    client.on(AgentServerMessageType.ADD_TRANSCRIPT, log_raw)
     client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, partial_segment)
     client.on(AgentServerMessageType.ADD_SEGMENT, final_segment)
 
