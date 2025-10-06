@@ -49,8 +49,16 @@ class OperatingPoint(str, Enum):
 class NotificationContents(str, Enum):
     """Notification content options."""
 
-    SUMMARY = "summary"
-    DETAILED = "detailed"
+    DATA = "data"
+    TEXT = "text"
+    JOBINFO = "jobinfo"
+    TRANSCRIPT = "transcript"
+    TRANSCRIPT_JSON_V2 = "transcript.json-v2"
+    TRANSCRIPT_TXT = "transcript.txt"
+    TRANSCRIPT_SRT = "transcript.srt"
+    ALIGNMENT = "alignment"
+    ALIGNMENT_WORD_START_AND_END = "alignment.word_start_and_end"
+    ALIGNMENT_ONE_PER_LINE = "alignment.one_per_line"
 
 
 class FormatType(str, Enum):
@@ -138,8 +146,9 @@ class NotificationConfig:
     """Configuration for job completion notifications."""
 
     url: str
-    contents: Optional[NotificationContents] = None
-    auth_headers: Optional[dict[str, str]] = None
+    contents: Optional[list[NotificationContents]] = None
+    auth_headers: Optional[list[str]] = None
+    method: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary, excluding None values."""
@@ -267,7 +276,7 @@ class JobConfig:
     fetch_data: Optional[FetchData] = None
     transcription_config: Optional[TranscriptionConfig] = None
     alignment_config: Optional[AlignmentConfig] = None
-    notification_config: Optional[NotificationConfig] = None
+    notification_config: Optional[list[NotificationConfig]] = None
     tracking: Optional[TrackingConfig] = None
     translation_config: Optional[TranslationConfig] = None
     language_identification_config: Optional[LanguageIdentificationConfig] = None
@@ -288,7 +297,7 @@ class JobConfig:
         if self.alignment_config:
             config["alignment_config"] = self.alignment_config.to_dict()
         if self.notification_config:
-            config["notification_config"] = self.notification_config.to_dict()
+            config["notification_config"] = [nc.to_dict() for nc in self.notification_config]
         if self.tracking:
             config["tracking"] = self.tracking.to_dict()
         if self.translation_config:
@@ -326,7 +335,7 @@ class JobConfig:
         notification_config = None
         if "notification_config" in data:
             nc_data = data["notification_config"]
-            notification_config = NotificationConfig(**nc_data)
+            notification_config = [NotificationConfig(**nc) for nc in nc_data]
 
         tracking = None
         if "tracking" in data:
