@@ -61,6 +61,13 @@ class NotificationContents(str, Enum):
     ALIGNMENT_ONE_PER_LINE = "alignment.one_per_line"
 
 
+class NotificationMethod(str, Enum):
+    "Notification method."
+
+    POST = "post"
+    PUT = "put"
+
+
 class FormatType(str, Enum):
     """Output format types for transcript retrieval."""
 

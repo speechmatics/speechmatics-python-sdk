@@ -21,6 +21,7 @@ from ._models import JobStatus
 from ._models import JobType
 from ._models import NotificationConfig
 from ._models import NotificationContents
+from ._models import NotificationMethod
 from ._models import OperatingPoint
 from ._models import SummarizationConfig
 from ._models import Transcript
@@ -43,6 +44,7 @@ __all__ = [
     "JobDetails",
     "JobInfo",
     "NotificationConfig",
+    "NotificationMethod",
     "NotificationContents",
     "OperatingPoint",
     "SummarizationConfig",
