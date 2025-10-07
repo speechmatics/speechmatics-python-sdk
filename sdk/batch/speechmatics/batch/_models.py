@@ -155,7 +155,7 @@ class NotificationConfig:
     url: str
     contents: Optional[list[NotificationContents]] = None
     auth_headers: Optional[list[str]] = None
-    method: Optional[str] = None
+    method: Optional[NotificationMethod] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary, excluding None values."""
