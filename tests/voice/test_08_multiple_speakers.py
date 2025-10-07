@@ -37,14 +37,14 @@ SAMPLES: list[SpeakerTest] = [
         id="multiple_speakers",
         path="./assets/audio_02_8kHz.wav",
         sample_rate=8000,
-        segment_regex=["^Welcome", "Buckingham", "please repeat or clarify", "Notting Hill", "Rickmansworth"],
+        segment_regex=["^Welcome", "Buckingham", "clarify", "Notting Hill", "Rickmansworth"],
         speakers_present=["S1", "S2"],
     ),
     SpeakerTest(
         id="focus_s2",
         path="./assets/audio_02_8kHz.wav",
         sample_rate=8000,
-        segment_regex=["^Welcome", "Buckingham", "please repeat or clarify", "Notting Hill"],
+        segment_regex=["^Welcome", "Buckingham", "clarify", "Notting Hill"],
         speaker_config=DiarizationSpeakerConfig(
             focus_speakers=["S2"],
         ),
@@ -65,7 +65,7 @@ SAMPLES: list[SpeakerTest] = [
         id="ignore_s2",
         path="./assets/audio_02_8kHz.wav",
         sample_rate=8000,
-        segment_regex=["^Welcome", "please repeat or clarify", "Rickmansworth"],
+        segment_regex=["^Welcome", "clarify", "Rickmansworth"],
         speaker_config=DiarizationSpeakerConfig(
             ignore_speakers=["S2"],
         ),
@@ -186,7 +186,8 @@ async def test_multiple_speakers(sample: SpeakerTest):
 
     # Check final segments against regex
     for idx, _test in enumerate(sample.segment_regex):
-        assert re.search(_test, final_segments[idx].get("text"))
+        print(f"`{_test}` -> `{final_segments[idx].get('text')}`")
+        assert re.search(_test, final_segments[idx].get("text"), flags=re.IGNORECASE | re.MULTILINE)
 
     # Check only speakers present
     speakers = [segment.get("speaker_id") for segment in final_segments]

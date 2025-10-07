@@ -364,9 +364,22 @@ class VoiceAgentClient(AsyncClient):
             self._is_ready_for_audio = False
             self._stop_metrics_task()
 
-        # Stop the task
+        # Stop the finalize task
+        if self._finalize_task:
+            self._finalize_task.cancel()
+            try:
+                await self._finalize_task
+            except asyncio.CancelledError:
+                pass
+            self._finalize_task = None
+
+        # Stop the STT queue task
         if self._stt_queue_task:
             self._stt_queue_task.cancel()
+            try:
+                await self._stt_queue_task
+            except asyncio.CancelledError:
+                pass
             self._stt_queue_task = None
 
     def update_diarization_config(self, config: DiarizationSpeakerConfig) -> None:
@@ -388,9 +401,9 @@ class VoiceAgentClient(AsyncClient):
     async def _run_stt_queue(self) -> None:
         """Run the STT message queue."""
         while True:
-            callback = await self._stt_message_queue.get()
-
             try:
+                callback = await self._stt_message_queue.get()
+
                 if asyncio.iscoroutine(callback):
                     await callback
                 elif asyncio.iscoroutinefunction(callback):
@@ -400,6 +413,12 @@ class VoiceAgentClient(AsyncClient):
                     if asyncio.iscoroutine(result):
                         await result
 
+            except asyncio.CancelledError:
+                self._logger.debug("STT queue task cancelled")
+                return
+            except RuntimeError:
+                self._logger.debug("STT queue event loop closed")
+                return
             except Exception:
                 self._logger.warning("Exception in STT message queue", exc_info=True)
 
@@ -710,9 +729,12 @@ class VoiceAgentClient(AsyncClient):
 
             # Emit finalized segments
             async def emit(delay: float | None) -> None:
-                if delay and delay > 0:
-                    await asyncio.sleep(delay)
-                asyncio.create_task(self._emit_segments(finalize=True, end_of_turn=True))
+                try:
+                    if delay and delay > 0:
+                        await asyncio.sleep(delay)
+                    await self._emit_segments(finalize=True, end_of_turn=True)
+                except asyncio.CancelledError:
+                    pass
 
             # Finalize after delay
             if should_emit:
