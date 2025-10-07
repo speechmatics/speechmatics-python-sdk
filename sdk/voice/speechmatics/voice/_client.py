@@ -39,6 +39,7 @@ from ._models import LanguagePackInfo
 from ._models import SpeakerSegmentView
 from ._models import SpeakerVADStatus
 from ._models import SpeechFragment
+from ._models import TranscriptionUpdatePreset
 from ._models import VoiceAgentConfig
 
 DEBUG_MORE = os.getenv("SPEECHMATICS_DEBUG_MORE", "0").lower() in ["1", "true"]
@@ -98,6 +99,26 @@ class VoiceAgentClient(AsyncClient):
             base_time=datetime.datetime.now(datetime.timezone.utc),
             language_pack_info=LanguagePackInfo.model_validate({}),
         )
+
+        # Change filter to emit segments
+        self._change_filter: list[AnnotationFlags] = [AnnotationFlags.NEW]
+        # Full text has changed
+        if self._config.transcription_update_preset == TranscriptionUpdatePreset.COMPLETE:
+            self._change_filter.append(AnnotationFlags.UPDATED_FULL)
+        # Full text and timing have changed
+        elif self._config.transcription_update_preset == TranscriptionUpdatePreset.COMPLETE_PLUS_TIMING:
+            self._change_filter.append(AnnotationFlags.UPDATED_FULL)
+            self._change_filter.append(AnnotationFlags.UPDATED_WORD_TIMINGS)
+        # Word content only has changed
+        elif self._config.transcription_update_preset == TranscriptionUpdatePreset.WORDS:
+            self._change_filter.append(AnnotationFlags.UPDATED_STRIPPED)
+        # Word content and timing have changed
+        elif self._config.transcription_update_preset == TranscriptionUpdatePreset.WORDS_PLUS_TIMING:
+            self._change_filter.append(AnnotationFlags.UPDATED_STRIPPED)
+            self._change_filter.append(AnnotationFlags.UPDATED_WORD_TIMINGS)
+        # Timing only has changed
+        elif self._config.transcription_update_preset == TranscriptionUpdatePreset.TIMING:
+            self._change_filter.append(AnnotationFlags.UPDATED_WORD_TIMINGS)
 
         # STT message received queue
         self._stt_message_queue: asyncio.Queue[Callable[[], Awaitable[None]]] = asyncio.Queue()
@@ -668,7 +689,7 @@ class VoiceAgentClient(AsyncClient):
             self._previous_view = self._current_view
 
         # Catch no changes
-        if not changes.any(AnnotationFlags.NEW, AnnotationFlags.UPDATED_FULL):
+        if not changes.any(*self._change_filter):
             return
 
         # Emit the segments
@@ -738,7 +759,7 @@ class VoiceAgentClient(AsyncClient):
         last_active_segment = view.segments[last_active_segment_index] if last_active_segment_index > -1 else None
 
         # If this is NEW or UPDATED_FULL_LCASE
-        if view_changes.any(AnnotationFlags.NEW, AnnotationFlags.UPDATED_FULL_LCASE):
+        if view_changes.any(*self._change_filter):
             """Process the annotation flags to determine how long before sending a final segment."""
 
             # Fallback when using FIXED

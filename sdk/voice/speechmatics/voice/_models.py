@@ -24,6 +24,16 @@ class EndOfUtteranceMode(str, Enum):
     ADAPTIVE = "adaptive"
 
 
+class TranscriptionUpdatePreset(str, Enum):
+    """Filter options for when to emit changes to transcription."""
+
+    COMPLETE = "complete"
+    COMPLETE_PLUS_TIMING = "complete_plus_timing"
+    WORDS = "words"
+    WORDS_PLUS_TIMING = "words_plus_timing"
+    TIMING = "timing"
+
+
 class DiarizationFocusMode(str, Enum):
     """Speaker focus mode for diarization."""
 
@@ -98,28 +108,28 @@ class VoiceAgentConfig(BaseModel):
 
     Parameters:
         operating_point: Operating point for transcription accuracy vs. latency tradeoff. It is
-            recommended to use OperatingPoint.ENHANCED for most use cases. Defaults to
-            OperatingPoint.ENHANCED.
+            recommended to use `OperatingPoint.ENHANCED` for most use cases. Defaults to
+            `OperatingPoint.ENHANCED`.
 
-        domain: Domain for Speechmatics API. Defaults to None.
+        domain: Domain for Speechmatics API. Defaults to `None`.
 
         language: Language code for transcription. Defaults to `en`.
 
-        output_locale: Output locale for transcription, e.g. `en-GB`. Defaults to None.
+        output_locale: Output locale for transcription, e.g. `en-GB`. Defaults to `None`.
 
         max_delay: Maximum delay in seconds for transcription. This forces the STT engine to
             speed up the processing of transcribed words and reduces the interval between partial
-            and final results. Lower values can have an impact on accuracy. Defaults to 0.7.
+            and final results. Lower values can have an impact on accuracy. Defaults to `0.7`.
 
         end_of_utterance_silence_trigger: Maximum delay in seconds for end of utterance trigger.
             The delay is used to wait for any further transcribed words before emitting the final
             word frames. The value must be lower than max_delay.
-            Defaults to 0.2.
+            Defaults to `0.2`.
 
         end_of_utterance_max_delay: Maximum delay in seconds for end of utterance delay.
             The delay is used to wait for any further transcribed words before emitting the final
             word frames. The value must be greater than end_of_utterance_silence_trigger.
-            Defaults to 10.0.
+            Defaults to `10.0`.
 
         end_of_utterance_mode: End of utterance delay mode. When ADAPTIVE is used, the delay
             can be adjusted on the content of what the most recent speaker has said, such as
@@ -136,21 +146,21 @@ class VoiceAgentConfig(BaseModel):
         punctuation_overrides: Punctuation overrides. This allows you to override the punctuation
             in the STT engine. This is useful for languages that use different punctuation
             than English. See documentation for more information.
-            Defaults to None.
+            Defaults to `None`.
 
         enable_diarization: Enable speaker diarization. When enabled, the STT engine will
             determine and attribute words to unique speakers. The speaker_sensitivity
             parameter can be used to adjust the sensitivity of diarization.
-            Defaults to False.
+            Defaults to `False`.
 
         speaker_sensitivity: Diarization sensitivity. A higher value increases the sensitivity
             of diarization and helps when two or more speakers have similar voices.
-            Defaults to 0.5.
+            Defaults to `0.5`.
 
         max_speakers: Maximum number of speakers to detect. This forces the STT engine to cluster
             words into a fixed number of speakers. It should not be used to limit the number of
             speakers, unless it is clear that there will only be a known number of speakers.
-            Defaults to None.
+            Defaults to `None`.
 
         prefer_current_speaker: Prefer current speaker ID. When set to true, groups of words close
             together are given extra weight to be identified as the same speaker.
@@ -174,11 +184,18 @@ class VoiceAgentConfig(BaseModel):
         enable_preview_features: Enable preview features using a preview endpoint provided by
             Speechmatics. Defaults to False.
 
+        transcription_update_preset: Emit segments when the text content or word timings change.
+            Options are: `COMPLETE` (emit on changes to text content), `COMPLETE_PLUS_TIMING`
+            (emit on changes to text content and word timings), `WORDS` (emit on changes to word
+            content, without punctuation), `WORDS_PLUS_TIMING` (emit on changes to word content
+            and word timings), and `TIMING` (emit on changes to word timings, not recommended).
+            Defaults to `TranscriptionUpdatePreset.COMPLETE`.
+
         audio_buffer_length: Length of audio buffer to extract slices of recent audio for post-processing
             by end of thought models. Defaults to 0.0 seconds.
 
-        sample_rate: Audio sample rate for streaming. Defaults to 16000.
-        audio_encoding: Audio encoding format. Defaults to AudioEncoding.PCM_S16LE.
+        sample_rate: Audio sample rate for streaming. Defaults to `16000`.
+        audio_encoding: Audio encoding format. Defaults to `AudioEncoding.PCM_S16LE`.
     """
 
     # Service configuration
@@ -206,6 +223,7 @@ class VoiceAgentConfig(BaseModel):
     # Advanced features
     include_results: bool = False
     enable_preview_features: bool = False
+    transcription_update_preset: TranscriptionUpdatePreset = TranscriptionUpdatePreset.COMPLETE
     audio_buffer_length: float = 0.0
 
     # Audio
@@ -331,6 +349,7 @@ class AnnotationFlags(str, Enum):
     UPDATED_FINALS = "updated_finals"
     UPDATED_PARTIALS = "updated_partials"
     UPDATED_SPEAKERS = "updated_speakers"
+    UPDATED_WORD_TIMINGS = "updated_word_timings"
     FINALIZED = "finalized"
 
     # Content of segments
@@ -695,6 +714,8 @@ class FragmentUtils:
                 "text": content,
                 "ts": segment.timestamp,
                 "lang": segment.language,
+                "start_time": fragments[0].start_time,
+                "end_time": fragments[-1].end_time,
             }
         )
 
@@ -925,6 +946,12 @@ class FragmentUtils:
                 result.add(AnnotationFlags.UPDATED_STRIPPED)
             if view1_stripped_str.lower() != view2_stripped_str.lower():
                 result.add(AnnotationFlags.UPDATED_STRIPPED_LCASE)
+
+            # Word timings
+            view1_timings_str: str = view1.format_view_text(format="|{start_time}-{end_time}|", words_only=True)
+            view2_timings_str: str = view2.format_view_text(format="|{start_time}-{end_time}|", words_only=True)
+            if view1_timings_str != view2_timings_str:
+                result.add(AnnotationFlags.UPDATED_WORD_TIMINGS)
 
             # Partials, finals and speakers
             if view1.final_count != view2.final_count:

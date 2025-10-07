@@ -12,6 +12,7 @@ from _utils import send_audio_file
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import VoiceAgentConfig
+from speechmatics.voice._models import TranscriptionUpdatePreset
 
 
 @pytest.mark.asyncio
@@ -77,11 +78,12 @@ async def test_transcribe_and_slice():
         api_key=api_key,
         connect=False,
         config=VoiceAgentConfig(
-            end_of_utterance_silence_trigger=0.7,
+            end_of_utterance_silence_trigger=0.5,
             max_delay=2.0,
             end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
             enable_diarization=True,
             audio_buffer_length=8.0,
+            transcription_update_preset=TranscriptionUpdatePreset.COMPLETE,
         ),
     )
 
@@ -139,8 +141,8 @@ async def test_transcribe_and_slice():
             exceptions.append(e)
 
     # Add listeners
-    client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, log_raw)
-    client.on(AgentServerMessageType.ADD_TRANSCRIPT, log_raw)
+    # client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, log_raw)
+    # client.on(AgentServerMessageType.ADD_TRANSCRIPT, log_raw)
     client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, partial_segment)
     client.on(AgentServerMessageType.ADD_SEGMENT, final_segment)
 
