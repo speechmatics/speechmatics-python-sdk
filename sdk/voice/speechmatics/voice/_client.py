@@ -228,7 +228,9 @@ class VoiceAgentClient(AsyncClient):
             if config.prefer_current_speaker is not None:
                 dz_cfg["prefer_current_speaker"] = config.prefer_current_speaker
             if config.known_speakers:
-                dz_cfg["speakers"] = {s.label: s.speaker_identifiers for s in config.known_speakers}
+                dz_cfg["speakers"] = [
+                    {"label": s.label, "speaker_identifiers": s.speaker_identifiers} for s in config.known_speakers
+                ]
             if config.max_speakers is not None:
                 dz_cfg["max_speakers"] = config.max_speakers
             if dz_cfg:

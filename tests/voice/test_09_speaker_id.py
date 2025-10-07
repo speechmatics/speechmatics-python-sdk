@@ -78,13 +78,20 @@ async def test_extract_speaker_ids():
 
     # Log speakers result
     def save_speakers_result(message):
-        for label, speaker_identifiers in message.get("results", {}).items():
+        for speaker in message.get("speakers", []):
+            label: str = speaker.get("label")
+            speaker_identifiers: list[str] = speaker.get("speaker_identifiers", [])
+
+            if not label or not speaker_identifiers:
+                continue
+
             speaker_ids.append(
                 DiarizationKnownSpeaker(
                     label=label,
                     speaker_identifiers=speaker_identifiers,
                 )
             )
+
         speakers_event_received.set()
 
     # Add listeners
