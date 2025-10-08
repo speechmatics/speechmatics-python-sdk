@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict
+from dataclasses import dataclass
+from dataclasses import field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
+from typing import Optional
 
 
 class AudioEncoding(str, Enum):
