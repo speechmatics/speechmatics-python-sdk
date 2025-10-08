@@ -75,6 +75,7 @@ class AsyncClient(_BaseClient):
         conn_config: Optional[ConnectionConfig] = None,
     ) -> None:
         self._logger = get_logger("speechmatics.rt.async_client")
+        self._seq_no = 0
 
         (
             self._session,
@@ -140,6 +141,24 @@ class AsyncClient(_BaseClient):
             audio_events_config=audio_events_config,
             ws_headers=ws_headers,
         )
+
+    async def stop_session(self) -> None:
+        """
+        This method closes the WebSocket connection and ends the transcription session.
+
+        Raises:
+            ConnectionError: If the WebSocket connection fails.
+            TranscriptionError: If the server reports an error during teardown.
+            TimeoutError: If the connection or teardown times out.
+
+        Examples:
+            Basic streaming:
+                >>> async with AsyncClient() as client:
+                ...     await client.start_session()
+                ...     await client.send_audio(frame)
+                ...     await client.stop_session()
+        """
+        await self._send_eos(self._seq_no)
 
     async def transcribe(
         self,
@@ -286,6 +305,10 @@ class AsyncClient(_BaseClient):
         self._session_done_evt.set()
         raise TranscriptionError(error)
 
+    def _on_audio_added(self, msg: dict[str, Any]) -> None:
+        """Handle AudioAdded message from server."""
+        self._seq_no = msg.get("seq_no", 0)
+
     def _on_warning(self, msg: dict[str, Any]) -> None:
         """Handle Warning message from server."""
         self._logger.warning("Server warning: %s", msg.get("reason", "unknown"))
@@ -293,6 +316,8 @@ class AsyncClient(_BaseClient):
     async def close(self) -> None:
         """
         Close the client and clean up resources.
+        WARNING: this closes the client without waiting for remaining messages to be processed.
+        It is recommended to use stop_session() instead.
 
         Ensures the session is marked as complete and delegates to the base
         class for full cleanup including WebSocket connection termination.
