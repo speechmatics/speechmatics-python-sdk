@@ -7,6 +7,7 @@ import os
 import uuid
 from typing import Any
 from typing import Optional
+from typing_extensions import Self
 
 from ._auth import AuthBase
 from ._auth import StaticKeyAuth
@@ -96,7 +97,7 @@ class _BaseClient(EventEmitter):
         await self._transport.connect(ws_headers)
         self._recv_task = asyncio.create_task(self._recv_loop())
 
-    async def __aenter__(self) -> _BaseClient:
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(self, *args: Any) -> None:
