@@ -245,12 +245,20 @@ class SpeakerDiarizationConfig:
             is a close enough match, even if other speakers may be closer. This is useful
             for cases where we can flip incorrectly between similar speakers during a single
             speaker section.
+        speakers: (Optional) Add speaker identifiers to your session to identify specific speakers.
+            This is a list of SpeakerIdentifier objects generated in previous transcription sessions.
+            You can provide multiple identifiers for a single speaker to help the engine identify
+            the speaker more accurately.
 
     Examples:
         >>> config = SpeakerDiarizationConfig(
             max_speakers=2,
             speaker_sensitivity=0.8,
             prefer_current_speaker=True,
+            speakers=[
+                SpeakerIdentifier(label="Agent", speaker_identifiers=["agent_1"]),
+                SpeakerIdentifier(label="Customer", speaker_identifiers=["cust_1"]),
+            ],
         )
 
     """
@@ -258,6 +266,37 @@ class SpeakerDiarizationConfig:
     max_speakers: Optional[int] = None
     speaker_sensitivity: Optional[float] = None
     prefer_current_speaker: Optional[bool] = None
+    speakers: Optional[list[SpeakerIdentifier]] = None
+
+
+@dataclass
+class SpeakerIdentifier:
+    """Labeled speaker identifier for guided speaker diarization.
+
+    Use this to map one or more known speaker identifiers to a human-readable
+    label. When provided in `SpeakerDiarizationConfig.speakers`, the engine can
+    use these identifiers as hints to consistently assign the specified label.
+
+    Attributes:
+        label: Human-readable label to assign to this speaker or group
+            (e.g., "Agent", "Customer", "Alice").
+        speaker_identifiers: A list of string identifiers associated with this
+            speaker. These can be any stable identifiers relevant to your
+            application (for example device IDs, prior session speaker IDs,
+            channel tags, etc.).
+
+    Examples:
+        >>> config = SpeakerDiarizationConfig(
+        ...     max_speakers=2,
+        ...     speakers=[
+        ...         SpeakerIdentifier(label="Agent", speaker_identifiers=["agent_1"]),
+        ...         SpeakerIdentifier(label="Customer", speaker_identifiers=["cust_1"]),
+        ...     ],
+        ... )
+    """
+
+    label: str = ""
+    speaker_identifiers: list[str] = []
 
 
 @dataclass
