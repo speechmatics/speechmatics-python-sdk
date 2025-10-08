@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import asdict
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any
-from typing import Optional
+from typing import Any, Optional
 
 
 class AudioEncoding(str, Enum):
@@ -296,7 +294,7 @@ class SpeakerIdentifier:
     """
 
     label: str = ""
-    speaker_identifiers: list[str] = []
+    speaker_identifiers: list[str] = field(default_factory=list)
 
 
 @dataclass
