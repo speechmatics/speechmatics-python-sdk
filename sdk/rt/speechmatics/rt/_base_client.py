@@ -7,6 +7,7 @@ import os
 import uuid
 from typing import Any
 from typing import Optional
+
 from typing_extensions import Self
 
 from ._auth import AuthBase
