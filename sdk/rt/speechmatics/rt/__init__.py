@@ -28,6 +28,7 @@ from ._models import SpeakerDiarizationConfig
 from ._models import TranscriptionConfig
 from ._models import TranscriptResult
 from ._models import TranslationConfig
+from ._models import SpeakerIdentifier
 from ._utils.microphone import Microphone
 
 __all__ = [
@@ -53,6 +54,7 @@ __all__ = [
     "SessionError",
     "SessionInfo",
     "SpeakerDiarizationConfig",
+    "SpeakerIdentifier",
     "StaticKeyAuth",
     "TimeoutError",
     "TranscriptResult",
