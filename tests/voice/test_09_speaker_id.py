@@ -16,7 +16,7 @@ from speechmatics.voice import VoiceAgentConfig
 from speechmatics.voice._models import SpeakerSegment
 
 API_KEY = os.getenv("SPEECHMATICS_API_KEY")
-URL: Optional[str] = "wss://preview.rt.speechmatics.com/v2"
+URL: Optional[str] = os.getenv("SPEECHMATICS_SERVER_URL", "wss://preview.rt.speechmatics.com/v2")
 SHOW_LOG = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
 
 speaker_ids: list[DiarizationKnownSpeaker] = []
