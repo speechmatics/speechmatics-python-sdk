@@ -111,7 +111,7 @@ class ServerMessageType(str, Enum):
             change for the given audio segment.
         AddPartialTranslation: Provides interim translation results that
             may change as more context becomes available.
-        SpeakerResult: Providers the speaker identification data.
+        SpeakerResult: Provides the speaker identification data.
         Info: Informational messages from the server.
         Warning: Warning messages that don't stop transcription.
         Error: Error messages indicating transcription failure.
