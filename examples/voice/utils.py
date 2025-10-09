@@ -1,4 +1,5 @@
 import logging
+import sys
 
 import pyaudio
 
@@ -189,7 +190,7 @@ class CustomTextFormatter(logging.Formatter):
         CustomLevels.FINAL: "\033[33m",  # Yellow
         CustomLevels.SPEAKER: "\033[36m",  # Cyan
     }
-    RESET = "\033[0m"
+    RESET = "\033[0m\r"
 
     def format(self, record):
         colour = self.COLOURS.get(record.levelno, self.RESET)
@@ -199,7 +200,7 @@ class CustomTextFormatter(logging.Formatter):
 
 def get_logger(name: str) -> logging.Logger:
     """Setup coloured logger for transcription events."""
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)

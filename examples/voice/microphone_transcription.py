@@ -22,11 +22,11 @@ logger = get_logger(__name__)
 
 async def main() -> None:
     """
-    Live microphone transcription with speaker diarisation.
+    Live microphone transcription with speaker diarization.
 
     This example demonstrates:
     - Real-time microphone input with device selection
-    - Speaker diarisation and voice activity detection
+    - Speaker diarization and voice activity detection
     - Performance metrics (TTFB)
     - Works with any PyAudio-compatible input device
     """
