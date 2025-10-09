@@ -62,7 +62,7 @@ class ClientMessageType(str, Enum):
         EndOfStream: Signals that no more audio data will be sent.
         SetRecognitionConfig: Updates transcription configuration during
             an active session (advanced use).
-        GetSpeakers: Internal, Speechmatics only message. Allows the client to request speaker data.
+        GetSpeakers: Allows the client to request speaker data.
 
     Examples:
         >>> # Starting a recognition session
@@ -111,7 +111,7 @@ class ServerMessageType(str, Enum):
             change for the given audio segment.
         AddPartialTranslation: Provides interim translation results that
             may change as more context becomes available.
-        SpeakerResult: Internal, Speechmatics only message containing the speakers data.
+        SpeakerResult: Providers the speaker identification data.
         Info: Informational messages from the server.
         Warning: Warning messages that don't stop transcription.
         Error: Error messages indicating transcription failure.
