@@ -462,7 +462,7 @@ class SpeechFragment(BaseModel):
         end_time: End time of the fragment in seconds (from session start).
         language: Language of the fragment. Defaults to `en`.
         direction: Direction of the fragment. Defaults to `ltr`.
-        _type: Type of the fragment. Defaults to `word`.
+        type_: Type of the fragment. Defaults to `word`.
         is_eos: Whether the fragment is the end of a sentence. Defaults to `False`.
         is_final: Whether the fragment is the final fragment. Defaults to `False`.
         is_disfluency: Whether the fragment is a disfluency. Defaults to `False`.
@@ -480,7 +480,7 @@ class SpeechFragment(BaseModel):
     end_time: float
     language: str = "en"
     direction: str = "ltr"
-    _type: str = "word"
+    type_: str = "word"
     is_eos: bool = False
     is_final: bool = False
     is_disfluency: bool = False
@@ -692,7 +692,7 @@ class FragmentUtils:
 
         # Select fragments to include
         if words_only:
-            fragments = [frag for frag in segment.fragments if frag._type == "word"]
+            fragments = [frag for frag in segment.fragments if frag.type_ == "word"]
         else:
             fragments = segment.fragments
 
@@ -850,7 +850,7 @@ class FragmentUtils:
         penultimate_fragment: Optional[SpeechFragment] = segment.fragments[-2] if segment_length > 1 else None
 
         # Count of words
-        words = [frag for frag in segment.fragments if frag._type == "word"]
+        words = [frag for frag in segment.fragments if frag.type_ == "word"]
         word_count = len(words)
         if word_count == 0:
             result.add(AnnotationFlags.NO_TEXT)

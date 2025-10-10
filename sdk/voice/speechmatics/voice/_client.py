@@ -529,7 +529,7 @@ class VoiceAgentClient(AsyncClient):
             end_time: The end time of the payload from the STT engine.
         """
         # Skip if no fragments are words
-        if len(self._speech_fragments) == 0 or all(f._type != "word" for f in self._speech_fragments):
+        if len(self._speech_fragments) == 0 or all(f.type_ != "word" for f in self._speech_fragments):
             return
 
         # Get start of the first fragment
@@ -597,7 +597,7 @@ class VoiceAgentClient(AsyncClient):
                         end_time=result.get("end_time", 0),
                         language=alt.get("language", "en"),
                         direction=alt.get("direction", "ltr"),
-                        _type=result.get("type", "word"),
+                        type_=result.get("type", "word"),
                         is_eos=result.get("is_eos", False),
                         is_disfluency="disfluency" in alt.get("tags", []),
                         is_punctuation=result.get("type", "") == "punctuation",
@@ -977,10 +977,10 @@ class VoiceAgentClient(AsyncClient):
             partial_words = [
                 frag
                 for frag in fragments
-                if frag.speaker in self._dz_config.focus_speakers and frag._type == "word" and not frag.is_final
+                if frag.speaker in self._dz_config.focus_speakers and frag.type_ == "word" and not frag.is_final
             ]
         else:
-            partial_words = [frag for frag in fragments if frag._type == "word" and not frag.is_final]
+            partial_words = [frag for frag in fragments if frag.type_ == "word" and not frag.is_final]
 
         # Evaluate if any valid partial words exist
         has_valid_partial = len(partial_words) > 0
