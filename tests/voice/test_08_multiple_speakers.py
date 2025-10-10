@@ -10,6 +10,7 @@ from _utils import get_client
 from _utils import send_audio_file
 from pydantic import BaseModel
 
+from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import DiarizationFocusMode
 from speechmatics.voice import DiarizationSpeakerConfig
@@ -37,14 +38,14 @@ SAMPLES: list[SpeakerTest] = [
         id="multiple_speakers",
         path="./assets/audio_02_8kHz.wav",
         sample_rate=8000,
-        segment_regex=["^Welcome", "Buckingham", "clarify", "Notting Hill", "Rickmansworth"],
+        segment_regex=["^Welcome to GeoRouter", "Buckingham", "clarify", "Notting Hill", "Rickmansworth"],
         speakers_present=["S1", "S2"],
     ),
     SpeakerTest(
         id="focus_s2",
         path="./assets/audio_02_8kHz.wav",
         sample_rate=8000,
-        segment_regex=["^Welcome", "Buckingham", "clarify", "Notting Hill"],
+        segment_regex=["^Welcome to GeoRouter", "Buckingham", "clarify", "Notting Hill"],
         speaker_config=DiarizationSpeakerConfig(
             focus_speakers=["S2"],
         ),
@@ -65,7 +66,7 @@ SAMPLES: list[SpeakerTest] = [
         id="ignore_s2",
         path="./assets/audio_02_8kHz.wav",
         sample_rate=8000,
-        segment_regex=["^Welcome", "clarify", "Rickmansworth"],
+        segment_regex=["^Welcome to GeoRouter", "clarify", "Rickmansworth"],
         speaker_config=DiarizationSpeakerConfig(
             ignore_speakers=["S2"],
         ),
@@ -95,6 +96,9 @@ async def test_multiple_speakers(sample: SpeakerTest):
         end_of_utterance_silence_trigger=1.0,
         max_delay=2.0,
         end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
+        additional_vocab=[
+            AdditionalVocabEntry(content="GeoRouter"),
+        ],
     )
 
     # Diarization options
