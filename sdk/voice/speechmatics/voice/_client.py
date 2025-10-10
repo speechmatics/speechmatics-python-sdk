@@ -347,24 +347,14 @@ class VoiceAgentClient(AsyncClient):
         if not self._is_connected:
             return
 
+        # Stop audio and metrics tasks
+        self._is_ready_for_audio = False
+        self._stop_metrics_task()
+
         # Send end of transcript to release resources
         await self.send_message(
             {"message": ClientMessageType.END_OF_STREAM, "last_seq_no": self._session.sequence_number}
         )
-
-        # Disconnect from API
-        try:
-            await asyncio.wait_for(self.close(), timeout=5.0)
-        except asyncio.TimeoutError:
-            self._logger.warning(f"{self} Timeout while closing Speechmatics client connection")
-            raise
-        except Exception as e:
-            self._logger.error(f"{self} Error closing Speechmatics client: {e}")
-            raise
-        finally:
-            self._is_connected = False
-            self._is_ready_for_audio = False
-            self._stop_metrics_task()
 
         # Stop the finalize task
         if self._finalize_task:
@@ -383,6 +373,18 @@ class VoiceAgentClient(AsyncClient):
             except asyncio.CancelledError:
                 pass
             self._stt_queue_task = None
+
+        # Wait for the EndOfTranscript event to be received
+        try:
+            await asyncio.wait_for(self._session_done_evt.wait(), timeout=2.0)
+        except asyncio.TimeoutError:
+            self._logger.warning(f"{self} Timeout while closing Speechmatics client connection")
+            raise
+        except Exception as e:
+            self._logger.error(f"{self} Error closing Speechmatics client: {e}")
+            raise
+        finally:
+            self._is_connected = False
 
     def update_diarization_config(self, config: DiarizationSpeakerConfig) -> None:
         """Update the diarization configuration.
