@@ -14,7 +14,7 @@ dependencies = [
     "speechmatics-rt",
     "pydantic>=2.10.6,<3",
     "numpy>=1.26.4,<3",
-    "onnxruntime>=1.23.1,<2",
+    "onnxruntime>=1.19.0,<2",
     "transformers>=4.57.0,<5"
 ]
 classifiers = [
