@@ -4,6 +4,7 @@ import os
 import re
 import time
 import unicodedata
+import wave
 from typing import Any
 from typing import Callable
 from typing import Optional
@@ -115,6 +116,21 @@ async def send_audio_file(
             if sleep_time > 0:
                 await asyncio.sleep(sleep_time)
             next_time += delay
+
+
+async def load_audio_file(audio_file: str) -> bytes:
+    """Load an audio file."""
+
+    # Make sure file ends with .wav
+    assert audio_file.lower().endswith(".wav")
+
+    # Check file exists
+    file = os.path.join(os.path.dirname(__file__), audio_file)
+    assert os.path.exists(file)
+
+    # Load the file
+    with wave.open(file, "rb") as wav_file:
+        return wav_file.readframes(wav_file.getnframes())
 
 
 async def send_silence(

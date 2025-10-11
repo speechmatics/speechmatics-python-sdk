@@ -10,7 +10,13 @@ readme = "README.md"
 authors = [{ name = "Speechmatics", email = "support@speechmatics.com" }]
 license = "MIT"
 requires-python = ">=3.9"
-dependencies = ["speechmatics-rt", "pydantic>=2.10.6,<3", "numpy>=1.26.4,<3"]
+dependencies = [
+    "speechmatics-rt",
+    "pydantic>=2.10.6,<3",
+    "numpy>=1.26.4,<3",
+    "onnxruntime>=1.23.1,<2",
+    "transformers>=4.57.0,<5"
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -63,5 +69,5 @@ version = { attr = "speechmatics.voice.__version__" }
 where = ["."]
 
 [[tool.mypy.overrides]]
-module = ["speechmatics.rt.*"]
+module = ["speechmatics.rt.*", "onnxruntime.*"]
 ignore_missing_imports = true
