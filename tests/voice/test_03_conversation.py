@@ -12,7 +12,7 @@ from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import VoiceAgentConfig
 
 # Skip for CI testing
-pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping smart turn tests in CI")
+pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping transcription tests in CI")
 
 # Constants
 API_KEY = os.getenv("SPEECHMATICS_API_KEY")
