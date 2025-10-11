@@ -71,6 +71,11 @@ class SmartTurnDetector:
             # Check / download the model
             self.download_model()
 
+            # Check the model downloaded
+            if not self.model_exists():
+                logger.warning("Smart Turn model not found. Please download the model first.")
+                return
+
             # Build the session
             self.session = self.build_session(ONNX_MODEL_PATH)
 
