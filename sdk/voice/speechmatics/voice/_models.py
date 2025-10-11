@@ -663,10 +663,12 @@ class SpeakerVADStatus(BaseModel):
     Parameters:
         is_active: Whether the speaker is active.
         speaker_id: The ID of the speaker.
+        time: The time of the event (start for STARTED, end for ENDED).
     """
 
     is_active: bool
     speaker_id: Optional[str] = None
+    time: Optional[float] = None
 
 
 class FragmentUtils:

@@ -146,7 +146,7 @@ class VoiceAgentClient(AsyncClient):
         # Speaking states
         self._is_speaking: bool = False
         self._current_speaker: Optional[str] = None
-        self._last_vad_time: float = 0
+        self._last_fragment_end_time: float = 0
 
         # Diarization / speaker focus
         self._end_of_utterance_mode: EndOfUtteranceMode = self._config.end_of_utterance_mode
@@ -635,6 +635,9 @@ class VoiceAgentClient(AsyncClient):
                     # Add the fragment
                     fragments.append(fragment)
 
+                    # Track the last fragment end time
+                    self._last_fragment_end_time = max(self._last_fragment_end_time, fragment.end_time)
+
             # Evaluate for VAD (only done on partials)
             if not is_final:
                 self._vad_evaluation(fragments)
@@ -991,6 +994,12 @@ class VoiceAgentClient(AsyncClient):
         speaker = partial_words[-1].speaker if has_valid_partial else self._current_speaker
         speaker_changed = speaker != current_speaker and current_speaker is not None
 
+        # Start time (taken from the first partial word)
+        speaker_start_time = partial_words[0].start_time if has_valid_partial else None
+
+        # End time (taken from the last partial final)
+        speaker_end_time = self._last_fragment_end_time
+
         # If diarization is enabled, indicate speaker switching
         if self._dz_enabled and speaker is not None:
             """When enabled, we send a speech events if the speaker has changed.
@@ -1005,14 +1014,18 @@ class VoiceAgentClient(AsyncClient):
                     AgentServerMessageType.SPEAKER_ENDED,
                     {
                         "message": AgentServerMessageType.SPEAKER_ENDED.value,
-                        "status": SpeakerVADStatus(speaker_id=current_speaker, is_active=False).model_dump(),
+                        "status": SpeakerVADStatus(
+                            speaker_id=current_speaker, is_active=False, time=speaker_end_time
+                        ).model_dump(),
                     },
                 )
                 self.emit(
                     AgentServerMessageType.SPEAKER_STARTED,
                     {
                         "message": AgentServerMessageType.SPEAKER_STARTED.value,
-                        "status": SpeakerVADStatus(speaker_id=speaker, is_active=True).model_dump(),
+                        "status": SpeakerVADStatus(
+                            speaker_id=speaker, is_active=True, time=speaker_end_time
+                        ).model_dump(),
                     },
                 )
 
@@ -1026,6 +1039,9 @@ class VoiceAgentClient(AsyncClient):
         # Set the speaking state
         self._is_speaking = not self._is_speaking
 
+        # Event time
+        event_time = speaker_start_time if self._is_speaking else speaker_end_time
+
         # Emit the event for latest speaker
         msg: AgentServerMessageType = (
             AgentServerMessageType.SPEAKER_STARTED if self._is_speaking else AgentServerMessageType.SPEAKER_ENDED
@@ -1034,7 +1050,9 @@ class VoiceAgentClient(AsyncClient):
             msg,
             {
                 "message": msg.value,
-                "status": SpeakerVADStatus(speaker_id=speaker, is_active=self._is_speaking).model_dump(),
+                "status": SpeakerVADStatus(
+                    speaker_id=speaker, is_active=self._is_speaking, time=event_time
+                ).model_dump(),
             },
         )
 
