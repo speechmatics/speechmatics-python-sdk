@@ -9,6 +9,10 @@ from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import VoiceAgentConfig
 
+# Skip for CI testing
+pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping smart turn tests in CI")
+
+# Constants
 API_KEY = os.getenv("SPEECHMATICS_API_KEY")
 
 

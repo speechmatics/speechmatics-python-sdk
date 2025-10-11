@@ -13,13 +13,16 @@ from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import VoiceAgentConfig
 
+# Skip for CI testing
+pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping smart turn tests in CI")
+
+# Constants
 API_KEY = os.getenv("SPEECHMATICS_API_KEY")
 URL: Optional[str] = "wss://jamesw.lab.speechmatics.io/v2"
 SHOW_LOG = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
 AUDIO_FILE = "./assets/audio_03_16kHz.wav"
 
 
-@pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping in CI")
 @pytest.mark.asyncio
 async def test_finalize():
     """Test finalization.

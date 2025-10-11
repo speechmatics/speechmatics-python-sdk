@@ -18,10 +18,12 @@ from speechmatics.voice._models import SpeakerSegment
 # Skip for CI testing
 pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping smart turn tests in CI")
 
+# Constants
 API_KEY = os.getenv("SPEECHMATICS_API_KEY")
 URL: Optional[str] = os.getenv("SPEECHMATICS_SERVER_URL", "wss://preview.rt.speechmatics.com/v2")
 SHOW_LOG = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
 
+# List of know speakers during tests
 speaker_ids: list[DiarizationKnownSpeaker] = []
 
 
