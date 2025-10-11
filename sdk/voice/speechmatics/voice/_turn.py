@@ -22,7 +22,9 @@ logger = logging.getLogger(__name__)
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 
 # Base model from HuggingFace
-ONNX_HF_URL = "https://huggingface.co/pipecat-ai/smart-turn-v3/resolve/main/smart-turn-v3.0.onnx"
+ONNX_HF_URL = os.getenv(
+    "SMART_TURN_HF_URL", "https://huggingface.co/pipecat-ai/smart-turn-v3/resolve/main/smart-turn-v3.0.onnx"
+)
 ONNX_MODEL_PATH = os.getenv("SMART_TURN_MODEL_PATH", ".models/smart-turn-v3.0.onnx")
 
 
