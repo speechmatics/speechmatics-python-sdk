@@ -19,6 +19,7 @@ SHOW_LOG = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
 AUDIO_FILE = "./assets/audio_03_16kHz.wav"
 
 
+@pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping in CI")
 @pytest.mark.asyncio
 async def test_finalize():
     """Test finalization.

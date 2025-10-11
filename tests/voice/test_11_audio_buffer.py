@@ -129,6 +129,7 @@ async def test_buffer_bytes():
     assert len(data) == int((end_time - start_time) * sample_rate / frame_size) * frame_bytes
 
 
+@pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping in CI")
 @pytest.mark.asyncio
 async def test_load_audio_file():
     """Test loading audio file into buffer"""

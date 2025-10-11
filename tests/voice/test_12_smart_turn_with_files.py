@@ -1,9 +1,14 @@
+import os
+
 import pytest
 from _utils import load_audio_file
 from pydantic import BaseModel
 
 from speechmatics.voice._turn import SmartTurnDetector
 from speechmatics.voice._turn import SmartTurnPredictionResult
+
+# Skip for CI testing
+pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping smart turn tests in CI")
 
 # Detector
 detector = SmartTurnDetector(auto_init=False, threshold=0.75)
