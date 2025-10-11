@@ -24,7 +24,7 @@ async def test_clean_tmp():
     """Clear tmp directory"""
 
     # Output directory
-    tmp_dir = os.path.join(os.path.dirname(__file__), "./.tmp")
+    tmp_dir = os.path.join(os.path.dirname(__file__), "./.tmp/buffer")
 
     # Clean tmp
     if os.path.exists(tmp_dir):
@@ -147,7 +147,7 @@ async def test_load_audio_file():
     assert os.path.exists(input_file)
 
     # Output file
-    output_file = os.path.join(os.path.dirname(__file__), f"./.tmp/{file}_slice.wav")
+    output_file = os.path.join(os.path.dirname(__file__), f"./.tmp/buffer/{file}_slice.wav")
     output_folder = os.path.dirname(output_file)
     os.makedirs(output_folder, exist_ok=True)
     assert os.path.exists(output_folder)
@@ -209,7 +209,7 @@ async def test_transcribe_and_slice():
     assert os.path.exists(input_file)
 
     # Output directory
-    output_folder = os.path.join(os.path.dirname(__file__), "./.tmp")
+    output_folder = os.path.join(os.path.dirname(__file__), "./.tmp/buffer")
     os.makedirs(output_folder, exist_ok=True)
     assert os.path.exists(output_folder)
 
