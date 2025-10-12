@@ -41,6 +41,8 @@ from ._models import SpeakerVADStatus
 from ._models import SpeechFragment
 from ._models import TranscriptionUpdatePreset
 from ._models import VoiceAgentConfig
+from ._turn import SmartTurnDetector
+from ._turn import SmartTurnPredictionResult
 
 DEBUG_MORE = os.getenv("SPEECHMATICS_DEBUG_MORE", "0").lower() in ["1", "true"]
 
@@ -148,6 +150,20 @@ class VoiceAgentClient(AsyncClient):
         self._current_speaker: Optional[str] = None
         self._last_fragment_end_time: float = 0
 
+        # Turn detection
+        self._turn_id: int = 0
+        self._turn_detector: Optional[SmartTurnDetector] = None
+        self._last_turn_prediction: Optional[SmartTurnPredictionResult] = None
+
+        # Start turn detector
+        if self._config.end_of_utterance_mode == EndOfUtteranceMode.SMART_TURN:
+            detector = SmartTurnDetector(auto_init=True, threshold=self._config.smart_turn_threshold)
+            if detector.model_exists():
+                self._turn_detector = detector
+                self._config.audio_buffer_length = 10.0
+            else:
+                self._logger.warning("Smart Turn model not available.")
+
         # Diarization / speaker focus
         self._end_of_utterance_mode: EndOfUtteranceMode = self._config.end_of_utterance_mode
         self._end_of_utterance_delay: float = self._config.end_of_utterance_silence_trigger
@@ -156,6 +172,7 @@ class VoiceAgentClient(AsyncClient):
 
         # Timers for EndOfUtterance and EndOfTurn
         self._finalize_task: Optional[asyncio.Task] = None
+        self._eot_prediction_task: Optional[asyncio.Task] = None
 
         # Metrics emitter task
         self._metrics_emitter_interval: float = 10.0
@@ -517,7 +534,7 @@ class VoiceAgentClient(AsyncClient):
             return
 
         # Process
-        await self._process_speech_fragments()
+        await self._process_speech_fragments(self._change_filter)
 
     def _calculate_ttfb(self, end_time: float) -> None:
         """Calculate the time to first text.
@@ -680,12 +697,23 @@ class VoiceAgentClient(AsyncClient):
             # Fragments available
             return len(self._speech_fragments) > 0
 
-    async def _process_speech_fragments(self) -> None:
+    def _update_current_view(self) -> None:
+        """Load the current view of the speech fragments."""
+        self._current_view = SpeakerSegmentView(
+            session=self._client_session,
+            fragments=self._speech_fragments.copy(),
+            focus_speakers=self._dz_config.focus_speakers,
+        )
+
+    async def _process_speech_fragments(self, change_filter: Optional[list[AnnotationFlags]] = None) -> None:
         """Process the speech fragments.
 
         Compares the current speech fragments against the last set of speech fragments.
         When segments are emitted, they are then removed from the buffer of fragments
         so the next comparison is based on the remaining + new fragments.
+
+        Args:
+            change_filter: Optional list of annotation flags to filter changes.
         """
 
         # Lock the speech fragments
@@ -719,18 +747,26 @@ class VoiceAgentClient(AsyncClient):
             self._previous_view = self._current_view
 
         # Catch no changes
-        if not changes.any(*self._change_filter):
+        if change_filter and not changes.any(*change_filter):
             return
 
         # Emit the segments
         await self._emit_segments()
 
-        # Only do this for ADAPTIVE end of utterance
-        if self._end_of_utterance_mode == EndOfUtteranceMode.ADAPTIVE:
-            """If ADAPTIVE, then calculate whether the turn has completed."""
+        # For ADAPTIVE and SMART_TURN only
+        if self._end_of_utterance_mode in [EndOfUtteranceMode.ADAPTIVE, EndOfUtteranceMode.SMART_TURN]:
+            """Based off the changes, determine if the eud of turn message should be emitted.
+
+            A number of factors influence this decision:
+            - contents of the final active segment
+            - rate of speech of the user
+            - whether the smart turn detector has predicted the end of the turn (audio based)
+            """
 
             # Calculate delay to end of utterance
-            should_emit, emit_final_delay = self._calc_delay_to_end_of_utterance(self._current_view, changes)
+            should_emit, emit_final_delay = await self._calc_delay_to_end_of_utterance(
+                self._current_view, changes, change_filter
+            )
 
             # Debug
             if DEBUG_MORE:
@@ -755,18 +791,45 @@ class VoiceAgentClient(AsyncClient):
             if should_emit:
                 self._finalize_task = asyncio.create_task(emit(emit_final_delay))
 
-    def _update_current_view(self) -> None:
-        """Load the current view of the speech fragments."""
-        self._current_view = SpeakerSegmentView(
-            session=self._client_session,
-            fragments=self._speech_fragments.copy(),
-            focus_speakers=self._dz_config.focus_speakers,
+    async def _predict_end_of_turn(self, end_time: float, language: str) -> SmartTurnPredictionResult:
+        """Predict when to emit the end of turn.
+
+        This will give an acoustic prediction of when the turn has completed using
+        the ONNX model to look for vocal intonation and hints.
+
+        Args:
+            end_time: The end time of the last active segment.
+            language: The language of the audio.
+
+        Returns:
+            bool: Whether the turn has completed.
+        """
+
+        # Check we have smart turn enabled
+        if not self._turn_detector:
+            return SmartTurnPredictionResult(error="Smart turn is not enabled")
+
+        # Get audio slice
+        segment_audio = await self._audio_buffer.get_frames(
+            start_time=end_time - self._config.audio_buffer_length, end_time=end_time + 0.05, fade_out=0.05
         )
 
-    def _calc_delay_to_end_of_utterance(
+        # Evaluate
+        prediction = await self._turn_detector.predict(
+            segment_audio,
+            language=language,
+            sample_rate=self._audio_sample_rate,
+            sample_width=2,
+        )
+
+        # Return the prediction
+        return prediction
+
+    async def _calc_delay_to_end_of_utterance(
         self,
         view: SpeakerSegmentView,
-        view_changes: AnnotationResult,
+        view_changes: Optional[AnnotationResult] = None,
+        filter_flags: Optional[list[AnnotationFlags]] = None,
     ) -> tuple[bool, float | None]:
         """Calculate the delay before finalizing segments.
 
@@ -776,6 +839,7 @@ class VoiceAgentClient(AsyncClient):
         Args:
             view: The speaker fragment to evaluate.
             view_changes: The annotation result to use for evaluation.
+            filter_flags: The annotation flags to use for evaluation.
 
         Returns:
             Tuple of (should_emit, emit_final_delay)
@@ -793,8 +857,8 @@ class VoiceAgentClient(AsyncClient):
         last_active_segment_index = view.last_active_segment_index
         last_active_segment = view.segments[last_active_segment_index] if last_active_segment_index > -1 else None
 
-        # If this is NEW or UPDATED_FULL_LCASE
-        if view_changes.any(*self._change_filter):
+        # Check using filter flags for changes
+        if not filter_flags or view_changes is None or view_changes.any(*filter_flags):
             """Process the annotation flags to determine how long before sending a final segment."""
 
             # If the last segment is for an active speaker
@@ -809,7 +873,7 @@ class VoiceAgentClient(AsyncClient):
                 """
 
                 # Minimum delay
-                delay = max(self._end_of_utterance_delay, 0.5)
+                delay = max(self._end_of_utterance_delay, 0.05)
 
                 # Delay multiplier (default to 2x)
                 multiplier = 2.0
@@ -826,20 +890,31 @@ class VoiceAgentClient(AsyncClient):
                 if last_active_segment.annotation.has(AnnotationFlags.ENDS_WITH_DISFLUENCY):
                     multiplier *= 4.0
                 elif last_active_segment.annotation.has(AnnotationFlags.HAS_DISFLUENCY):
-                    multiplier *= 1.5
+                    multiplier *= 1.25
 
                 # Ends with an end of sentence
                 if last_active_segment.annotation.has(AnnotationFlags.ENDS_WITH_EOS, AnnotationFlags.ENDS_WITH_FINAL):
-                    multiplier = 0.5
+                    multiplier *= 0.5
+
+                # Smart turn prediction
+                if self._config.end_of_utterance_mode == EndOfUtteranceMode.SMART_TURN:
+                    if self._last_turn_prediction and self._last_turn_prediction.prediction:
+                        multiplier *= 0.25
+                    else:
+                        multiplier *= 2.0
 
                 # Calculate the delay
-                emit_final_delay = delay * multiplier
+                emit_final_delay = round(delay * multiplier, 2)
 
             # Constrain to `end_of_utterance_max_delay`
             if emit_final_delay is not None:
                 emit_final_delay = min(emit_final_delay, self._config.end_of_utterance_max_delay)
             else:
                 emit_final_delay = self._config.end_of_utterance_max_delay
+
+            # Establish the real-world time
+            time_slip = self._total_time - self._last_fragment_end_time
+            emit_final_delay = max(emit_final_delay - time_slip, 0)
 
             # Emit segments
             should_emit = True
@@ -952,6 +1027,7 @@ class VoiceAgentClient(AsyncClient):
                 AgentServerMessageType.END_OF_TURN,
                 {
                     "message": AgentServerMessageType.END_OF_TURN.value,
+                    "turn_id": self._turn_id,
                     "metadata": metadata,
                 },
             )
@@ -959,6 +1035,7 @@ class VoiceAgentClient(AsyncClient):
             # Reset the previous view
             self._previous_view = None
             self._turn_start_time = None
+            self._turn_id += 1
 
     def _vad_evaluation(self, fragments: list[SpeechFragment]) -> None:
         """Emit a VAD event.
@@ -1056,9 +1133,37 @@ class VoiceAgentClient(AsyncClient):
             },
         )
 
-        # Reset the current speaker
+        # Speaking has stopped
         if not self._is_speaking:
+            """Reset the current speaker and do smart turn detection (if enabled)."""
+
+            # Reset current speaker
             self._current_speaker = None
+
+            # Check for end of turn prediction
+            if self._config.end_of_utterance_mode == EndOfUtteranceMode.SMART_TURN:
+                """When a speaker stops speaking, we need to check whether we should end the turn."""
+
+                # Clear any pre-existing end of turn prediction
+                if self._eot_prediction_task and not self._eot_prediction_task.done():
+                    self._eot_prediction_task.cancel()
+
+                # Async function to check for end turn using model
+                async def check_eot() -> None:
+                    self._last_turn_prediction = await self._predict_end_of_turn(
+                        speaker_end_time, self._config.language
+                    )
+                    await self._process_speech_fragments()
+
+                # Create task to check for end turn
+                self._eot_prediction_task = asyncio.create_task(check_eot())
+
+        # Speaking has started
+        else:
+            """When speaking has started, reset speaking-related variables."""
+
+            # Reset the prediction
+            self._last_turn_prediction = None
 
     def _next_fragment_id(self) -> int:
         """Return the next fragment ID."""

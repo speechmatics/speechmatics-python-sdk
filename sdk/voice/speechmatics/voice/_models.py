@@ -224,6 +224,9 @@ class VoiceAgentConfig(BaseModel):
         audio_buffer_length: Length of audio buffer to extract slices of recent audio for post-processing
             by end of thought models. Defaults to 0.0 seconds.
 
+        smart_turn_threshold: Smart turn threshold. This is used to determine when a turn has completed.
+            Only used when `end_of_utterance_mode` is `EndOfUtteranceMode.SMART_TURN`. Defaults to 0.75.
+
         sample_rate: Audio sample rate for streaming. Defaults to `16000`.
         audio_encoding: Audio encoding format. Defaults to `AudioEncoding.PCM_S16LE`.
     """
@@ -255,6 +258,7 @@ class VoiceAgentConfig(BaseModel):
     enable_preview_features: bool = False
     transcription_update_preset: TranscriptionUpdatePreset = TranscriptionUpdatePreset.COMPLETE
     audio_buffer_length: float = 0.0
+    smart_turn_threshold: float = 0.75
 
     # Audio
     sample_rate: int = 16000
@@ -358,7 +362,6 @@ class AgentServerMessageType(str, Enum):
     ADD_SEGMENT = "AddSegment"
 
     # End of turn messages
-    END_OF_TURN_PREDICTION = "EndOfTurnPrediction"
     END_OF_TURN = "EndOfTurn"
 
     # Speaker messages

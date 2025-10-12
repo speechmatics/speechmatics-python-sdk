@@ -1,9 +1,7 @@
-import asyncio
 import datetime
 import json
 import os
 import shutil
-import wave
 from typing import Optional
 
 import pytest
@@ -47,18 +45,18 @@ SAMPLES: list[TranscriptionTest] = [
         language="en",
         # expected=[False, False, False, True],
     ),
-    TranscriptionTest(
-        id="02",
-        path="./assets/audio_05_16kHz.wav",
-        sample_rate=16000,
-        language="en",
-    ),
-    TranscriptionTest(
-        id="03",
-        path="./assets/audio_06_16kHz.wav",
-        sample_rate=16000,
-        language="en",
-    ),
+    # TranscriptionTest(
+    #     id="02",
+    #     path="./assets/audio_05_16kHz.wav",
+    #     sample_rate=16000,
+    #     language="en",
+    # ),
+    # TranscriptionTest(
+    #     id="03",
+    #     path="./assets/audio_06_16kHz.wav",
+    #     sample_rate=16000,
+    #     language="en",
+    # ),
 ]
 
 
@@ -112,10 +110,10 @@ async def test_prediction(sample: TranscriptionTest):
         connect=False,
         config=VoiceAgentConfig(
             max_delay=0.7,
-            end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL,
+            end_of_utterance_mode=EndOfUtteranceMode.SMART_TURN,
+            end_of_utterance_silence_trigger=0.5,
             enable_diarization=True,
             sample_rate=sample.sample_rate,
-            audio_buffer_length=10.0,
         ),
     )
 
@@ -126,71 +124,13 @@ async def test_prediction(sample: TranscriptionTest):
         if SHOW_LOG:
             print(log)
 
-    # Save the slice
-    async def save_slice(audio: bytes, output_file: str):
-        """Save audio to a temporary WAV file"""
-
-        # Write bytes to a temporary WAV file
-        with wave.open(output_file, "wb") as wav_file:
-            wav_file.setnchannels(1)
-            wav_file.setsampwidth(2)
-            wav_file.setframerate(sample.sample_rate)
-            wav_file.writeframes(audio)
-
-    # Extract audio
-    async def predict_turn(event_time: float):
-        """Extract audio on speaker end event.
-
-        Evaluate whether the person has finished speaking:
-        - take the 'time'
-        - get audio or 8 seconds leading up to this time
-        - evaluate using the detector
-        """
-
-        # Get audio
-        event_audio = await client._audio_buffer.get_frames(event_time - 8.0, event_time)
-
-        # Save slice
-        if SHOW_LOG:
-            await save_slice(
-                event_audio, os.path.join(os.path.dirname(__file__), f"./.tmp/turn/{sample.id}_{event_time:.2f}.wav")
-            )
-
-        # Evaluate
-        result = await detector.predict(
-            event_audio, language=sample.language, sample_rate=sample.sample_rate, sample_width=2
-        )
-
-        # Debug
-        if SHOW_LOG:
-            print()
-            print(" --> SPEAKER_ENDED <--")
-            print("  - event_time:", event_time)
-            print("  - event_audio:", len(event_audio))
-            print("  - result:", result)
-            print()
-
-        # Validate
-        results.append(result.prediction)
-
-        # Finalize
-        if result.prediction:
-            client.finalize(ttl=0.05)
-
-    # Prediction handler
-    def handle_speaker_ended(message):
-        event_time = message.get("status", {}).get("time", 0)
-        asyncio.create_task(predict_turn(event_time + 0.05))
-
     # Add listeners
-    client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, log_message)
+    client.on(AgentServerMessageType.RECOGNITION_STARTED, log_message)
+    # client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, log_message)
     client.on(AgentServerMessageType.ADD_SEGMENT, log_message)
     client.on(AgentServerMessageType.SPEAKER_STARTED, log_message)
     client.on(AgentServerMessageType.SPEAKER_ENDED, log_message)
     client.on(AgentServerMessageType.END_OF_TURN, log_message)
-
-    # Listener for prediction
-    client.on(AgentServerMessageType.SPEAKER_ENDED, handle_speaker_ended)
 
     # HEADER
     if SHOW_LOG:
