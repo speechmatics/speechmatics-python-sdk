@@ -17,15 +17,40 @@ from speechmatics.rt import OperatingPoint
 
 
 class EndOfUtteranceMode(str, Enum):
-    """End of turn delay options for transcription."""
+    """End of turn delay options for transcription.
+
+    - `EXTERNAL`: External end of turn detection. The engine will not perform any
+        end of turn detection and will use an external trigger via `finalize()`.
+
+    - `FIXED`: Fixed end of turn delay. The STT engine will use silence detection
+        to determine the end of turn. For slow speakers, this may result in
+        sentences being split up into smaller segments.
+
+    - `ADAPTIVE`: Adaptive end of turn delay. The STT engine will use silence detection
+        to determine the end of turn. The delay is adaptive and will be adjusted
+        based on the content of what the most recent speaker has said, such as
+        rate of speech and whether they have any pauses or disfluencies.
+
+    - `SMART_TURN`: Smart turn end of turn delay. The STT engine will use a combination
+        of silence detection, adaptive delay and smart turn detection using machine learning
+        to determine the end of turn.
+    """
 
     EXTERNAL = "external"
     FIXED = "fixed"
     ADAPTIVE = "adaptive"
+    SMART_TURN = "smart_turn"
 
 
 class TranscriptionUpdatePreset(str, Enum):
-    """Filter options for when to emit changes to transcription."""
+    """Filter options for when to emit changes to transcription.
+
+    - `COMPLETE`: Emit complete transcription.
+    - `COMPLETE_PLUS_TIMING`: Emit complete transcription with timing changes.
+    - `WORDS`: Emit when word context has changed.
+    - `WORDS_PLUS_TIMING`: Emit when word context or timing has changed.
+    - `TIMING`: Emit when timing has changed.
+    """
 
     COMPLETE = "complete"
     COMPLETE_PLUS_TIMING = "complete_plus_timing"
@@ -35,7 +60,12 @@ class TranscriptionUpdatePreset(str, Enum):
 
 
 class DiarizationFocusMode(str, Enum):
-    """Speaker focus mode for diarization."""
+    """Speaker focus mode for diarization.
+
+    - `RETAIN`: Retain words spoken by other speakers (not listed in `ignore_speakers`)
+        and process them as passive speaker frames.
+    - `IGNORE`: Ignore words spoken by other speakers and they will not be processed.
+    """
 
     RETAIN = "retain"
     IGNORE = "ignore"
@@ -326,6 +356,9 @@ class AgentServerMessageType(str, Enum):
     # Segment messages
     ADD_PARTIAL_SEGMENT = "AddPartialSegment"
     ADD_SEGMENT = "AddSegment"
+
+    # End of turn messages
+    END_OF_TURN_PREDICTION = "EndOfTurnPrediction"
     END_OF_TURN = "EndOfTurn"
 
     # Speaker messages
