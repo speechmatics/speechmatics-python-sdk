@@ -47,6 +47,18 @@ SAMPLES: list[TranscriptionTest] = [
         language="en",
         # expected=[False, False, False, True],
     ),
+    TranscriptionTest(
+        id="02",
+        path="./assets/audio_05_16kHz.wav",
+        sample_rate=16000,
+        language="en",
+    ),
+    TranscriptionTest(
+        id="03",
+        path="./assets/audio_06_16kHz.wav",
+        sample_rate=16000,
+        language="en",
+    ),
 ]
 
 
