@@ -194,7 +194,8 @@ async def test_multiple_speakers(sample: SpeakerTest):
 
     # Check final segments against regex
     for idx, _test in enumerate(sample.segment_regex):
-        print(f"`{_test}` -> `{final_segments[idx].get('text')}`")
+        if SHOW_LOG:
+            print(f"`{_test}` -> `{final_segments[idx].get('text')}`")
         assert re.search(_test, final_segments[idx].get("text"), flags=re.IGNORECASE | re.MULTILINE)
 
     # Check only speakers present

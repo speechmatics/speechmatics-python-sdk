@@ -1122,7 +1122,6 @@ class VoiceAgentClient(AsyncClient):
             return None
 
         # Calculations
-        delay: Optional[float] = None
         clamped_delay: float = self._config.end_of_utterance_max_delay
         emit_delay: Optional[float] = None
         time_slip: Optional[float] = None
