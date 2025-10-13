@@ -80,6 +80,33 @@ class VoiceAgentClient(AsyncClient):
                  or defaults to production endpoint.
             app: Optional application name to use in the endpoint URL.
             config: Optional voice agent configuration.
+
+        Examples:
+            Recommended - using context manager:
+                >>> from speechmatics.voice import VoiceAgentClient, VoiceAgentConfig
+                >>> config = VoiceAgentConfig(language="en")
+                >>> async with VoiceAgentClient(api_key="your_api_key", config=config) as client:
+                ...     # Client automatically connects and disconnects
+                ...     await client.send_audio(audio_data)
+
+            Manual connection management:
+                >>> client = VoiceAgentClient(api_key="your_api_key", config=config)
+                >>> await client.connect()
+                >>> # ... use client ...
+                >>> await client.disconnect()
+
+            Using environment variables:
+                >>> import os
+                >>> os.environ["SPEECHMATICS_API_KEY"] = "your_api_key"
+                >>> async with VoiceAgentClient(config=VoiceAgentConfig(language="en")) as client:
+                ...     await client.send_audio(audio_data)
+
+            With custom endpoint:
+                >>> client = VoiceAgentClient(
+                ...     api_key="your_api_key",
+                ...     url="wss://custom.endpoint.com/v2",
+                ...     config=VoiceAgentConfig(language="en")
+                ... )
         """
 
         # Default URL
@@ -281,9 +308,30 @@ class VoiceAgentClient(AsyncClient):
     async def connect(self) -> None:
         """Connect to the Speechmatics API.
 
-        Args:
-            transcription_config: Transcription configuration.
-            audio_format: Audio format.
+        Establishes WebSocket connection and starts the transcription session.
+        This must be called before sending audio.
+
+        Raises:
+            Exception: If connection fails.
+
+        Examples:
+            Manual connection:
+                >>> client = VoiceAgentClient(api_key="your_api_key", config=config)
+                >>> await client.connect()
+
+            With event handlers:
+                >>> @client.on("AddSegment")
+                ... async def on_segment(message):
+                ...     segments = message["segments"]
+                ...     print(f"Received {len(segments)} segments")
+                >>>
+                >>> await client.connect()
+
+            Using context manager (recommended):
+                >>> async with VoiceAgentClient(api_key="key", config=config) as client:
+                ...     # Client is automatically connected here
+                ...     await client.send_audio(audio_data)
+                ... # Automatically disconnected and cleaned up
         """
 
         # Check if we are already connected
@@ -309,8 +357,50 @@ class VoiceAgentClient(AsyncClient):
             self._logger.error(f"Exception: {e}")
             raise
 
+    async def __aenter__(self) -> VoiceAgentClient:
+        """Enter async context manager.
+
+        Automatically connects to the Speechmatics API when entering the context.
+
+        Returns:
+            The connected VoiceAgentClient instance.
+
+        Examples:
+            >>> async with VoiceAgentClient(api_key="key", config=config) as client:
+            ...     # Client is already connected here
+            ...     await client.send_audio(audio_data)
+        """
+        await self.connect()
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Exit async context manager.
+
+        Automatically disconnects and cleans up resources when exiting the context.
+
+        Args:
+            exc_type: Exception type if an exception occurred.
+            exc_val: Exception value if an exception occurred.
+            exc_tb: Exception traceback if an exception occurred.
+        """
+        await self.disconnect()
+
     async def disconnect(self) -> None:
-        """Disconnect from the Speechmatics API."""
+        """Disconnect from the Speechmatics API.
+
+        Closes the WebSocket connection and cleans up resources.
+
+        Examples:
+            Manual disconnect:
+                >>> await client.connect()
+                >>> # ... send audio ...
+                >>> await client.disconnect()
+
+            Using context manager (automatic):
+                >>> async with VoiceAgentClient(api_key="key", config=config) as client:
+                ...     # No need to call disconnect() - handled automatically
+                ...     await client.send_audio(audio_data)
+        """
 
         # Check if we are already connected
         if not self._is_connected:
@@ -357,11 +447,29 @@ class VoiceAgentClient(AsyncClient):
         """Send an audio frame through the WebSocket.
 
         Args:
-            payload: The audio frame to send.
+            payload: Audio data as bytes.
 
         Examples:
-            >>> audio_chunk = b""
-            >>> await client.send_audio(audio_chunk)
+            Sending audio from a file:
+                >>> import wave
+                >>> with wave.open("audio.wav", "rb") as wav_file:
+                ...     while True:
+                ...         audio_chunk = wav_file.readframes(320)
+                ...         if not audio_chunk:
+                ...             break
+                ...         await client.send_audio(audio_chunk)
+
+            Sending audio from microphone:
+                >>> import pyaudio
+                >>> p = pyaudio.PyAudio()
+                >>> stream = p.open(format=pyaudio.paInt16, channels=1, rate=16000, input=True)
+                >>> while True:
+                ...     audio_data = stream.read(320)
+                ...     await client.send_audio(audio_data)
+
+            With async generator:
+                >>> async for audio_chunk in audio_stream():
+                ...     await client.send_audio(audio_chunk)
         """
         # Skip if not ready for audio
         if not self._is_ready_for_audio:
@@ -388,6 +496,30 @@ class VoiceAgentClient(AsyncClient):
 
         Args:
             config: The new diarization configuration.
+
+        Examples:
+            Focus on specific speakers:
+                >>> from speechmatics.voice import DiarizationSpeakerConfig, DiarizationFocusMode
+                >>> config = DiarizationSpeakerConfig(
+                ...     focus_speakers=["speaker_1", "speaker_2"],
+                ...     focus_mode=DiarizationFocusMode.RETAIN
+                ... )
+                >>> client.update_diarization_config(config)
+
+            Ignore specific speakers:
+                >>> config = DiarizationSpeakerConfig(
+                ...     ignore_speakers=["speaker_3"],
+                ...     focus_mode=DiarizationFocusMode.IGNORE
+                ... )
+                >>> client.update_diarization_config(config)
+
+            Dynamic speaker management:
+                >>> # Start with all speakers
+                >>> await client.connect()
+                >>> # Later, focus on main speaker
+                >>> client.update_diarization_config(
+                ...     DiarizationSpeakerConfig(focus_speakers=["main_speaker"])
+                ... )
         """
         self._dz_config = config
 
@@ -400,6 +532,15 @@ class VoiceAgentClient(AsyncClient):
 
         Args:
             ttl: Optional delay before finalizing partial segments.
+
+        Examples:
+            Immediate finalization:
+                >>> # Force finalization of current segments
+                >>> client.finalize(ttl=0)
+
+            Delayed finalization:
+                >>> # Wait 0.5 seconds before finalizing
+                >>> client.finalize(ttl=0.5)
         """
 
         # Emit the finalize or use EndOfTurn on demand preview

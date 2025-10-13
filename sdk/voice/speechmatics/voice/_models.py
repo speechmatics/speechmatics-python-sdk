@@ -38,6 +38,34 @@ class EndOfUtteranceMode(str, Enum):
     - `SMART_TURN`: Smart turn end of turn delay. The STT engine will use a combination
         of silence detection, adaptive delay and smart turn detection using machine learning
         to determine the end of turn.
+
+    Examples:
+        Using fixed mode (default):
+            >>> config = VoiceAgentConfig(
+            ...     language="en",
+            ...     end_of_utterance_mode=EndOfUtteranceMode.FIXED
+            ... )
+
+        Using adaptive mode for natural conversations:
+            >>> config = VoiceAgentConfig(
+            ...     language="en",
+            ...     end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE
+            ... )
+
+        Using smart turn detection:
+            >>> config = VoiceAgentConfig(
+            ...     language="en",
+            ...     end_of_utterance_mode=EndOfUtteranceMode.SMART_TURN,
+            ...     smart_turn_threshold=0.8
+            ... )
+
+        External control (manual finalization):
+            >>> config = VoiceAgentConfig(
+            ...     language="en",
+            ...     end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL
+            ... )
+            >>> # Later in code:
+            >>> client.finalize()
     """
 
     EXTERNAL = "external"
@@ -69,6 +97,19 @@ class DiarizationFocusMode(str, Enum):
     - `RETAIN`: Retain words spoken by other speakers (not listed in `ignore_speakers`)
         and process them as passive speaker frames.
     - `IGNORE`: Ignore words spoken by other speakers and they will not be processed.
+
+    Examples:
+        Retain all speakers but mark focus:
+            >>> config = DiarizationSpeakerConfig(
+            ...     focus_speakers=["S1"],
+            ...     focus_mode=DiarizationFocusMode.RETAIN
+            ... )
+
+        Ignore non-focus speakers completely:
+            >>> config = DiarizationSpeakerConfig(
+            ...     focus_speakers=["S1", "S2"],
+            ...     focus_mode=DiarizationFocusMode.IGNORE
+            ... )
     """
 
     RETAIN = "retain"
@@ -236,6 +277,23 @@ class AdditionalVocabEntry(BaseModel):
     Parameters:
         content: The word to add to the dictionary.
         sounds_like: Similar words to the word.
+
+    Examples:
+        Adding a brand name:
+            >>> vocab = AdditionalVocabEntry(
+            ...     content="Speechmatics",
+            ...     sounds_like=["speech mattics", "speech matics"]
+            ... )
+
+        Adding technical terms:
+            >>> vocab_list = [
+            ...     AdditionalVocabEntry(content="API", sounds_like=["A P I"]),
+            ...     AdditionalVocabEntry(content="WebSocket", sounds_like=["web socket"])
+            ... ]
+            >>> config = VoiceAgentConfig(
+            ...     language="en",
+            ...     additional_vocab=vocab_list
+            ... )
     """
 
     content: str
@@ -248,6 +306,30 @@ class DiarizationKnownSpeaker(BaseModel):
     Parameters:
         label: The label of the speaker.
         speaker_identifiers: One or more data strings for the speaker.
+
+    Examples:
+        Adding a known speaker:
+            >>> speaker = DiarizationKnownSpeaker(
+            ...     label="Alice",
+            ...     speaker_identifiers=["speaker_abc123"]
+            ... )
+
+        Using multiple known speakers:
+            >>> known_speakers = [
+            ...     DiarizationKnownSpeaker(
+            ...         label="Alice",
+            ...         speaker_identifiers=["speaker_abc123"]
+            ...     ),
+            ...     DiarizationKnownSpeaker(
+            ...         label="Bob",
+            ...         speaker_identifiers=["speaker_def456"]
+            ...     )
+            ... ]
+            >>> config = VoiceAgentConfig(
+            ...     language="en",
+            ...     enable_diarization=True,
+            ...     known_speakers=known_speakers
+            ... )
     """
 
     label: str
@@ -388,6 +470,69 @@ class VoiceAgentConfig(BaseModel):
 
         sample_rate: Audio sample rate for streaming. Defaults to `16000`.
         audio_encoding: Audio encoding format. Defaults to `AudioEncoding.PCM_S16LE`.
+
+    Examples:
+        Basic configuration:
+            >>> config = VoiceAgentConfig(language="en")
+
+        With diarization enabled:
+            >>> config = VoiceAgentConfig(
+            ...     language="en",
+            ...     enable_diarization=True,
+            ...     speaker_sensitivity=0.7
+            ... )
+
+        With custom vocabulary:
+            >>> config = VoiceAgentConfig(
+            ...     language="en",
+            ...     additional_vocab=[
+            ...         AdditionalVocabEntry(
+            ...             content="Speechmatics",
+            ...             sounds_like=["speech mattics"]
+            ...         )
+            ...     ]
+            ... )
+
+        Advanced configuration with speaker focus:
+            >>> config = VoiceAgentConfig(
+            ...     language="en",
+            ...     enable_diarization=True,
+            ...     speaker_config=DiarizationSpeakerConfig(
+            ...         focus_speakers=["S1"],
+            ...         focus_mode=DiarizationFocusMode.RETAIN
+            ...     ),
+            ...     end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE
+            ... )
+
+        With known speakers:
+            >>> config = VoiceAgentConfig(
+            ...     language="en",
+            ...     enable_diarization=True,
+            ...     known_speakers=[
+            ...         DiarizationKnownSpeaker(
+            ...             label="Alice",
+            ...             speaker_identifiers=["speaker_abc123"]
+            ...         )
+            ...     ]
+            ... )
+
+        Complete example with multiple features:
+            >>> config = VoiceAgentConfig(
+            ...     language="en",
+            ...     operating_point=OperatingPoint.ENHANCED,
+            ...     enable_diarization=True,
+            ...     speaker_sensitivity=0.7,
+            ...     max_speakers=3,
+            ...     end_of_utterance_mode=EndOfUtteranceMode.SMART_TURN,
+            ...     smart_turn_threshold=0.8,
+            ...     additional_vocab=[
+            ...         AdditionalVocabEntry(content="API"),
+            ...         AdditionalVocabEntry(content="WebSocket")
+            ...     ],
+            ...     speaker_config=DiarizationSpeakerConfig(
+            ...         focus_speakers=["S1", "S2"]
+            ...     )
+            ... )
     """
 
     # Service configuration
