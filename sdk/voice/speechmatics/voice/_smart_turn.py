@@ -49,11 +49,16 @@ class SmartTurnDetector:
     Uses Pipecat's opensource acoustic model for determining if an audio sample
     is predicted to be complete or incomplete.
 
-    Further informtaion at https://github.com/pipecat-ai/smart-turn
+    Further information at https://github.com/pipecat-ai/smart-turn
     """
 
     def __init__(self, auto_init: bool = True, threshold: float = 0.8):
-        """Create the new SmartTurnDetector."""
+        """Create the new SmartTurnDetector.
+
+        Args:
+            auto_init: Whether to automatically initialise the detector.
+            threshold: Probability threshold for turn completion (0.0-1.0).
+        """
 
         # Has initialized
         self._is_initialized: bool = False
@@ -66,7 +71,10 @@ class SmartTurnDetector:
             self.setup()
 
     def setup(self) -> None:
-        """Setup the detector."""
+        """Setup the detector.
+
+        Initialises the ONNX model and feature extractor.
+        """
 
         try:
             # Check / download the model
@@ -93,10 +101,10 @@ class SmartTurnDetector:
         """Build the ONNX session and load resources.
 
         Args:
-            onnx_path: Path to the ONNX model
+            onnx_path: Path to the ONNX model.
 
         Returns:
-            ort.InferenceSession: ONNX session
+            ONNX inference session.
         """
 
         # Build the session
@@ -117,12 +125,12 @@ class SmartTurnDetector:
             audio_array: Numpy array containing audio samples at 16kHz. The function
                 will convert the audio into float32 and truncate to 8 seconds (keeping the end)
                 or pad to 8 seconds.
-            language: Language of the audio
-            sample_rate: Sample rate of the audio
-            sample_width: Sample width of the audio
+            language: Language of the audio.
+            sample_rate: Sample rate of the audio.
+            sample_width: Sample width of the audio.
 
         Returns:
-            SmartTurnPredictionResult: Prediction result
+            Prediction result containing completion status and probability.
         """
 
         # Check if initialized
@@ -182,13 +190,12 @@ class SmartTurnDetector:
         """Truncate audio to last n seconds or pad with zeros to meet n seconds.
 
         Args:
-            audio_array: Numpy array containing audio samples at 16kHz
-            n_seconds: Number of seconds to truncate to
-            sample_rate: Sample rate of the audio
+            audio_array: Numpy array containing audio samples at 16kHz.
+            n_seconds: Number of seconds to truncate to.
+            sample_rate: Sample rate of the audio.
 
         Returns:
-            Numpy array containing audio samples at 16kHz truncated to last n seconds
-            or padded with zeros to meet n seconds
+            Numpy array truncated to last n seconds or padded with zeros.
         """
 
         # Calculate the max samples we should have
@@ -237,12 +244,23 @@ class SmartTurnDetector:
 
     @staticmethod
     def model_exists() -> bool:
-        """Check the model has been downloaded."""
+        """Check the model has been downloaded.
+
+        Returns:
+            True if the model file exists, False otherwise.
+        """
         return os.path.exists(ONNX_MODEL_PATH)
 
     @staticmethod
     def valid_language(language: str) -> bool:
-        """Check if the language is valid."""
+        """Check if the language is valid.
+
+        Args:
+            language: Language code to validate.
+
+        Returns:
+            True if the language is supported, False otherwise.
+        """
         return language in [
             "ar",
             "bn",

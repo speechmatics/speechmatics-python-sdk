@@ -34,16 +34,16 @@ from ._models import ClientSessionInfo
 from ._models import DiarizationFocusMode
 from ._models import DiarizationSpeakerConfig
 from ._models import EndOfUtteranceMode
-from ._models import FragmentUtils
 from ._models import LanguagePackInfo
 from ._models import SpeakerSegmentView
 from ._models import SpeakerVADStatus
 from ._models import SpeechFragment
 from ._models import TranscriptionUpdatePreset
-from ._models import TurnTaskProcessor
 from ._models import VoiceAgentConfig
 from ._smart_turn import SmartTurnDetector
 from ._smart_turn import SmartTurnPredictionResult
+from ._turn import TurnTaskProcessor
+from ._utils import FragmentUtils
 
 DEBUG_MORE = os.getenv("SPEECHMATICS_DEBUG_MORE", "0").lower() in ["1", "true"]
 
@@ -60,6 +60,10 @@ class VoiceAgentClient(AsyncClient):
     transcription from the STT engine into accumulated transcriptions with
     flags to indicate changes between messages, etc.
     """
+
+    # ============================================================================
+    # INITIALISATION & CONFIGURATION
+    # ============================================================================
 
     def __init__(
         self,
@@ -194,8 +198,6 @@ class VoiceAgentClient(AsyncClient):
         # Register handlers
         self._register_event_handlers()
 
-    # def on(self, event: ServerMessageType, callback: Optional[Callable] = None) -> Callable:
-
     def _process_config(
         self, config: Optional[VoiceAgentConfig] = None
     ) -> tuple[VoiceAgentConfig, TranscriptionConfig, AudioFormat]:
@@ -272,6 +274,150 @@ class VoiceAgentClient(AsyncClient):
         # Return the config objects
         return config, transcription_config, audio_format
 
+    # ============================================================================
+    # LIFECYCLE METHODS
+    # ============================================================================
+
+    async def connect(self) -> None:
+        """Connect to the Speechmatics API.
+
+        Args:
+            transcription_config: Transcription configuration.
+            audio_format: Audio format.
+        """
+
+        # Check if we are already connected
+        if self._is_connected:
+            self.emit(
+                AgentServerMessageType.ERROR,
+                {"message": AgentServerMessageType.ERROR.value, "reason": "Already connected"},
+            )
+            return
+
+        # Start the processor task
+        self._stt_queue_task = asyncio.create_task(self._run_stt_queue())
+
+        # Connect to API
+        try:
+            await self.start_session(
+                transcription_config=self._transcription_config,
+                audio_format=self._audio_format,
+            )
+            self._is_connected = True
+            self._start_metrics_task()
+        except Exception as e:
+            self._logger.error(f"Exception: {e}")
+            raise
+
+    async def disconnect(self) -> None:
+        """Disconnect from the Speechmatics API."""
+
+        # Check if we are already connected
+        if not self._is_connected:
+            return
+
+        # Stop audio and metrics tasks
+        self._is_ready_for_audio = False
+        self._stop_metrics_task()
+
+        # Send end of transcript to release resources
+        await self.send_message(
+            {"message": ClientMessageType.END_OF_STREAM, "last_seq_no": self._session.sequence_number}
+        )
+
+        # Stop end of turn-related tasks
+        self._end_of_turn_handler.cancel_tasks()
+
+        # Stop the STT queue task
+        if self._stt_queue_task:
+            self._stt_queue_task.cancel()
+            try:
+                await self._stt_queue_task
+            except asyncio.CancelledError:
+                pass
+            self._stt_queue_task = None
+
+        # Wait for the EndOfTranscript event to be received
+        try:
+            await asyncio.wait_for(self._session_done_evt.wait(), timeout=5.0)
+        except asyncio.TimeoutError:
+            self._logger.warning(f"{self} Timeout while closing Speechmatics client connection")
+            raise
+        except Exception as e:
+            self._logger.error(f"{self} Error closing Speechmatics client: {e}")
+            raise
+        finally:
+            self._is_connected = False
+
+    # ============================================================================
+    # PUBLIC API METHODS
+    # ============================================================================
+
+    async def send_audio(self, payload: bytes) -> None:
+        """Send an audio frame through the WebSocket.
+
+        Args:
+            payload: The audio frame to send.
+
+        Examples:
+            >>> audio_chunk = b""
+            >>> await client.send_audio(audio_chunk)
+        """
+        # Skip if not ready for audio
+        if not self._is_ready_for_audio:
+            return
+
+        # Send to the AsyncClient
+        await super().send_audio(payload)
+
+        # Add to audio buffer (use put_bytes to handle variable chunk sizes)
+        if self._config.audio_buffer_length > 0:
+            await self._audio_buffer.put_bytes(payload)
+
+        # Calculate the time (in seconds) for the payload
+        if self._audio_format is not None:
+            self._total_bytes += len(payload)
+            self._total_time += len(payload) / self._audio_sample_rate / self._audio_sample_width
+
+    def update_diarization_config(self, config: DiarizationSpeakerConfig) -> None:
+        """Update the diarization configuration.
+
+        You can update the speakers that needs to be focussed on or ignored during
+        a session. The new config will overwrite the existing configuration and become
+        active immediately.
+
+        Args:
+            config: The new diarization configuration.
+        """
+        self._dz_config = config
+
+    def finalize(self, ttl: Optional[float] = None) -> None:
+        """Finalize segments.
+
+        This function will emit segments in the buffer without any further checks
+        on the contents of the segments. If the ttl is set to zero, then finalization
+        will be forced through without yielding for any remaining STT messages.
+
+        Args:
+            ttl: Optional delay before finalizing partial segments.
+        """
+
+        # Emit the finalize or use EndOfTurn on demand preview
+        async def emit() -> None:
+            if ttl is not None and ttl > 0:
+                await asyncio.sleep(ttl)
+            if self._config.enable_preview_features:
+                await self.send_message({"message": AgentClientMessageType.FINALIZE_TURN})
+            else:
+                await self._emit_segments(finalize=True, end_of_turn=True)
+
+        # Add to queue
+        self._stt_message_queue.put_nowait(emit)
+
+    # ============================================================================
+    # EVENT REGISTRATION & HANDLERS
+    # ============================================================================
+
     def _register_event_handlers(self) -> None:
         """Register event handlers.
 
@@ -325,89 +471,9 @@ class VoiceAgentClient(AsyncClient):
 
             self._stt_message_queue.put_nowait(_handle)
 
-    async def connect(self) -> None:
-        """Connect to the Speechmatics API.
-
-        Args:
-            transcription_config: Transcription configuration.
-            audio_format: Audio format.
-        """
-
-        # Check if we are already connected
-        if self._is_connected:
-            self.emit(
-                AgentServerMessageType.ERROR,
-                {"message": AgentServerMessageType.ERROR.value, "reason": "Already connected"},
-            )
-            return
-
-        # Start the processor task
-        self._stt_queue_task = asyncio.create_task(self._run_stt_queue())
-
-        # Connect to API
-        try:
-            await self.start_session(
-                transcription_config=self._transcription_config,
-                audio_format=self._audio_format,
-            )
-            self._is_connected = True
-            self._start_metrics_task()
-        except Exception as e:
-            self._logger.error(f"Exception: {e}")
-            raise
-
-    async def disconnect(self) -> None:
-        """Disconnect from the Speechmatics API."""
-
-        # Check if we are already connected
-        if not self._is_connected:
-            return
-
-        # Stop audio and metrics tasks
-        self._is_ready_for_audio = False
-        self._stop_metrics_task()
-
-        # Send end of transcript to release resources
-        await self.send_message(
-            {"message": ClientMessageType.END_OF_STREAM, "last_seq_no": self._session.sequence_number}
-        )
-
-        # Stop end of turn-related tasks
-        # self._finalization_handler.cancel_tasks()
-        self._end_of_turn_handler.cancel_tasks()
-
-        # Stop the STT queue task
-        if self._stt_queue_task:
-            self._stt_queue_task.cancel()
-            try:
-                await self._stt_queue_task
-            except asyncio.CancelledError:
-                pass
-            self._stt_queue_task = None
-
-        # Wait for the EndOfTranscript event to be received
-        try:
-            await asyncio.wait_for(self._session_done_evt.wait(), timeout=5.0)
-        except asyncio.TimeoutError:
-            self._logger.warning(f"{self} Timeout while closing Speechmatics client connection")
-            raise
-        except Exception as e:
-            self._logger.error(f"{self} Error closing Speechmatics client: {e}")
-            raise
-        finally:
-            self._is_connected = False
-
-    def update_diarization_config(self, config: DiarizationSpeakerConfig) -> None:
-        """Update the diarization configuration.
-
-        You can update the speakers that needs to be focussed on or ignored during
-        a session. The new config will overwrite the existing configuration and become
-        active immediately.
-
-        Args:
-            config: The new diarization configuration.
-        """
-        self._dz_config = config
+    # ============================================================================
+    # QUEUE PROCESSING
+    # ============================================================================
 
     def _start_stt_queue(self) -> None:
         """Start the STT message queue."""
@@ -442,31 +508,9 @@ class VoiceAgentClient(AsyncClient):
         if self._stt_queue_task:
             self._stt_queue_task.cancel()
 
-    async def send_audio(self, payload: bytes) -> None:
-        """Send an audio frame through the WebSocket.
-
-        Args:
-            payload: The audio frame to send.
-
-        Examples:
-            >>> audio_chunk = b""
-            >>> await client.send_audio(audio_chunk)
-        """
-        # Skip if not ready for audio
-        if not self._is_ready_for_audio:
-            return
-
-        # Send to the AsyncClient
-        await super().send_audio(payload)
-
-        # Add to audio buffer (use put_bytes to handle variable chunk sizes)
-        if self._config.audio_buffer_length > 0:
-            await self._audio_buffer.put_bytes(payload)
-
-        # Calculate the time (in seconds) for the payload
-        if self._audio_format is not None:
-            self._total_bytes += len(payload)
-            self._total_time += len(payload) / self._audio_sample_rate / self._audio_sample_width
+    # ============================================================================
+    # METRICS
+    # ============================================================================
 
     def _start_metrics_task(self) -> None:
         """Start the metrics task."""
@@ -504,30 +548,6 @@ class VoiceAgentClient(AsyncClient):
         if self._metrics_emitter_task:
             self._metrics_emitter_task.cancel()
             self._metrics_emitter_task = None
-
-    async def _handle_transcript(self, message: dict[str, Any], is_final: bool) -> None:
-        """Handle the partial and final transcript events (async).
-
-        As `AddTranscript` messages are _always_ followed by `AddPartialTranscript` messages,
-        we can skip processing. Also skop if there are no fragments in the buffer.
-
-        Args:
-            message: The new Partial or Final from the STT engine.
-            is_final: Whether the data is final or partial.
-        """
-
-        # Add the speech fragments
-        fragments_available = await self._add_speech_fragments(
-            message=message,
-            is_final=is_final,
-        )
-
-        # Skip if no fragments or `AddTranscript`
-        if not fragments_available or is_final:
-            return
-
-        # Process
-        await self._process_speech_fragments(self._change_filter)
 
     def _calculate_ttfb(self, end_time: float) -> None:
         """Calculate the time to first text.
@@ -569,6 +589,34 @@ class VoiceAgentClient(AsyncClient):
                 "ttfb": self._last_ttfb,
             },
         )
+
+    # ============================================================================
+    # TRANSCRIPT PROCESSING
+    # ============================================================================
+
+    async def _handle_transcript(self, message: dict[str, Any], is_final: bool) -> None:
+        """Handle the partial and final transcript events (async).
+
+        As `AddTranscript` messages are _always_ followed by `AddPartialTranscript` messages,
+        we can skip processing. Also skop if there are no fragments in the buffer.
+
+        Args:
+            message: The new Partial or Final from the STT engine.
+            is_final: Whether the data is final or partial.
+        """
+
+        # Add the speech fragments
+        fragments_available = await self._add_speech_fragments(
+            message=message,
+            is_final=is_final,
+        )
+
+        # Skip if no fragments or `AddTranscript`
+        if not fragments_available or is_final:
+            return
+
+        # Process
+        await self._process_speech_fragments(self._change_filter)
 
     async def _add_speech_fragments(self, message: dict[str, Any], is_final: bool = False) -> bool:
         """Takes a new Partial or Final from the STT engine.
@@ -690,6 +738,10 @@ class VoiceAgentClient(AsyncClient):
             # Fragments available
             return len(self._speech_fragments) > 0
 
+    # ============================================================================
+    # SEGMENT PROCESSING & EMISSION
+    # ============================================================================
+
     def _update_current_view(self) -> None:
         """Load the current view of the speech fragments."""
         self._current_view = SpeakerSegmentView(
@@ -770,6 +822,104 @@ class VoiceAgentClient(AsyncClient):
             # Create async task to process end of turn
             asyncio.create_task(process_eot())
 
+    async def _emit_segments(self, finalize: bool = False, end_of_turn: bool = False) -> None:
+        """Emit segments to listeners.
+
+        This function will emit segments in the view without any further checks
+        on the contents of the segments. Any segments that end with a final / EOS
+        will be emitted as finals and removed from the fragment buffer.
+
+        Args:
+            finalize: Whether to finalize all segments.
+            end_of_turn: Whether to emit an end of turn event.
+        """
+
+        # Lock the speech fragments
+        if self._current_view and self._current_view.segment_count > 0:
+            async with self._speech_fragments_lock:
+                # Force finalize
+                if finalize:
+                    final_segments = self._current_view.segments
+                    interim_segments = []
+
+                # Split between finals and interim segments
+                else:
+                    final_segments = [
+                        s
+                        for s in self._current_view.segments
+                        if s.annotation.has(AnnotationFlags.ENDS_WITH_FINAL, AnnotationFlags.ENDS_WITH_EOS)
+                    ]
+                    interim_segments = [s for s in self._current_view.segments if s not in final_segments]
+
+                # Emit finals first
+                if final_segments:
+                    # Metadata for final segments uses actual start/end times of the segments being emitted
+                    final_metadata = {
+                        "start_time": final_segments[0].start_time,
+                        "end_time": final_segments[-1].end_time,
+                    }
+                    self.emit(
+                        AgentServerMessageType.ADD_SEGMENT,
+                        {
+                            "message": AgentServerMessageType.ADD_SEGMENT.value,
+                            "segments": [s.model_dump(self._config.include_results) for s in final_segments],
+                            "metadata": final_metadata,
+                        },
+                    )
+                    self._trim_before_time = final_segments[-1].end_time
+                    self._speech_fragments = [
+                        f for f in self._speech_fragments if f.start_time >= self._trim_before_time
+                    ]
+
+                # Emit interim segments
+                if interim_segments:
+                    # Metadata for partial segments uses actual start/end times of the segments being emitted
+                    partial_metadata = {
+                        "start_time": interim_segments[0].start_time,
+                        "end_time": interim_segments[-1].end_time,
+                    }
+                    self.emit(
+                        AgentServerMessageType.ADD_PARTIAL_SEGMENT,
+                        {
+                            "message": AgentServerMessageType.ADD_PARTIAL_SEGMENT.value,
+                            "segments": [s.model_dump(self._config.include_results) for s in interim_segments],
+                            "metadata": partial_metadata,
+                        },
+                    )
+
+                # Update the current view
+                self._update_current_view()
+
+                # Reset the turn start time
+                if not self._turn_start_time:
+                    self._turn_start_time = self._current_view.start_time
+
+        # Emit end of turn
+        if end_of_turn and self._previous_view:
+            # Metadata (for LAST view)
+            metadata = {"start_time": self._turn_start_time, "end_time": self._previous_view.end_time}
+
+            # Emit
+            self.emit(
+                AgentServerMessageType.END_OF_TURN,
+                {
+                    "message": AgentServerMessageType.END_OF_TURN.value,
+                    "turn_id": self._end_of_turn_handler.turn_id,
+                    "metadata": metadata,
+                },
+            )
+
+            # Reset the previous view
+            self._previous_view = None
+            self._turn_start_time = None
+
+            # Update the turn handler (which will cancel any pending tasks)
+            self._end_of_turn_handler.next()
+
+    # ============================================================================
+    # TURN DETECTION & FINALIZATION
+    # ============================================================================
+
     async def _predict_smart_turn(self, end_time: float, language: str) -> SmartTurnPredictionResult:
         """Predict when to emit the end of turn.
 
@@ -788,7 +938,7 @@ class VoiceAgentClient(AsyncClient):
         if not self._turn_detector:
             return SmartTurnPredictionResult(error="Smart turn is not enabled")
 
-        # Get audio slice
+        # Get audio slice (add small margin of 100ms to the end of the audio)
         segment_audio = await self._audio_buffer.get_frames(
             start_time=end_time - self._config.audio_buffer_length, end_time=end_time + 0.1
         )
@@ -861,7 +1011,7 @@ class VoiceAgentClient(AsyncClient):
                  - ends with finalizes end of sentence
                 """
 
-                # Minimum delay
+                # Minimum delay (50ms as a minimum)
                 delay = max(self._end_of_utterance_delay, 0.05)
 
                 # Delay multiplier
@@ -890,12 +1040,8 @@ class VoiceAgentClient(AsyncClient):
                     add_multiplier(2.0, "does_not_end_with_eos")
 
                 # Smart turn prediction
-                if smart_turn_prediction:
-                    if smart_turn_prediction.prediction:
-                        add_multiplier(0.25, "smart_turn_true")
-                    else:
-                        # add_multiplier(2.0, "smart_turn_false")
-                        pass
+                if smart_turn_prediction and smart_turn_prediction.prediction:
+                    add_multiplier(0.25, "smart_turn_true")
 
                 # Calculate the multiplier
                 for _multiplier, _reason in reasons:
@@ -909,149 +1055,16 @@ class VoiceAgentClient(AsyncClient):
 
             # Establish the real-world time
             time_slip = 0  # self._total_time - self._last_fragment_end_time
-            emit_delay = max(clamped_delay - time_slip, 0.2)
 
-        # Debug payload
-        # import json
-        # print(
-        #     json.dumps(
-        #         {
-        #             "view_changes": view_changes,
-        #             "filter_flags": filter_flags,
-        #             "last_active_segment": last_active_segment.model_dump() if last_active_segment else None,
-        #             "smart_turn_prediction": smart_turn_prediction.model_dump() if smart_turn_prediction else None,
-        #             "base_delay": self._end_of_utterance_delay,
-        #             "multiplier": multiplier,
-        #             "reasons": reasons,
-        #             "delay": delay,
-        #             "clamped_delay": clamped_delay,
-        #             "time_slip": time_slip,
-        #             "emit_delay": emit_delay,
-        #         },
-        #         indent=4,
-        #     )
-        # )
+            # Adjust time and make sure no less than 100ms
+            emit_delay = max(clamped_delay - time_slip, 0.1)
 
         # Return the time
         return emit_delay
 
-    def finalize(self, ttl: Optional[float] = None) -> None:
-        """Finalize segments.
-
-        This function will emit segments in the buffer without any further checks
-        on the contents of the segments. If the ttl is set to zero, then finalization
-        will be forced through without yielding for any remaining STT messages.
-
-        Args:
-            ttl: Optional delay before finalizing partial segments.
-        """
-
-        # Emit the finalize or use EndOfTurn on demand preview
-        async def emit() -> None:
-            if ttl is not None and ttl > 0:
-                await asyncio.sleep(ttl)
-            if self._config.enable_preview_features:
-                await self.send_message({"message": AgentClientMessageType.FINALIZE_TURN})
-            else:
-                await self._emit_segments(finalize=True, end_of_turn=True)
-
-        # Add to queue
-        self._stt_message_queue.put_nowait(emit)
-
-    async def _emit_segments(self, finalize: bool = False, end_of_turn: bool = False) -> None:
-        """Emit segments to listeners.
-
-        This function will emit segments in the view without any further checks
-        on the contents of the segments. Any segments that end with a final / EOS
-        will be emitted as finals and removed from the fragment buffer.
-
-        Args:
-            finalize: Whether to finalize all segments.
-            end_of_turn: Whether to emit an end of turn event.
-        """
-
-        # Lock the speech fragments
-        if self._current_view and self._current_view.segment_count > 0:
-            async with self._speech_fragments_lock:
-                # Force finalize
-                if finalize:
-                    final_segments = self._current_view.segments
-                    interim_segments = []
-
-                # Split between finals and interim segments
-                else:
-                    final_segments = [
-                        s
-                        for s in self._current_view.segments
-                        if s.annotation.has(AnnotationFlags.ENDS_WITH_FINAL, AnnotationFlags.ENDS_WITH_EOS)
-                        # and not s.annotation.has(AnnotationFlags.ENDS_WITH_DISFLUENCY)
-                    ]
-                    interim_segments = [s for s in self._current_view.segments if s not in final_segments]
-
-                # Emit finals first
-                if final_segments:
-                    # Metadata for final segments uses actual start/end times of the segments being emitted
-                    final_metadata = {
-                        "start_time": final_segments[0].start_time,
-                        "end_time": final_segments[-1].end_time,
-                    }
-                    self.emit(
-                        AgentServerMessageType.ADD_SEGMENT,
-                        {
-                            "message": AgentServerMessageType.ADD_SEGMENT.value,
-                            "segments": [s.model_dump(self._config.include_results) for s in final_segments],
-                            "metadata": final_metadata,
-                        },
-                    )
-                    self._trim_before_time = final_segments[-1].end_time
-                    self._speech_fragments = [
-                        f for f in self._speech_fragments if f.start_time >= self._trim_before_time
-                    ]
-
-                # Emit interim segments
-                if interim_segments:
-                    # Metadata for partial segments uses actual start/end times of the segments being emitted
-                    partial_metadata = {
-                        "start_time": interim_segments[0].start_time,
-                        "end_time": interim_segments[-1].end_time,
-                    }
-                    self.emit(
-                        AgentServerMessageType.ADD_PARTIAL_SEGMENT,
-                        {
-                            "message": AgentServerMessageType.ADD_PARTIAL_SEGMENT.value,
-                            "segments": [s.model_dump(self._config.include_results) for s in interim_segments],
-                            "metadata": partial_metadata,
-                        },
-                    )
-
-                # Update the current view
-                self._update_current_view()
-
-                # Reset the turn start time
-                if not self._turn_start_time:
-                    self._turn_start_time = self._current_view.start_time
-
-        # Emit end of turn
-        if end_of_turn and self._previous_view:
-            # Metadata (for LAST view)
-            metadata = {"start_time": self._turn_start_time, "end_time": self._previous_view.end_time}
-
-            # Emit
-            self.emit(
-                AgentServerMessageType.END_OF_TURN,
-                {
-                    "message": AgentServerMessageType.END_OF_TURN.value,
-                    "turn_id": self._end_of_turn_handler.turn_id,
-                    "metadata": metadata,
-                },
-            )
-
-            # Reset the previous view
-            self._previous_view = None
-            self._turn_start_time = None
-
-            # Update the turn handler (which will cancel any pending tasks)
-            self._end_of_turn_handler.next()
+    # ============================================================================
+    # VAD (VOICE ACTIVITY DETECTION)
+    # ============================================================================
 
     def _vad_evaluation(self, fragments: list[SpeechFragment]) -> None:
         """Emit a VAD event.
@@ -1186,6 +1199,10 @@ class VoiceAgentClient(AsyncClient):
 
             # Reset the handlers
             self._end_of_turn_handler.reset()
+
+    # ============================================================================
+    # HELPER METHODS
+    # ============================================================================
 
     def _next_fragment_id(self) -> int:
         """Return the next fragment ID."""

@@ -17,7 +17,7 @@ class AudioBuffer:
     data is removed and the start_time is updated.
 
     The function get_slice(start_time, end_time) will return a snapshot
-    ot the data between the start_time and end_time. If the start_time is
+    of the data between the start_time and end_time. If the start_time is
     before the start of the buffer, then the start_time will be set to the
     start of the buffer. If the end_time is after the end of the buffer,
     then the end_time will be set to the end of the buffer.
@@ -26,14 +26,17 @@ class AudioBuffer:
 
     The buffer is thread-safe and can be used from multiple threads, using
     asyncio locks to ensure thread safety.
-
-    Parameters:
-        sample_rate: The sample rate of the audio.
-        frame_size: The frame size of the audio.
-        total_seconds: The total number of seconds to keep in the buffer.
     """
 
     def __init__(self, sample_rate: int, frame_size: int, sample_width: int = 2, total_seconds: float = 20.0):
+        """Initialise the audio buffer.
+
+        Args:
+            sample_rate: The sample rate of the audio.
+            frame_size: The frame size of the audio.
+            sample_width: The sample width in bytes (1 or 2).
+            total_seconds: The total number of seconds to keep in the buffer.
+        """
         # Store audio format info
         self._sample_rate: int = sample_rate
         self._sample_width: int = sample_width
@@ -52,7 +55,14 @@ class AudioBuffer:
         self._total_frames: int = 0
 
     def _get_time_from_frame(self, frame_index: int) -> float:
-        """Get the time from a frame index."""
+        """Get the time from a frame index.
+
+        Args:
+            frame_index: The frame index.
+
+        Returns:
+            The time in seconds.
+        """
         return frame_index / (self._sample_rate / self._frame_size)
 
     def _get_frame_from_time(self, time: float) -> int:
@@ -60,6 +70,12 @@ class AudioBuffer:
 
         Uses int() with a small epsilon to handle floating-point precision issues
         while maintaining consistent truncation behaviour.
+
+        Args:
+            time: The time in seconds.
+
+        Returns:
+            The frame index.
         """
         return int(time * (self._sample_rate / self._frame_size) + 1e-9)
 
@@ -69,7 +85,7 @@ class AudioBuffer:
         Arbitrary length of bytes to save to buffer. Accumulates until there is
         a frame size worth of data, then puts a frame into the buffer.
 
-        Arguments:
+        Args:
             data: The data frame to add to the buffer.
         """
 
@@ -97,7 +113,7 @@ class AudioBuffer:
         New data added to the end of the buffer. The oldest data is removed
         to maintain the total number of seconds in the buffer.
 
-        Arguments:
+        Args:
             data: The data frame to add to the buffer.
         """
 
@@ -120,7 +136,7 @@ class AudioBuffer:
         If a fade out time is specified, then the end of the slice will be
         faded out by the specified amount of seconds.
 
-        Arguments:
+        Args:
             start_time: The start time of the slice.
             end_time: The end time of the slice.
             fade_out: The fade out time in seconds.
@@ -165,8 +181,7 @@ class AudioBuffer:
             return data
 
     def _fade_out_audio(self, data: bytes, fade_out: float = 0.01) -> bytes:
-        """
-        Apply a fade-out over the final `fade_out` seconds of PCM audio data.
+        """Apply a fade-out over the final `fade_out` seconds of PCM audio data.
 
         Args:
             data: Raw PCM audio data as bytes.
