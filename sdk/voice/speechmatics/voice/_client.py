@@ -1122,9 +1122,7 @@ class VoiceAgentClient(AsyncClient):
             return None
 
         # Calculations
-        reasons: list[tuple[float, str]] = []
         delay: Optional[float] = None
-        multiplier: float = 1.0
         clamped_delay: float = self._config.end_of_utterance_max_delay
         emit_delay: Optional[float] = None
         time_slip: Optional[float] = None
@@ -1132,10 +1130,6 @@ class VoiceAgentClient(AsyncClient):
         # Last active segment
         last_active_segment_index = view.last_active_segment_index
         last_active_segment = view.segments[last_active_segment_index] if last_active_segment_index > -1 else None
-
-        # Add multiplier
-        def add_multiplier(multiplier: float, reason: str = "none") -> None:
-            reasons.append((multiplier, reason))
 
         # Check using filter flags for changes
         if not filter_flags or view_changes is None or view_changes.any(*filter_flags):
@@ -1152,44 +1146,47 @@ class VoiceAgentClient(AsyncClient):
                  - ends with finalizes end of sentence
                 """
 
-                # Minimum delay (50ms as a minimum)
-                delay = max(self._end_of_utterance_delay, 0.05)
+                # Reasons for the calculation
+                reasons: list[tuple[float, str]] = []
+
+                # Add multiplier
+                def add_multiplier(multiplier: float, reason: str = "none") -> None:
+                    reasons.append((multiplier, reason))
 
                 # Delay multiplier
                 add_multiplier(1.0, "default")
 
                 # Very speaking
                 if last_active_segment.annotation.has(AnnotationFlags.VERY_SLOW_SPEAKER):
-                    add_multiplier(3.0, "very_slow_speaker")
+                    add_multiplier(2.0, "very_slow_speaker")
 
                 # Slow speaking
                 if last_active_segment.annotation.has(AnnotationFlags.SLOW_SPEAKER):
-                    add_multiplier(1.5, "slow_speaker")
+                    add_multiplier(1.0, "slow_speaker")
 
                 # Disfluencies
                 if last_active_segment.annotation.has(AnnotationFlags.ENDS_WITH_DISFLUENCY):
-                    add_multiplier(4.0, "ends_with_disfluency")
+                    add_multiplier(2.5, "ends_with_disfluency")
                 # elif last_active_segment.annotation.has(AnnotationFlags.HAS_DISFLUENCY):
                 #     add_multiplier(1.25, "has_disfluency")
 
                 # Ends with an end of sentence
                 if last_active_segment.annotation.has(AnnotationFlags.ENDS_WITH_EOS, AnnotationFlags.ENDS_WITH_FINAL):
-                    add_multiplier(0.5, "ends_with_eos_and_final")
+                    add_multiplier(-0.3, "ends_with_eos_and_final")
 
                 # Does NOT end with end of sentence
                 if not last_active_segment.annotation.has(AnnotationFlags.ENDS_WITH_EOS):
-                    add_multiplier(2.0, "does_not_end_with_eos")
+                    add_multiplier(1.0, "does_not_end_with_eos")
 
                 # Smart turn prediction
                 if smart_turn_prediction and smart_turn_prediction.prediction:
-                    add_multiplier(0.25, "smart_turn_true")
+                    add_multiplier(-1.0, "smart_turn_true")
 
-                # Calculate the multiplier
-                for _multiplier, _reason in reasons:
-                    multiplier *= _multiplier
+                # Calculate multiplier
+                multiplier = sum(m for m, _ in reasons)
 
-                # Adjust the delay
-                delay = round(delay * multiplier, 2)
+                # Minimum delay (50ms as a minimum)
+                delay = round(max(self._end_of_utterance_delay, 0.05) * multiplier, 2)
 
                 # Clamp to max delay
                 clamped_delay = min(delay, self._config.end_of_utterance_max_delay)

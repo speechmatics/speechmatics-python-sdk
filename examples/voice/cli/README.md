@@ -7,13 +7,13 @@ Command-line tool for real-time transcription using the Speechmatics Voice SDK. 
 **Microphone:**
 
 ```bash
-python ./examples/voice/cli/main.py --api-key YOUR_API_KEY
+python ./examples/voice/cli/main.py --pretty --api-key YOUR_API_KEY
 ```
 
 **Audio file:**
 
 ```bash
-python ./examples/voice/cli/main.py --api-key YOUR_API_KEY --input-file audio.wav
+python ./examples/voice/cli/main.py --pretty --api-key YOUR_API_KEY --input-file audio.wav
 ```
 
 Press `CTRL+C` to stop.

@@ -91,7 +91,11 @@ async def main() -> None:
         print("\nMicrophone ready - speak now... (Press CTRL+C to stop)\n")
 
     # Connect to the Voice Agent service
-    await client.connect()
+    try:
+        await client.connect()
+    except Exception as e:
+        print(f"Error connecting to Voice Agent service: {e}")
+        return
 
     # Request speaker IDs at the end of the session (if enrolling)
     if args.enrol:
@@ -103,7 +107,6 @@ async def main() -> None:
     except asyncio.CancelledError:
         pass
     finally:
-        # Cleanup
         if audio_player:
             audio_player.stop()
         await client.disconnect()
@@ -368,7 +371,6 @@ async def stream_file(
         while True:
             audio_data = wav_file.readframes(chunk_size)
             if not audio_data:
-                print("\nEnd of file reached")
                 break
 
             # Send to transcription (non-blocking)
