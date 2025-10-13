@@ -17,6 +17,7 @@ from utils import select_audio_device
 from utils import select_audio_output_device
 
 from speechmatics.rt import Microphone
+from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentClientMessageType
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import DiarizationFocusMode
@@ -71,6 +72,9 @@ async def main() -> None:
         end_of_utterance_mode=args.end_of_utterance_mode.lower(),
         speaker_config=speaker_config,
         enable_preview_features=args.preview,
+        additional_vocab=[
+            AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"]),
+        ],
     )
 
     # Create Voice Agent client
