@@ -8,6 +8,7 @@ import pytest
 from _utils import get_client
 from _utils import send_audio_file
 
+from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentClientMessageType
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import DiarizationKnownSpeaker
@@ -54,6 +55,9 @@ async def test_extract_speaker_ids():
             end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
             enable_diarization=True,
             sample_rate=8000,
+            additional_vocab=[
+                AdditionalVocabEntry(content="GeoRouter"),
+            ],
         ),
     )
 

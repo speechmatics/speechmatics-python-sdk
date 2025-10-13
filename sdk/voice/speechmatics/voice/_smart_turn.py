@@ -14,12 +14,11 @@ from urllib.parse import urlparse
 import numpy as np
 import onnxruntime as ort
 from pydantic import BaseModel
-from transformers import WhisperFeatureExtractor
+
+os.environ["TRANSFORMERS_NO_ADVISORY_WARNINGS"] = "1"
+from transformers import WhisperFeatureExtractor  # noqa: E402
 
 logger = logging.getLogger(__name__)
-
-# Disable transformer messages
-os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 
 # Base model from HuggingFace
 ONNX_HF_URL = os.getenv(
