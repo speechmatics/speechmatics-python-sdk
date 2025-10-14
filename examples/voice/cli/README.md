@@ -46,8 +46,8 @@ Enable formatted console output with colours and emojis.
 **`-o, --output-file FILE`**
 Save all output to a JSONL file for later analysis.
 
-**`-x, --extra-payloads`**
-Log additional message payloads including `END_OF_UTTERANCE`, `ADD_PARTIAL_TRANSCRIPT`, and `ADD_TRANSCRIPT`. Useful for debugging or detailed analysis. Default: `False`.
+**`-v, --verbose`**
+Increase logging verbosity. `-v` includes `END_OF_TURN_PREDICTION`. `-vv` adds additional payloads: `END_OF_UTTERANCE`, `ADD_PARTIAL_TRANSCRIPT`, and `ADD_TRANSCRIPT`. Useful for debugging or detailed analysis. Default: `0`.
 
 ### Audio Configuration
 
@@ -186,10 +186,18 @@ python ./examples/voice/cli/main.py -k YOUR_KEY --focus-speakers S1 S2 -p
 python ./examples/voice/cli/main.py -k YOUR_KEY -o output.jsonl -p
 ```
 
-### With extra payloads for debugging
+### Verbose logging
+
+Show turn prediction events:
 
 ```bash
-python ./examples/voice/cli/main.py -k YOUR_KEY -i audio.wav -xp
+python ./examples/voice/cli/main.py -k YOUR_KEY -i audio.wav -v -p
+```
+
+Include additional payloads for debugging:
+
+```bash
+python ./examples/voice/cli/main.py -k YOUR_KEY -i audio.wav -vv -p
 ```
 
 ### Audio file with speaker focus

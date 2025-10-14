@@ -31,13 +31,17 @@ from speechmatics.voice import VoiceAgentConfig
 # ==============================================================================
 
 COLORS = {
+    # Segments
     "AddPartialSegment": "\033[93m",
-    "AddSegment": "\033[92m",
+    "AddSegment": "\033[1;92m",
+    # Speaker events
     "SpeakerStarted": "\033[94m",
     "SpeakerEnded": "\033[94m",
     "SpeakersResult": "\033[95m",
-    "EndOfTurn": "\033[91m",
-    "EndOfTurnPrediction": "\033[91m",
+    # End of turn
+    "EndOfTurnPrediction": "\033[95m",
+    "EndOfTurn": "\033[1;91m",
+    # Transcript events
     "AddPartialTranscript": "\033[90m",
     "AddTranscript": "\033[90m",
     "EndOfUtterance": "\033[90m",
@@ -328,12 +332,15 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
     client.on(AgentServerMessageType.ADD_SEGMENT, log_message)
     client.on(AgentServerMessageType.SPEAKER_STARTED, log_message)
     client.on(AgentServerMessageType.SPEAKER_ENDED, log_message)
-    client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, log_message)
     client.on(AgentServerMessageType.END_OF_TURN, log_message)
     client.on(AgentServerMessageType.SPEAKERS_RESULT, log_message)
 
-    # Extra payloads
-    if args.extra_payloads:
+    # Verbose turn prediction
+    if args.verbose >= 1:
+        client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, log_message)
+
+    # Verbose STT events
+    if args.verbose >= 2:
         client.on(AgentServerMessageType.END_OF_UTTERANCE, log_message)
         client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, log_message)
         client.on(AgentServerMessageType.ADD_TRANSCRIPT, log_message)
@@ -546,10 +553,11 @@ def parse_args():
         help="Pretty print console output (default: False)",
     )
     parser.add_argument(
-        "-x",
-        "--extra-payloads",
-        action="store_true",
-        help="Log additional payloads (END_OF_UTTERANCE, ADD_PARTIAL_TRANSCRIPT, ADD_TRANSCRIPT) (default: False)",
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help="Increase logging verbosity (-v: include END_OF_TURN_PREDICTION, -vv: include additional payloads)",
     )
 
     # ==============================================================================
