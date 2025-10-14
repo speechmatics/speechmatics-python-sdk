@@ -1134,6 +1134,9 @@ class VoiceAgentClient(AsyncClient):
         if not filter_flags or view_changes is None or view_changes.any(*filter_flags):
             """Process the annotation flags to determine how long before sending a final segment."""
 
+            # Reasons for the calculation
+            reasons: list[tuple[float, str]] = []
+
             # If the last segment is for an active speaker
             if last_active_segment:
                 """Check the contents of the last segment."
@@ -1145,15 +1148,9 @@ class VoiceAgentClient(AsyncClient):
                  - ends with finalizes end of sentence
                 """
 
-                # Reasons for the calculation
-                reasons: list[tuple[float, str]] = []
-
                 # Add multiplier
                 def add_multiplier(multiplier: float, reason: str = "none") -> None:
                     reasons.append((multiplier, reason))
-
-                # Delay multiplier
-                add_multiplier(1.0, "default")
 
                 # Very speaking
                 if last_active_segment.annotation.has(AnnotationFlags.VERY_SLOW_SPEAKER):
@@ -1182,7 +1179,7 @@ class VoiceAgentClient(AsyncClient):
                     add_multiplier(-1.0, "smart_turn_true")
 
                 # Calculate multiplier
-                multiplier = sum(m for m, _ in reasons)
+                multiplier = 1 + sum(m for m, _ in reasons)
 
                 # Minimum delay (50ms as a minimum)
                 delay = round(max(self._end_of_utterance_delay, 0.05) * multiplier, 2)
@@ -1196,8 +1193,22 @@ class VoiceAgentClient(AsyncClient):
             # Adjust time and make sure no less than 100ms
             emit_delay = max(clamped_delay - time_slip, 0.1)
 
-        # Return the time
-        return emit_delay
+            # Emit prediction
+            if self.listeners(AgentServerMessageType.END_OF_TURN_PREDICTION):
+                self.emit(
+                    AgentServerMessageType.END_OF_TURN_PREDICTION,
+                    {
+                        "message": AgentServerMessageType.END_OF_TURN_PREDICTION.value,
+                        "ttl": emit_delay,
+                        "reasons": [_reason for _, _reason in reasons],
+                    },
+                )
+
+            # Return the time
+            return emit_delay
+
+        # Invalid
+        return None
 
     # ============================================================================
     # VAD (VOICE ACTIVITY DETECTION)

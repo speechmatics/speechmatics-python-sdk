@@ -37,6 +37,7 @@ COLORS = {
     "SpeakerEnded": "\033[94m",
     "SpeakersResult": "\033[95m",
     "EndOfTurn": "\033[91m",
+    "EndOfTurnPrediction": "\033[91m",
     "AddPartialTranscript": "\033[90m",
     "AddTranscript": "\033[90m",
     "EndOfUtterance": "\033[90m",
@@ -327,6 +328,7 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
     client.on(AgentServerMessageType.ADD_SEGMENT, log_message)
     client.on(AgentServerMessageType.SPEAKER_STARTED, log_message)
     client.on(AgentServerMessageType.SPEAKER_ENDED, log_message)
+    client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, log_message)
     client.on(AgentServerMessageType.END_OF_TURN, log_message)
     client.on(AgentServerMessageType.SPEAKERS_RESULT, log_message)
 

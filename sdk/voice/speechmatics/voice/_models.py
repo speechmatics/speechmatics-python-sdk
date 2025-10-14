@@ -213,6 +213,7 @@ class AgentServerMessageType(str, Enum):
     ADD_SEGMENT = "AddSegment"
 
     # End of turn messages
+    END_OF_TURN_PREDICTION = "EndOfTurnPrediction"
     END_OF_TURN = "EndOfTurn"
 
     # Speaker messages
