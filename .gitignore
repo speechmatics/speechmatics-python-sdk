@@ -165,3 +165,4 @@ tmp/
 .models/
 .cache/
 *.onnx
+*.pkf

@@ -35,7 +35,7 @@ python ./examples/voice/cli/main.py [OPTIONS]
 Speechmatics API key. Defaults to `SPEECHMATICS_API_KEY` environment variable.
 
 **`--url`**
-Custom Speechmatics server URL. Optional, defaults to production endpoint.
+Custom Speechmatics server URL. Also uses `SPEECHMATICS_SERVER_URL` environment variable, if not provided. Optional, defaults to production endpoint.
 
 **`--input-file FILE`**
 Path to input audio file (WAV format, mono 16-bit). If not provided, uses microphone.
@@ -86,8 +86,10 @@ Use ignore mode instead of focus mode for `--focus-speakers`.
 **`--enrol`**
 Enrol speakers and output their identifiers at the end of the session.
 
-**`--speakers JSON`**
-Use known speakers from previous sessions. Provide as JSON array.
+**`--speakers JSON|FILE`**
+Use known speakers from previous sessions. Provide as either:
+- A JSON string: `'[{"label": "Alice", "speaker_identifiers": ["XX...XX"]}]'`
+- A path to a JSON file: `speakers.json`
 
 **`--preview`**
 Enable preview features.
@@ -133,7 +135,7 @@ Press `CTRL+C` when done. Speaker identifiers will be displayed:
 [{ "label": "S1", "speaker_identifiers": ["XX...XX"] }]
 ```
 
-### Use known speakers
+### Use known speakers (JSON string)
 
 ```bash
 python ./examples/voice/cli/main.py \
@@ -142,10 +144,37 @@ python ./examples/voice/cli/main.py \
   --pretty
 ```
 
+### Use known speakers (JSON file)
+
+Create a `speakers.json` file:
+
+```json
+[
+  {
+    "label": "Alice",
+    "speaker_identifiers": ["XX...XX"]
+  },
+  {
+    "label": "Bob",
+    "speaker_identifiers": ["YY...YY"]
+  }
+]
+```
+
+Then run:
+
+```bash
+python ./examples/voice/cli/main.py \
+  --api-key YOUR_KEY \
+  --speakers speakers.json \
+  --pretty
+```
+
 Output shows speaker labels:
 
 ```
 @Alice: Hello, how are you?
+@Bob: I'm doing well, thanks!
 ```
 
 ### Focus on specific speakers

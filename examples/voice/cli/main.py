@@ -21,6 +21,7 @@ from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentClientMessageType
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import DiarizationFocusMode
+from speechmatics.voice import DiarizationKnownSpeaker
 from speechmatics.voice import DiarizationSpeakerConfig
 from speechmatics.voice import VoiceAgentClient
 from speechmatics.voice import VoiceAgentConfig
@@ -63,6 +64,11 @@ async def main() -> None:
     # Create speaker configuration
     speaker_config = create_speaker_config(args)
 
+    # Known speakers
+    known_speakers: list[DiarizationKnownSpeaker] = (
+        [DiarizationKnownSpeaker(**s) for s in args.speakers] if args.speakers else []
+    )
+
     # Create Voice Agent configuration
     config = VoiceAgentConfig(
         sample_rate=audio_source["sample_rate"],
@@ -75,6 +81,7 @@ async def main() -> None:
         additional_vocab=[
             AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"]),
         ],
+        known_speakers=known_speakers,
     )
 
     # Create Voice Agent client
@@ -414,6 +421,36 @@ async def stream_microphone(
 # ==============================================================================
 
 
+def load_speakers(value: str):
+    """Load speakers from JSON string or file path.
+
+    Args:
+        value: Either a JSON string or path to a JSON file
+
+    Returns:
+        Parsed speakers list
+
+    Raises:
+        argparse.ArgumentTypeError: If the value cannot be parsed
+    """
+    # First, try to parse as JSON string
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        pass
+
+    # If that fails, try to load as a file path
+    try:
+        file_path = Path(value)
+        if file_path.exists() and file_path.is_file():
+            with open(file_path) as f:
+                return json.load(f)
+        else:
+            raise argparse.ArgumentTypeError(f"File not found: {value}")
+    except Exception as e:
+        raise argparse.ArgumentTypeError(f"Could not parse as JSON or load from file: {value}. Error: {e}")
+
+
 def parse_args():
     """Parse command-line arguments.
 
@@ -436,6 +473,7 @@ def parse_args():
     )
     parser.add_argument(
         "--url",
+        default=os.getenv("SPEECHMATICS_SERVER_URL"),
         help="Speechmatics server URL (optional)",
     )
 
@@ -464,26 +502,6 @@ def parse_args():
         type=int,
         default=320,
         help="Audio chunk size in bytes (default: 320)",
-    )
-
-    # ==============================================================================
-    # Speaker configuration
-    # ==============================================================================
-
-    parser.add_argument(
-        "--focus-speakers",
-        nargs="*",
-        help="Speakers to focus on (e.g., S1 S2). Use with --ignore-mode to ignore these speakers instead",
-    )
-    parser.add_argument(
-        "--ignore-speakers",
-        nargs="*",
-        help="Specific speakers to ignore (e.g., S1 S2)",
-    )
-    parser.add_argument(
-        "--ignore-mode",
-        action="store_true",
-        help="Use ignore mode instead of focus mode for --focus-speakers",
     )
 
     # ==============================================================================
@@ -526,6 +544,26 @@ def parse_args():
     )
 
     # ==============================================================================
+    # Speaker configuration
+    # ==============================================================================
+
+    parser.add_argument(
+        "--focus-speakers",
+        nargs="*",
+        help="Speakers to focus on (e.g., S1 S2). Use with --ignore-mode to ignore these speakers instead",
+    )
+    parser.add_argument(
+        "--ignore-speakers",
+        nargs="*",
+        help="Specific speakers to ignore (e.g., S1 S2)",
+    )
+    parser.add_argument(
+        "--ignore-mode",
+        action="store_true",
+        help="Use ignore mode instead of focus mode for --focus-speakers",
+    )
+
+    # ==============================================================================
     # Speaker identification
     # ==============================================================================
 
@@ -536,8 +574,8 @@ def parse_args():
     )
     parser.add_argument(
         "--speakers",
-        type=json.loads,
-        help="Known speakers (default: None)",
+        type=load_speakers,
+        help="Known speakers as JSON string or path to JSON file (default: None)",
     )
     parser.add_argument(
         "--preview",
