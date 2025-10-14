@@ -1203,8 +1203,11 @@ class VoiceAgentClient(AsyncClient):
                     AgentServerMessageType.END_OF_TURN_PREDICTION,
                     {
                         "message": AgentServerMessageType.END_OF_TURN_PREDICTION.value,
-                        "ttl": emit_delay,
-                        "reasons": [_reason for _, _reason in reasons],
+                        "turn_id": self._end_of_turn_handler.turn_id,
+                        "metadata": {
+                            "ttl": emit_delay,
+                            "reasons": [_reason for _, _reason in reasons],
+                        },
                     },
                 )
 
