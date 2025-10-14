@@ -96,6 +96,7 @@ class AsyncClient(_BaseClient):
         self.on(ServerMessageType.END_OF_TRANSCRIPT, self._on_eot)
         self.on(ServerMessageType.ERROR, self._on_error)
         self.on(ServerMessageType.WARNING, self._on_warning)
+        self.on(ServerMessageType.AUDIO_ADDED, self._on_audio_added)
 
         self._logger.debug("AsyncClient initialized (request_id=%s)", self._session.request_id)
 
