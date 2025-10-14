@@ -56,7 +56,6 @@ class EndOfUtteranceMode(str, Enum):
             >>> config = VoiceAgentConfig(
             ...     language="en",
             ...     end_of_utterance_mode=EndOfUtteranceMode.SMART_TURN,
-            ...     smart_turn_threshold=0.8
             ... )
 
         External control (manual finalization):
@@ -371,6 +370,35 @@ class DiarizationSpeakerConfig(BaseModel):
     focus_mode: DiarizationFocusMode = DiarizationFocusMode.RETAIN
 
 
+class SmartTurnConfig(BaseModel):
+    """Smart turn configuration for the Speechmatics Voice Agent.
+
+    This configuration is used to determine when a turn has completed. It is used to
+    extract slices of recent audio for post-processing by end of thought models.
+
+    Parameters:
+        audio_buffer_length: Length of audio buffer to extract slices of recent audio for post-processing
+            by end of thought models. Defaults to 0.0 seconds.
+
+        smart_turn_threshold: Smart turn threshold. This is used to determine when a turn has completed.
+            Only used when `end_of_utterance_mode` is `EndOfUtteranceMode.SMART_TURN`. Defaults to 0.75.
+
+        slice_margin: Margin to add to the audio buffer to ensure that the end of thought models have
+            enough audio to work with. Defaults to 0.05 seconds.
+
+    Examples:
+        >>> config = SmartTurnConfig(
+        ...     audio_buffer_length=0.5,
+        ...     smart_turn_threshold=0.75,
+        ...     slice_margin=0.05
+        ... )
+    """
+
+    audio_buffer_length: float = 0.0
+    smart_turn_threshold: float = 0.75
+    slice_margin: float = 0.05
+
+
 class VoiceAgentConfig(BaseModel):
     """Voice Agent configuration.
 
@@ -463,11 +491,6 @@ class VoiceAgentConfig(BaseModel):
             and word timings), and `TIMING` (emit on changes to word timings, not recommended).
             Defaults to `TranscriptionUpdatePreset.COMPLETE`.
 
-        audio_buffer_length: Length of audio buffer to extract slices of recent audio for post-processing
-            by end of thought models. Defaults to 0.0 seconds.
-
-        smart_turn_threshold: Smart turn threshold. This is used to determine when a turn has completed.
-            Only used when `end_of_utterance_mode` is `EndOfUtteranceMode.SMART_TURN`. Defaults to 0.75.
 
         sample_rate: Audio sample rate for streaming. Defaults to `16000`.
         audio_encoding: Audio encoding format. Defaults to `AudioEncoding.PCM_S16LE`.
@@ -525,7 +548,9 @@ class VoiceAgentConfig(BaseModel):
             ...     speaker_sensitivity=0.7,
             ...     max_speakers=3,
             ...     end_of_utterance_mode=EndOfUtteranceMode.SMART_TURN,
-            ...     smart_turn_threshold=0.8,
+            ...     smart_turn_config=SmartTurnConfig(
+            ...         smart_turn_threshold=0.8
+            ...     ),
             ...     additional_vocab=[
             ...         AdditionalVocabEntry(content="API"),
             ...         AdditionalVocabEntry(content="WebSocket")
@@ -562,8 +587,7 @@ class VoiceAgentConfig(BaseModel):
     include_results: bool = False
     enable_preview_features: bool = False
     transcription_update_preset: TranscriptionUpdatePreset = TranscriptionUpdatePreset.COMPLETE
-    audio_buffer_length: float = 0.0
-    smart_turn_threshold: float = 0.75
+    smart_turn_config: SmartTurnConfig = Field(default_factory=SmartTurnConfig)
 
     # Audio
     sample_rate: int = 16000

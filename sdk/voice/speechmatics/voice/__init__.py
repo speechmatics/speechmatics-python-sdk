@@ -25,6 +25,7 @@ from ._models import DiarizationFocusMode
 from ._models import DiarizationKnownSpeaker
 from ._models import DiarizationSpeakerConfig
 from ._models import EndOfUtteranceMode
+from ._models import SmartTurnConfig
 from ._models import VoiceAgentConfig
 
 __all__ = [
@@ -32,6 +33,7 @@ __all__ = [
     "__version__",
     # Conversation config
     "VoiceAgentConfig",
+    "SmartTurnConfig",
     "EndOfUtteranceMode",
     "DiarizationSpeakerConfig",
     "DiarizationFocusMode",

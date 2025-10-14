@@ -190,10 +190,10 @@ class VoiceAgentClient(AsyncClient):
 
         # Start turn detector
         if self._config.end_of_utterance_mode == EndOfUtteranceMode.SMART_TURN:
-            detector = SmartTurnDetector(auto_init=True, threshold=self._config.smart_turn_threshold)
+            detector = SmartTurnDetector(auto_init=True, threshold=self._config.smart_turn_config.smart_turn_threshold)
             if detector.model_exists():
                 self._turn_detector = detector
-                self._config.audio_buffer_length = 10.0
+                self._config.smart_turn_config.audio_buffer_length = 10.0
             else:
                 self._logger.warning("Smart Turn model not available.")
 
@@ -215,11 +215,11 @@ class VoiceAgentClient(AsyncClient):
         }.get(self._audio_format.encoding, 1)
 
         # Audio buffer
-        if self._config.audio_buffer_length > 0:
+        if self._config.smart_turn_config.audio_buffer_length > 0:
             self._audio_buffer: AudioBuffer = AudioBuffer(
                 sample_rate=self._audio_format.sample_rate,
                 frame_size=self._audio_format.chunk_size,
-                total_seconds=self._config.audio_buffer_length,
+                total_seconds=self._config.smart_turn_config.audio_buffer_length,
             )
 
         # Register handlers
@@ -479,7 +479,7 @@ class VoiceAgentClient(AsyncClient):
         await super().send_audio(payload)
 
         # Add to audio buffer (use put_bytes to handle variable chunk sizes)
-        if self._config.audio_buffer_length > 0:
+        if self._config.smart_turn_config.audio_buffer_length > 0:
             await self._audio_buffer.put_bytes(payload)
 
         # Calculate the time (in seconds) for the payload
@@ -1081,7 +1081,8 @@ class VoiceAgentClient(AsyncClient):
 
         # Get audio slice (add small margin of 100ms to the end of the audio)
         segment_audio = await self._audio_buffer.get_frames(
-            start_time=end_time - self._config.audio_buffer_length, end_time=end_time + 0.1
+            start_time=end_time - self._config.smart_turn_config.audio_buffer_length,
+            end_time=end_time + self._config.smart_turn_config.slice_margin,
         )
 
         # Evaluate
@@ -1121,11 +1122,6 @@ class VoiceAgentClient(AsyncClient):
         if not view or view.segment_count == 0:
             return None
 
-        # Calculations
-        clamped_delay: float = self._config.end_of_utterance_max_delay
-        emit_delay: Optional[float] = None
-        time_slip: Optional[float] = None
-
         # Last active segment
         last_active_segment_index = view.last_active_segment_index
         last_active_segment = view.segments[last_active_segment_index] if last_active_segment_index > -1 else None
@@ -1133,6 +1129,11 @@ class VoiceAgentClient(AsyncClient):
         # Check using filter flags for changes
         if not filter_flags or view_changes is None or view_changes.any(*filter_flags):
             """Process the annotation flags to determine how long before sending a final segment."""
+
+            # Calculations
+            clamped_delay: float = self._config.end_of_utterance_max_delay
+            emit_delay: Optional[float] = None
+            time_slip: Optional[float] = None
 
             # Reasons for the calculation
             reasons: list[tuple[float, str]] = []
@@ -1175,8 +1176,11 @@ class VoiceAgentClient(AsyncClient):
                     add_multiplier(1.0, "does_not_end_with_eos")
 
                 # Smart turn prediction
-                if smart_turn_prediction and smart_turn_prediction.prediction:
-                    add_multiplier(-1.0, "smart_turn_true")
+                if smart_turn_prediction:
+                    if smart_turn_prediction.prediction:
+                        add_multiplier(-1.0, "smart_turn_true")
+                    else:
+                        add_multiplier(0.5, "smart_turn_false")
 
                 # Calculate multiplier
                 multiplier = 1 + sum(m for m, _ in reasons)
