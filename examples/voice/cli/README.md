@@ -7,13 +7,13 @@ Command-line tool for real-time transcription using the Speechmatics Voice SDK. 
 **Microphone:**
 
 ```bash
-python ./examples/voice/cli/main.py --pretty --api-key YOUR_API_KEY
+python ./examples/voice/cli/main.py -p -k YOUR_API_KEY
 ```
 
 **Audio file:**
 
 ```bash
-python ./examples/voice/cli/main.py --pretty --api-key YOUR_API_KEY --input-file audio.wav
+python ./examples/voice/cli/main.py -p -k YOUR_API_KEY -i audio.wav
 ```
 
 Press `CTRL+C` to stop.
@@ -31,20 +31,23 @@ python ./examples/voice/cli/main.py [OPTIONS]
 
 ### Core Parameters
 
-**`--api-key`**
+**`-k, --api-key`**
 Speechmatics API key. Defaults to `SPEECHMATICS_API_KEY` environment variable.
 
-**`--url`**
+**`-u, --url`**
 Custom Speechmatics server URL. Also uses `SPEECHMATICS_SERVER_URL` environment variable, if not provided. Optional, defaults to production endpoint.
 
-**`--input-file FILE`**
+**`-i, --input-file FILE`**
 Path to input audio file (WAV format, mono 16-bit). If not provided, uses microphone.
 
-**`--pretty`**
+**`-p, --pretty`**
 Enable formatted console output with colours and emojis.
 
-**`--jsonl FILE`**
+**`-o, --output-file FILE`**
 Save all output to a JSONL file for later analysis.
+
+**`-x, --extra-payloads`**
+Log additional message payloads including `END_OF_UTTERANCE`, `ADD_PARTIAL_TRANSCRIPT`, and `ADD_TRANSCRIPT`. Useful for debugging or detailed analysis. Default: `False`.
 
 ### Audio Configuration
 
@@ -54,9 +57,12 @@ Audio sample rate in Hz. Default: `16000`.
 **`--chunk-size`**
 Audio chunk size in bytes. Default: `320`.
 
+**`-M, --mute`**
+Mute audio playback for file input. When enabled, audio files are transcribed without playing through speakers. Default: `False`.
+
 ### Turn Detection
 
-**`--end-of-utterance-mode`**
+**`-m, --end-of-utterance-mode`**
 Controls how turn endings are detected. Options:
 
 - `FIXED` - Fixed silence threshold
@@ -64,10 +70,10 @@ Controls how turn endings are detected. Options:
 - `SMART_TURN` - ML-based turn detection
 - `EXTERNAL` - Manual control via `finalize()`
 
-**`--end-of-utterance-silence-trigger`**
+**`-t, --end-of-utterance-silence-trigger`**
 Silence duration in seconds to trigger turn end. Default: `0.5`.
 
-**`--max-delay`**
+**`-d, --max-delay`**
 Maximum transcription delay in seconds. Default: `0.7`.
 
 ### Speaker Management
@@ -83,10 +89,10 @@ Use ignore mode instead of focus mode for `--focus-speakers`.
 
 ### Speaker Identification
 
-**`--enrol`**
+**`-e, --enrol`**
 Enrol speakers and output their identifiers at the end of the session.
 
-**`--speakers JSON|FILE`**
+**`-s, --speakers JSON|FILE`**
 Use known speakers from previous sessions. Provide as either:
 - A JSON string: `'[{"label": "Alice", "speaker_identifiers": ["XX...XX"]}]'`
 - A path to a JSON file: `speakers.json`
@@ -99,34 +105,31 @@ Enable preview features.
 ### Microphone - basic transcription
 
 ```bash
-python ./examples/voice/cli/main.py --api-key YOUR_KEY --pretty
+python ./examples/voice/cli/main.py -k YOUR_KEY -p
 ```
 
 ### Audio file - basic transcription
 
 ```bash
-python ./examples/voice/cli/main.py \
-  --api-key YOUR_KEY \
-  --input-file audio.wav \
-  --pretty
+python ./examples/voice/cli/main.py -k YOUR_KEY -i audio.wav -p
+```
+
+### Audio file - muted (no playback)
+
+```bash
+python ./examples/voice/cli/main.py -k YOUR_KEY -i audio.wav -Mp
 ```
 
 ### With adaptive turn detection
 
 ```bash
-python ./examples/voice/cli/main.py \
-  --api-key YOUR_KEY \
-  --end-of-utterance-mode ADAPTIVE \
-  --pretty
+python ./examples/voice/cli/main.py -k YOUR_KEY -m ADAPTIVE -p
 ```
 
 ### Enrol speakers (microphone)
 
 ```bash
-python ./examples/voice/cli/main.py \
-  --api-key YOUR_KEY \
-  --enrol \
-  --pretty
+python ./examples/voice/cli/main.py -k YOUR_KEY -ep
 ```
 
 Press `CTRL+C` when done. Speaker identifiers will be displayed:
@@ -138,10 +141,7 @@ Press `CTRL+C` when done. Speaker identifiers will be displayed:
 ### Use known speakers (JSON string)
 
 ```bash
-python ./examples/voice/cli/main.py \
-  --api-key YOUR_KEY \
-  --speakers '[{"label": "Alice", "speaker_identifiers": ["XX...XX"]}]' \
-  --pretty
+python ./examples/voice/cli/main.py -k YOUR_KEY -s '[{"label": "Alice", "speaker_identifiers": ["XX...XX"]}]' -p
 ```
 
 ### Use known speakers (JSON file)
@@ -164,10 +164,7 @@ Create a `speakers.json` file:
 Then run:
 
 ```bash
-python ./examples/voice/cli/main.py \
-  --api-key YOUR_KEY \
-  --speakers speakers.json \
-  --pretty
+python ./examples/voice/cli/main.py -k YOUR_KEY -s speakers.json -p
 ```
 
 Output shows speaker labels:
@@ -180,29 +177,25 @@ Output shows speaker labels:
 ### Focus on specific speakers
 
 ```bash
-python ./examples/voice/cli/main.py \
-  --api-key YOUR_KEY \
-  --focus-speakers S1 S2 \
-  --pretty
+python ./examples/voice/cli/main.py -k YOUR_KEY --focus-speakers S1 S2 -p
 ```
 
 ### Save to file
 
 ```bash
-python ./examples/voice/cli/main.py \
-  --api-key YOUR_KEY \
-  --jsonl output.jsonl \
-  --pretty
+python ./examples/voice/cli/main.py -k YOUR_KEY -o output.jsonl -p
+```
+
+### With extra payloads for debugging
+
+```bash
+python ./examples/voice/cli/main.py -k YOUR_KEY -i audio.wav -xp
 ```
 
 ### Audio file with speaker focus
 
 ```bash
-python ./examples/voice/cli/main.py \
-  --api-key YOUR_KEY \
-  --input-file audio.wav \
-  --focus-speakers S2 \
-  --pretty
+python ./examples/voice/cli/main.py -k YOUR_KEY -i audio.wav --focus-speakers S2 -p
 ```
 
 ## Speaker Identification

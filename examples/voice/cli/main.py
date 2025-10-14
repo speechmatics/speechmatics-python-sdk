@@ -37,6 +37,9 @@ COLORS = {
     "SpeakerEnded": "\033[94m",
     "SpeakersResult": "\033[95m",
     "EndOfTurn": "\033[91m",
+    "AddPartialTranscript": "\033[90m",
+    "AddTranscript": "\033[90m",
+    "EndOfUtterance": "\033[90m",
 }
 
 
@@ -58,8 +61,8 @@ async def main() -> None:
     audio_player = setup_audio_output(audio_source, args)
 
     # Remove JSONL output file if it already exists
-    if args.jsonl and os.path.exists(args.jsonl):
-        os.remove(args.jsonl)
+    if args.output_file and os.path.exists(args.output_file):
+        os.remove(args.output_file)
 
     # Create speaker configuration
     speaker_config = create_speaker_config(args)
@@ -223,6 +226,11 @@ def setup_audio_output(audio_source: dict, args) -> AudioPlayer | None:
     if audio_source["type"] != "file":
         return None
 
+    # Skip audio output if muted
+    if args.mute:
+        print("\nAudio playback muted - transcription only")
+        return None
+
     print("\nSelect audio output device for playback:")
     output_device = select_audio_output_device()
 
@@ -308,8 +316,8 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
         message = {"ts": round(ts, 3), **message}
         console_print(message)
 
-        if args.jsonl:
-            with open(args.jsonl, "a") as f:
+        if args.output_file:
+            with open(args.output_file, "a") as f:
                 f.write(json.dumps(message) + "\n")
 
     # Register handlers
@@ -321,6 +329,12 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
     client.on(AgentServerMessageType.SPEAKER_ENDED, log_message)
     client.on(AgentServerMessageType.END_OF_TURN, log_message)
     client.on(AgentServerMessageType.SPEAKERS_RESULT, log_message)
+
+    # Extra payloads
+    if args.extra_payloads:
+        client.on(AgentServerMessageType.END_OF_UTTERANCE, log_message)
+        client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, log_message)
+        client.on(AgentServerMessageType.ADD_TRANSCRIPT, log_message)
 
 
 # ==============================================================================
@@ -459,7 +473,7 @@ def parse_args():
     """
     parser = argparse.ArgumentParser(
         description="Transcription CLI with speaker diarization - supports microphone or audio file input",
-        epilog="Example: python main.py --api-key YOUR_KEY --input-file audio.wav --pretty",
+        epilog="Example: python main.py -k YOUR_KEY -i audio.wav -p",
     )
 
     # ==============================================================================
@@ -467,11 +481,13 @@ def parse_args():
     # ==============================================================================
 
     parser.add_argument(
+        "-k",
         "--api-key",
         default=os.getenv("SPEECHMATICS_API_KEY"),
         help="Speechmatics API key (defaults to SPEECHMATICS_API_KEY environment variable)",
     )
     parser.add_argument(
+        "-u",
         "--url",
         default=os.getenv("SPEECHMATICS_SERVER_URL"),
         help="Speechmatics server URL (optional)",
@@ -482,6 +498,7 @@ def parse_args():
     # ==============================================================================
 
     parser.add_argument(
+        "-i",
         "--input-file",
         type=str,
         help="Path to input audio file (WAV format, mono 16-bit). If not provided, uses microphone",
@@ -503,20 +520,34 @@ def parse_args():
         default=320,
         help="Audio chunk size in bytes (default: 320)",
     )
+    parser.add_argument(
+        "-M",
+        "--mute",
+        action="store_true",
+        help="Mute audio playback for file input (default: False)",
+    )
 
     # ==============================================================================
     # Output configuration
     # ==============================================================================
 
     parser.add_argument(
-        "--jsonl",
+        "-o",
+        "--output-file",
         type=str,
         help="Output to a JSONL file",
     )
     parser.add_argument(
+        "-p",
         "--pretty",
         action="store_true",
         help="Pretty print console output (default: False)",
+    )
+    parser.add_argument(
+        "-x",
+        "--extra-payloads",
+        action="store_true",
+        help="Log additional payloads (END_OF_UTTERANCE, ADD_PARTIAL_TRANSCRIPT, ADD_TRANSCRIPT) (default: False)",
     )
 
     # ==============================================================================
@@ -524,18 +555,21 @@ def parse_args():
     # ==============================================================================
 
     parser.add_argument(
+        "-d",
         "--max-delay",
         type=float,
         default=0.7,
         help="Maximum delay for transcription results in seconds (default: 0.7)",
     )
     parser.add_argument(
+        "-t",
         "--end-of-utterance-silence-trigger",
         type=float,
         default=0.5,
         help="Silence duration to trigger end of utterance in seconds (default: 0.5)",
     )
     parser.add_argument(
+        "-m",
         "--end-of-utterance-mode",
         type=lambda s: s.upper(),
         choices=["FIXED", "ADAPTIVE", "EXTERNAL", "SMART_TURN"],
@@ -568,11 +602,13 @@ def parse_args():
     # ==============================================================================
 
     parser.add_argument(
+        "-e",
         "--enrol",
         action="store_true",
         help="Enrol a speaker (default: False)",
     )
     parser.add_argument(
+        "-s",
         "--speakers",
         type=load_speakers,
         help="Known speakers as JSON string or path to JSON file (default: None)",
