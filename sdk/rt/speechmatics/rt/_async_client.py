@@ -158,7 +158,7 @@ class AsyncClient(_BaseClient):
                 ...     await client.stop_session()
         """
         await self._send_eos(self._seq_no)
-        await self._session_done_evt.wait() # Wait for end of transcript event to indicate we can stop listening
+        await self._session_done_evt.wait()  # Wait for end of transcript event to indicate we can stop listening
         await self.close()
 
     async def transcribe(
@@ -253,7 +253,6 @@ class AsyncClient(_BaseClient):
             chunk_size: Chunk size for audio data
         """
         src = FileSource(source, chunk_size=chunk_size)
-        seq_no = 0
 
         try:
             async for frame in src:
@@ -262,13 +261,12 @@ class AsyncClient(_BaseClient):
 
                 try:
                     await self.send_audio(frame)
-                    seq_no += 1
                 except Exception as e:
                     self._logger.error("Failed to send audio frame: %s", e)
                     self._session_done_evt.set()
                     break
 
-            await self._send_eos(seq_no)
+            await self.stop_session()
         except asyncio.CancelledError:
             raise
         except Exception as e:
