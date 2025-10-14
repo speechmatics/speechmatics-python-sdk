@@ -82,7 +82,6 @@ class AsyncClient(_BaseClient):
             self._recognition_started_evt,
             self._session_done_evt,
         ) = self._init_session_info()
-        self._eos_sent = False
 
         transport = self._create_transport_from_config(
             auth=auth,
@@ -159,6 +158,8 @@ class AsyncClient(_BaseClient):
                 ...     await client.stop_session()
         """
         await self._send_eos(self._seq_no)
+        await self._session_done_evt.wait() # Wait for end of transcript event to indicate we can stop listening
+        await self.close()
 
     async def transcribe(
         self,
