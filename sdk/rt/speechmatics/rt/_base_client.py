@@ -40,6 +40,7 @@ class _BaseClient(EventEmitter):
         self._recv_task: Optional[asyncio.Task[None]] = None
         self._closed_evt = asyncio.Event()
         self._eos_sent = False
+        self._seq_no = 0
 
         self._logger = get_logger("speechmatics.rt.base_client")
 
@@ -119,6 +120,7 @@ class _BaseClient(EventEmitter):
 
         try:
             await self._transport.send_message(payload)
+            self._seq_no += 1
         except Exception:
             self._closed_evt.set()
             raise

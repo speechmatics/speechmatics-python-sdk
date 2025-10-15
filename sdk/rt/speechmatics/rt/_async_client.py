@@ -75,7 +75,6 @@ class AsyncClient(_BaseClient):
         conn_config: Optional[ConnectionConfig] = None,
     ) -> None:
         self._logger = get_logger("speechmatics.rt.async_client")
-        self._seq_no = 0
 
         (
             self._session,

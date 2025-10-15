@@ -12,7 +12,7 @@ async def main():
             print(f"Final: {msg['metadata']['transcript']}")
 
         # Transcribe audio file
-        with open("../../../example.wav", "rb") as audio_file:
+        with open("./examples/example.wav", "rb") as audio_file:
             await client.transcribe(audio_file)
 
 # Run the async function
