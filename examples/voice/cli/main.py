@@ -38,6 +38,7 @@ COLORS = {
     "SpeakerStarted": "\033[94m",
     "SpeakerEnded": "\033[94m",
     "SpeakersResult": "\033[95m",
+    "SpeakerMetrics": "\033[96m",
     # End of turn
     "EndOfTurnPrediction": "\033[95m",
     "EndOfTurn": "\033[1;91m",
@@ -337,6 +338,7 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
     if args.verbose >= 1:
         client.on(AgentServerMessageType.SPEAKER_STARTED, log_message)
         client.on(AgentServerMessageType.SPEAKER_ENDED, log_message)
+        client.on(AgentServerMessageType.SPEAKER_METRICS, log_message)
 
     # Verbose turn prediction
     if args.verbose >= 2:

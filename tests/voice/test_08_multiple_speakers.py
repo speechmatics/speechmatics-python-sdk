@@ -15,6 +15,7 @@ from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import DiarizationFocusMode
 from speechmatics.voice import DiarizationSpeakerConfig
 from speechmatics.voice import EndOfUtteranceMode
+from speechmatics.voice import SpeechSegmentConfig
 from speechmatics.voice import VoiceAgentConfig
 from speechmatics.voice._models import SpeakerSegment
 
@@ -103,6 +104,7 @@ async def test_multiple_speakers(sample: SpeakerTest):
         additional_vocab=[
             AdditionalVocabEntry(content="GeoRouter"),
         ],
+        speech_segment_config=SpeechSegmentConfig(split_on_eos=False),
     )
 
     # Diarization options
@@ -191,6 +193,8 @@ async def test_multiple_speakers(sample: SpeakerTest):
         print("---")
         print()
         print()
+
+    print(final_segments)
 
     # Check final segments against regex
     for idx, _test in enumerate(sample.segment_regex):

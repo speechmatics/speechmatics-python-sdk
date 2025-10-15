@@ -30,6 +30,7 @@ class AudioSample:
     language: str
     path: str
     transcript: str
+    sentence_break: str = " "
     use_cer: bool = False
     cer_pass: float = 0.05
     vocab: list[str] = field(default_factory=list)
@@ -65,17 +66,20 @@ SAMPLES: list[AudioSample] = [
         language="he",
         path="./assets/languages/he_il_000432.wav",
         transcript="טורקיה מוקפת ים משלושה כיוונים: הים האגאי ממערב, הים השחור מצפון והים התיכון מדרום.",
+        sentence_break="",
     ),
     AudioSample(
         language="cmn",
         path="./assets/languages/cmn_hans_cn_000328.wav",
         transcript="博贝克出生于克罗地亚首都萨格勒布，在为贝尔格莱德游击队足球俱乐部效力时成名。",
+        sentence_break="",
         use_cer=True,
     ),
     AudioSample(
         language="ja",
         path="./assets/languages/ja_jp_000595.wav",
         transcript="動物は地球上のいたるところに生息しています。地面を掘ったり、海を泳ぎ回ったり、空を飛んだりしています。",
+        sentence_break="",
         use_cer=True,
         cer_pass=0.07,
     ),
@@ -83,6 +87,7 @@ SAMPLES: list[AudioSample] = [
         language="th",
         path="./assets/languages/th_th_000208.wav",
         transcript="ข้สภาพอากาศเลวร้ายที่เป็นสาเหตุของการยกเลิกการลงจอดทำให้การค้นหายากลำบาก",
+        sentence_break="",
         use_cer=True,
         cer_pass=0.03,
     ),
@@ -180,7 +185,7 @@ async def test_transcribe_languages(sample: AudioSample):
     assert seg0.get("language") == sample.language
 
     # Concatenate text from segments
-    transcribed = " ".join([seg["text"] for seg in segments])
+    transcribed = sample.sentence_break.join([seg["text"] for seg in segments])
 
     # Get normalized versions of the transcription and reference
     str_original = normalize(sample.transcript)

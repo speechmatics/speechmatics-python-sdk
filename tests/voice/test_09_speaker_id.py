@@ -13,6 +13,7 @@ from speechmatics.voice import AgentClientMessageType
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import DiarizationKnownSpeaker
 from speechmatics.voice import EndOfUtteranceMode
+from speechmatics.voice import SpeechSegmentConfig
 from speechmatics.voice import VoiceAgentConfig
 from speechmatics.voice._models import SpeakerSegment
 
@@ -221,8 +222,8 @@ async def test_known_speakers():
     speakers = [segment.get("speaker_id") for segment in final_segments]
     assert set(speakers) == set({"Assistant", "John Doe"})
 
-    # Should be 5 segments
-    assert len(final_segments) == 5
+    # Should be 11 segments
+    assert len(final_segments) == 11
 
     # Close session
     await client.disconnect()
@@ -261,6 +262,7 @@ async def test_ignoring_assistant():
             enable_diarization=True,
             sample_rate=8000,
             known_speakers=known_speakers,
+            speech_segment_config=SpeechSegmentConfig(split_on_eos=False),
         ),
     )
 

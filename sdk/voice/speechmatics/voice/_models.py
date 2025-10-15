@@ -370,6 +370,21 @@ class DiarizationSpeakerConfig(BaseModel):
     focus_mode: DiarizationFocusMode = DiarizationFocusMode.RETAIN
 
 
+class SpeechSegmentConfig(BaseModel):
+    """Configuration on how segments are emitted.
+
+    Parameters:
+        add_trailing_eos: Add trailing end of sentence to segments. When enabled, segments are
+            emitted with trailing end of sentence. Defaults to False.
+
+        split_on_eos: Split segments on end of sentence. When enabled, segments are split
+            on end of sentence and emitted as final segments. Defaults to True.
+    """
+
+    add_trailing_eos: bool = False
+    split_on_eos: bool = True
+
+
 class SmartTurnConfig(BaseModel):
     """Smart turn configuration for the Speechmatics Voice Agent.
 
@@ -491,6 +506,9 @@ class VoiceAgentConfig(BaseModel):
             and word timings), and `TIMING` (emit on changes to word timings, not recommended).
             Defaults to `TranscriptionUpdatePreset.COMPLETE`.
 
+        smart_turn_config: Smart turn configuration for the Speechmatics Voice Agent.
+
+        speech_segment_config: Speech segment configuration for the Speechmatics Voice Agent.
 
         sample_rate: Audio sample rate for streaming. Defaults to `16000`.
         audio_encoding: Audio encoding format. Defaults to `AudioEncoding.PCM_S16LE`.
@@ -588,6 +606,7 @@ class VoiceAgentConfig(BaseModel):
     enable_preview_features: bool = False
     transcription_update_preset: TranscriptionUpdatePreset = TranscriptionUpdatePreset.COMPLETE
     smart_turn_config: SmartTurnConfig = Field(default_factory=SmartTurnConfig)
+    speech_segment_config: SpeechSegmentConfig = Field(default_factory=SpeechSegmentConfig)
 
     # Audio
     sample_rate: int = 16000
@@ -631,6 +650,20 @@ class ClientSessionInfo(BaseModel):
     session_id: str
     base_time: datetime.datetime
     language_pack_info: LanguagePackInfo
+
+
+class SessionSpeaker(BaseModel):
+    """Info on a speaker in a session.
+
+    Attributes:
+        speaker_id (str): The speaker ID.
+        word_count (int): The word count for the speaker.
+        last_heard (float): The last time the speaker was heard.
+    """
+
+    speaker_id: str
+    word_count: int = 0
+    last_heard: float = 0
 
 
 class AnnotationResult(list):

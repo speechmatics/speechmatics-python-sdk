@@ -10,6 +10,7 @@ from _utils import get_client
 
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
+from speechmatics.voice import SpeechSegmentConfig
 from speechmatics.voice import VoiceAgentConfig
 
 
@@ -316,7 +317,9 @@ async def test_end_of_utterance_adaptive_vad():
         api_key="NONE",
         connect=False,
         config=VoiceAgentConfig(
-            end_of_utterance_silence_trigger=adaptive_timeout, end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE
+            end_of_utterance_silence_trigger=adaptive_timeout,
+            end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
+            speech_segment_config=SpeechSegmentConfig(split_on_eos=False),
         ),
     )
     assert client is not None
@@ -368,6 +371,12 @@ async def test_end_of_utterance_adaptive_vad():
 
     # Add listener for end of turn
     client.once(AgentServerMessageType.END_OF_TURN, eot_rx)
+
+    # Debug
+    # client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, lambda message: print(message))
+    # client.on(AgentServerMessageType.ADD_SEGMENT, lambda message: print(message))
+    # client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, lambda message: print(message))
+    # client.on(AgentServerMessageType.END_OF_TURN, lambda message: print(message))
 
     # Inject conversation up to the penultimate final from the STT
     await send_message(0, count=12, use_ttl=True)

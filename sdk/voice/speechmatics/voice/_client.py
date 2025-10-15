@@ -35,6 +35,7 @@ from ._models import DiarizationFocusMode
 from ._models import DiarizationSpeakerConfig
 from ._models import EndOfUtteranceMode
 from ._models import LanguagePackInfo
+from ._models import SessionSpeaker
 from ._models import SpeakerSegmentView
 from ._models import SpeakerVADStatus
 from ._models import SpeechFragment
@@ -178,6 +179,7 @@ class VoiceAgentClient(AsyncClient):
         self._turn_start_time: Optional[float] = None
 
         # Speaking states
+        self._session_speakers: dict[str, SessionSpeaker] = {}
         self._is_speaking: bool = False
         self._current_speaker: Optional[str] = None
         self._last_fragment_end_time: float = 0
@@ -1024,6 +1026,16 @@ class VoiceAgentClient(AsyncClient):
                 if not self._turn_start_time:
                     self._turn_start_time = self._current_view.start_time
 
+            # Send updated speaker metrics
+            if self._dz_enabled and self.listeners(AgentServerMessageType.SPEAKER_METRICS):
+                self.emit(
+                    AgentServerMessageType.SPEAKER_METRICS,
+                    {
+                        "message": AgentServerMessageType.SPEAKER_METRICS.value,
+                        "speakers": [s.model_dump() for s in self._session_speakers.values()],
+                    },
+                )
+
         # Emit end of turn
         if end_of_turn and self._previous_view:
             # Metadata (for LAST view)
@@ -1049,6 +1061,125 @@ class VoiceAgentClient(AsyncClient):
     # ============================================================================
     # TURN DETECTION & FINALIZATION
     # ============================================================================
+
+    async def _calculate_finalize_delay(
+        self,
+        smart_turn_prediction: Optional[SmartTurnPredictionResult] = None,
+    ) -> Optional[float]:
+        """Calculate the delay before finalizing / end of turn.
+
+        Process the most recent segment and view to determine how long to delay before finalizing
+        the segments to the client.
+
+        Args:
+            view: The speaker fragment to evaluate.
+            view_changes: The annotation result to use for evaluation.
+            filter_flags: The annotation flags to use for evaluation.
+            smart_turn_prediction: The smart turn prediction result to use for evaluation.
+
+        Returns:
+            Optional[float]: The delay before finalizing / end of turn.
+        """
+
+        # Get the current view -or- previous view
+        view = self._current_view or self._previous_view
+
+        # Exit if none
+        if not view:
+            return None
+
+        # Last active segment
+        last_active_segment_index = view.last_active_segment_index
+        last_active_segment = view.segments[last_active_segment_index] if last_active_segment_index > -1 else None
+
+        # Calculations
+        clamped_delay: float = self._config.end_of_utterance_max_delay
+        finalize_delay: Optional[float] = None
+        time_slip: Optional[float] = None
+
+        # Reasons for the calculation
+        reasons: list[tuple[float, str]] = []
+
+        # Add multiplier
+        def add_multipler_reason(multiplier: float, reason: str) -> None:
+            reasons.append((multiplier, reason))
+
+        # If the last segment is for an active speaker
+        if last_active_segment:
+            """Check the contents of the last segment."
+
+            Check for:
+                - has any disfluencies
+                - ends with a disfluency
+                - speed of speech
+                - ends with finalizes end of sentence
+            """
+
+            # Very speaking
+            if last_active_segment.annotation.has(AnnotationFlags.VERY_SLOW_SPEAKER):
+                add_multipler_reason(3.0, "very_slow_speaker")
+
+            # Slow speaking
+            if last_active_segment.annotation.has(AnnotationFlags.SLOW_SPEAKER):
+                add_multipler_reason(2.0, "slow_speaker")
+
+            # Disfluencies
+            if last_active_segment.annotation.has(AnnotationFlags.ENDS_WITH_DISFLUENCY):
+                add_multipler_reason(2.5, "ends_with_disfluency")
+            elif last_active_segment.annotation.has(AnnotationFlags.HAS_DISFLUENCY):
+                add_multipler_reason(1.0, "has_disfluency")
+
+            # Ends with an end of sentence
+            if last_active_segment.annotation.has(AnnotationFlags.ENDS_WITH_EOS, AnnotationFlags.ENDS_WITH_FINAL):
+                add_multipler_reason(-0.3, "ends_with_eos_and_final")
+
+            # Does NOT end with end of sentence
+            if not last_active_segment.annotation.has(AnnotationFlags.ENDS_WITH_EOS):
+                add_multipler_reason(1.0, "does_not_end_with_eos")
+
+        # If no segments
+        else:
+            add_multipler_reason(0, "no_segments")
+
+        # Smart turn prediction
+        if smart_turn_prediction:
+            if smart_turn_prediction.prediction:
+                add_multipler_reason(-1.0, "smart_turn_true")
+            else:
+                add_multipler_reason(2.5, "smart_turn_false")
+
+        # Calculate multiplier
+        multiplier = 1.0 + sum(m for m, _ in reasons)
+
+        # Minimum delay (50ms as a minimum)
+        delay = round(max(self._end_of_utterance_delay, 0.05) * multiplier, 2)
+
+        # Clamp to max delay
+        clamped_delay = min(delay, self._config.end_of_utterance_max_delay)
+
+        # Establish the real-world time
+        time_slip = max(self._total_time - self._last_fragment_end_time, 0)
+
+        # Adjust time and make sure no less than 25ms
+        finalize_delay = max(clamped_delay - time_slip, 0.025)
+
+        # Emit prediction
+        if self.listeners(AgentServerMessageType.END_OF_TURN_PREDICTION):
+            self.emit(
+                AgentServerMessageType.END_OF_TURN_PREDICTION,
+                {
+                    "message": AgentServerMessageType.END_OF_TURN_PREDICTION.value,
+                    "turn_id": self._end_of_turn_handler.turn_id,
+                    "metadata": {
+                        "ttl": round(finalize_delay, 2),
+                        "time_slip": round(time_slip, 2),
+                        "reasons": [_reason for _, _reason in reasons],
+                    },
+                },
+            )
+
+        # Return the time
+        return finalize_delay
 
     async def _predict_smart_turn(self, end_time: float, language: str) -> SmartTurnPredictionResult:
         """Predict when to emit the end of turn.
@@ -1085,128 +1216,6 @@ class VoiceAgentClient(AsyncClient):
         # Return the prediction
         return prediction
 
-    async def _calculate_finalize_delay(
-        self,
-        view: Optional[SpeakerSegmentView] = None,
-        view_changes: Optional[AnnotationResult] = None,
-        filter_flags: Optional[list[AnnotationFlags]] = None,
-        smart_turn_prediction: Optional[SmartTurnPredictionResult] = None,
-    ) -> Optional[float]:
-        """Calculate the delay before finalizing / end of turn.
-
-        Process the most recent segment and view to determine how long to delay before finalizing
-        the segments to the client.
-
-        Args:
-            view: The speaker fragment to evaluate.
-            view_changes: The annotation result to use for evaluation.
-            filter_flags: The annotation flags to use for evaluation.
-            smart_turn_prediction: The smart turn prediction result to use for evaluation.
-
-        Returns:
-            Optional[float]: The delay before finalizing / end of turn.
-        """
-
-        # Skip if no segments
-        if not view or view.segment_count == 0:
-            return None
-
-        # Last active segment
-        last_active_segment_index = view.last_active_segment_index
-        last_active_segment = view.segments[last_active_segment_index] if last_active_segment_index > -1 else None
-
-        # Check using filter flags for changes
-        if not filter_flags or view_changes is None or view_changes.any(*filter_flags):
-            """Process the annotation flags to determine how long before sending a final segment."""
-
-            # Calculations
-            clamped_delay: float = self._config.end_of_utterance_max_delay
-            finalize_delay: Optional[float] = None
-            time_slip: Optional[float] = None
-
-            # Reasons for the calculation
-            reasons: list[tuple[float, str]] = []
-
-            # If the last segment is for an active speaker
-            if last_active_segment:
-                """Check the contents of the last segment."
-
-                Check for:
-                 - has any disfluencies
-                 - ends with a disfluency
-                 - speed of speech
-                 - ends with finalizes end of sentence
-                """
-
-                # Add multiplier
-                def add_multiplier(multiplier: float, reason: str = "none") -> None:
-                    reasons.append((multiplier, reason))
-
-                # Very speaking
-                if last_active_segment.annotation.has(AnnotationFlags.VERY_SLOW_SPEAKER):
-                    add_multiplier(2.0, "very_slow_speaker")
-
-                # Slow speaking
-                if last_active_segment.annotation.has(AnnotationFlags.SLOW_SPEAKER):
-                    add_multiplier(1.0, "slow_speaker")
-
-                # Disfluencies
-                if last_active_segment.annotation.has(AnnotationFlags.ENDS_WITH_DISFLUENCY):
-                    add_multiplier(2.5, "ends_with_disfluency")
-                # elif last_active_segment.annotation.has(AnnotationFlags.HAS_DISFLUENCY):
-                #     add_multiplier(1.25, "has_disfluency")
-
-                # Ends with an end of sentence
-                if last_active_segment.annotation.has(AnnotationFlags.ENDS_WITH_EOS, AnnotationFlags.ENDS_WITH_FINAL):
-                    add_multiplier(-0.3, "ends_with_eos_and_final")
-
-                # Does NOT end with end of sentence
-                if not last_active_segment.annotation.has(AnnotationFlags.ENDS_WITH_EOS):
-                    add_multiplier(1.0, "does_not_end_with_eos")
-
-                # Smart turn prediction
-                if smart_turn_prediction:
-                    if smart_turn_prediction.prediction:
-                        add_multiplier(-1.0, "smart_turn_true")
-                    else:
-                        add_multiplier(0.5, "smart_turn_false")
-
-                # Calculate multiplier
-                multiplier = 1 + sum(m for m, _ in reasons)
-
-                # Minimum delay (50ms as a minimum)
-                delay = round(max(self._end_of_utterance_delay, 0.05) * multiplier, 2)
-
-                # Clamp to max delay
-                clamped_delay = min(delay, self._config.end_of_utterance_max_delay)
-
-            # Establish the real-world time
-            time_slip = self._total_time - self._last_fragment_end_time
-
-            # Adjust time and make sure no less than 100ms
-            finalize_delay = max(clamped_delay - time_slip, 0.1)
-
-            # Emit prediction
-            if self.listeners(AgentServerMessageType.END_OF_TURN_PREDICTION):
-                self.emit(
-                    AgentServerMessageType.END_OF_TURN_PREDICTION,
-                    {
-                        "message": AgentServerMessageType.END_OF_TURN_PREDICTION.value,
-                        "turn_id": self._end_of_turn_handler.turn_id,
-                        "metadata": {
-                            "ttl": round(finalize_delay, 2),
-                            "time_slip": round(time_slip, 2),
-                            "reasons": [_reason for _, _reason in reasons],
-                        },
-                    },
-                )
-
-            # Return the time
-            return finalize_delay
-
-        # Invalid / not EOT
-        return None
-
     # ============================================================================
     # VAD (VOICE ACTIVITY DETECTION)
     # ============================================================================
@@ -1239,6 +1248,16 @@ class VoiceAgentClient(AsyncClient):
 
         # Are we already speaking
         already_speaking = self._is_speaking
+
+        # Update speaker info based off partials
+        if self._dz_enabled and self.listeners(AgentServerMessageType.SPEAKER_METRICS):
+            for frag in partial_words:
+                if frag.speaker is None:
+                    continue
+                if frag.speaker not in self._session_speakers:
+                    self._session_speakers[frag.speaker] = SessionSpeaker(speaker_id=frag.speaker)
+                self._session_speakers[frag.speaker].word_count += 1
+                self._session_speakers[frag.speaker].last_heard = frag.end_time
 
         # Speakers
         current_speaker = self._current_speaker
@@ -1328,7 +1347,7 @@ class VoiceAgentClient(AsyncClient):
                             result = None
 
                         # Create a new task to evaluate the finalize delay
-                        delay = await self._calculate_finalize_delay(self._current_view, smart_turn_prediction=result)
+                        delay = await self._calculate_finalize_delay(smart_turn_prediction=result)
 
                         # Set the finalize timer (go now if no delay)
                         self._end_of_turn_handler.update_timer(delay or 0.01)

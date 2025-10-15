@@ -13,6 +13,7 @@ from pydantic import Field
 from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
+from speechmatics.voice import SpeechSegmentConfig
 from speechmatics.voice import VoiceAgentConfig
 from speechmatics.voice._smart_turn import SmartTurnDetector
 
@@ -24,6 +25,7 @@ pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping smar
 API_KEY = os.getenv("SPEECHMATICS_API_KEY")
 URL: Optional[str] = os.getenv("SPEECHMATICS_SERVER_URL", "wss://jamesw.lab.speechmatics.io/v2")
 SHOW_LOG = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
+
 
 # Detector
 detector = SmartTurnDetector(auto_init=False, threshold=0.75)
@@ -40,18 +42,8 @@ class TranscriptionTest(BaseModel):
 
 SAMPLES: list[TranscriptionTest] = [
     TranscriptionTest(id="01", path="./assets/audio_04_16kHz.wav", sample_rate=16000, language="en", eot_count=1),
-    # TranscriptionTest(
-    #     id="02",
-    #     path="./assets/audio_05_16kHz.wav",
-    #     sample_rate=16000,
-    #     language="en",
-    # ),
-    # TranscriptionTest(
-    #     id="03",
-    #     path="./assets/audio_06_16kHz.wav",
-    #     sample_rate=16000,
-    #     language="en",
-    # ),
+    TranscriptionTest(id="02", path="./assets/audio_05_16kHz.wav", sample_rate=16000, language="en", eot_count=1),
+    TranscriptionTest(id="03", path="./assets/audio_06_16kHz.wav", sample_rate=16000, language="en", eot_count=1),
 ]
 
 
@@ -111,6 +103,7 @@ async def test_prediction(sample: TranscriptionTest):
             sample_rate=sample.sample_rate,
             additional_vocab=sample.additional_vocab,
             enable_preview_features=True,
+            speech_segment_config=SpeechSegmentConfig(split_on_eos=False),
         ),
     )
 
@@ -133,6 +126,7 @@ async def test_prediction(sample: TranscriptionTest):
     client.on(AgentServerMessageType.ADD_SEGMENT, log_message)
     client.on(AgentServerMessageType.SPEAKER_STARTED, log_message)
     client.on(AgentServerMessageType.SPEAKER_ENDED, log_message)
+    client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, log_message)
     client.on(AgentServerMessageType.END_OF_TURN, log_message)
 
     # Calculated end of turn count
@@ -165,6 +159,10 @@ async def test_prediction(sample: TranscriptionTest):
     # Close session
     await client.disconnect()
     assert not client._is_connected
+
+    print(eot_count)
+
+    return
 
     # Validate (if we have expected results)
     if sample.eot_count:

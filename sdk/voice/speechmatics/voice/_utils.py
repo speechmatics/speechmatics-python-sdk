@@ -105,15 +105,18 @@ class FragmentUtils:
                 continue
 
             # Split group into sub-groups by end-of-sentence markers (finals only)
-            subgroup: list[SpeechFragment] = []
-            subgroups: list[list[SpeechFragment]] = []
-            for frag in group:
-                subgroup.append(frag)
-                if frag.is_eos and frag.is_final:
+            if session.config.speech_segment_config.split_on_eos:
+                subgroup: list[SpeechFragment] = []
+                subgroups: list[list[SpeechFragment]] = []
+                for frag in group:
+                    subgroup.append(frag)
+                    if frag.is_eos and frag.is_final:
+                        subgroups.append(subgroup)
+                        subgroup = []
+                if subgroup:
                     subgroups.append(subgroup)
-                    subgroup = []
-            if subgroup:
-                subgroups.append(subgroup)
+            else:
+                subgroups = [group]
 
             # Process each of the sub-groups
             for fragments_subset in subgroups:
