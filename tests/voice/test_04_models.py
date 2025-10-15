@@ -6,9 +6,9 @@ from speechmatics.voice import VoiceAgentConfig
 from speechmatics.voice._models import AdditionalVocabEntry
 from speechmatics.voice._models import AnnotationFlags
 from speechmatics.voice._models import AnnotationResult
-from speechmatics.voice._models import DiarizationFocusMode
-from speechmatics.voice._models import DiarizationKnownSpeaker
-from speechmatics.voice._models import DiarizationSpeakerConfig
+from speechmatics.voice._models import SpeakerFocusConfig
+from speechmatics.voice._models import SpeakerFocusMode
+from speechmatics.voice._models import SpeakerIdentifier
 from speechmatics.voice._models import SpeakerSegment
 from speechmatics.voice._models import SpeechFragment
 
@@ -23,7 +23,7 @@ async def test_voice_agent_config():
         enable_diarization=True,
         speaker_sensitivity=0.7,
         additional_vocab=[AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"])],
-        known_speakers=[DiarizationKnownSpeaker(label="John", speaker_identifiers=["78673523465237xx"])],
+        known_speakers=[SpeakerIdentifier(label="John", speaker_identifiers=["78673523465237xx"])],
     )
 
     # Test JSON serialisation
@@ -129,31 +129,8 @@ async def test_additional_vocab_entry():
 
 
 @pytest.mark.asyncio
-async def test_diarization_known_speaker():
-    """Test DiarizationKnownSpeaker serialisation and deserialisation.
-
-    - create instance
-    - serialize to JSON
-    - deserialize from JSON
-    """
-
-    # Create instance
-    speaker = DiarizationKnownSpeaker(label="Speaker1", speaker_identifiers=["id1", "id2", "id3"])
-
-    # Test JSON serialisation
-    json_data = speaker.model_dump()
-    assert json_data["label"] == "Speaker1"
-    assert json_data["speaker_identifiers"] == ["id1", "id2", "id3"]
-
-    # Test JSON deserialisation
-    speaker_from_json = DiarizationKnownSpeaker.model_validate(json_data)
-    assert speaker_from_json.label == speaker.label
-    assert speaker_from_json.speaker_identifiers == speaker.speaker_identifiers
-
-
-@pytest.mark.asyncio
-async def test_diarization_speaker_config():
-    """Test DiarizationSpeakerConfig serialisation and deserialisation.
+async def test_speaker_focus_config():
+    """Test SpeakerFocusConfig serialisation and deserialisation.
 
     - create instance with custom values
     - serialize to JSON
@@ -161,30 +138,30 @@ async def test_diarization_speaker_config():
     """
 
     # Create instance with custom values
-    config = DiarizationSpeakerConfig(
+    config = SpeakerFocusConfig(
         focus_speakers=["S1", "S2"],
         ignore_speakers=["__ASSISTANT__", "__SYSTEM__"],
-        focus_mode=DiarizationFocusMode.IGNORE,
+        focus_mode=SpeakerFocusMode.IGNORE,
     )
 
     # Test JSON serialisation
     json_data = config.model_dump()
     assert json_data["focus_speakers"] == ["S1", "S2"]
     assert json_data["ignore_speakers"] == ["__ASSISTANT__", "__SYSTEM__"]
-    assert json_data["focus_mode"] == DiarizationFocusMode.IGNORE
+    assert json_data["focus_mode"] == SpeakerFocusMode.IGNORE
 
     # Test JSON deserialisation
-    config_from_json = DiarizationSpeakerConfig.model_validate(json_data)
+    config_from_json = SpeakerFocusConfig.model_validate(json_data)
     assert config_from_json.focus_speakers == config.focus_speakers
     assert config_from_json.ignore_speakers == config.ignore_speakers
     assert config_from_json.focus_mode == config.focus_mode
 
     # Test with defaults
-    config_default = DiarizationSpeakerConfig()
+    config_default = SpeakerFocusConfig()
     json_default = config_default.model_dump()
     assert json_default["focus_speakers"] == []
     assert json_default["ignore_speakers"] == []
-    assert json_default["focus_mode"] == DiarizationFocusMode.RETAIN
+    assert json_default["focus_mode"] == SpeakerFocusMode.RETAIN
 
 
 @pytest.mark.asyncio

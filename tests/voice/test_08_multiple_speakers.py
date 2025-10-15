@@ -12,9 +12,9 @@ from pydantic import BaseModel
 
 from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
-from speechmatics.voice import DiarizationFocusMode
-from speechmatics.voice import DiarizationSpeakerConfig
 from speechmatics.voice import EndOfUtteranceMode
+from speechmatics.voice import SpeakerFocusConfig
+from speechmatics.voice import SpeakerFocusMode
 from speechmatics.voice import SpeechSegmentConfig
 from speechmatics.voice import VoiceAgentConfig
 from speechmatics.voice._models import SpeakerSegment
@@ -34,7 +34,7 @@ class SpeakerTest(BaseModel):
     sample_size: int = 2
     segment_regex: list[str] = field(default_factory=list)
     config: Optional[VoiceAgentConfig] = None
-    speaker_config: Optional[DiarizationSpeakerConfig] = None
+    speaker_config: Optional[SpeakerFocusConfig] = None
     speakers_present: list[str] = field(default_factory=list)
 
 
@@ -51,7 +51,7 @@ SAMPLES: list[SpeakerTest] = [
         path="./assets/audio_02_8kHz.wav",
         sample_rate=8000,
         segment_regex=["^Welcome to GeoRouter", "Buckingham", "clarify", "Notting Hill"],
-        speaker_config=DiarizationSpeakerConfig(
+        speaker_config=SpeakerFocusConfig(
             focus_speakers=["S2"],
         ),
         speakers_present=["S1", "S2"],
@@ -61,9 +61,9 @@ SAMPLES: list[SpeakerTest] = [
         path="./assets/audio_02_8kHz.wav",
         sample_rate=8000,
         segment_regex=["Buckingham", "Notting Hill"],
-        speaker_config=DiarizationSpeakerConfig(
+        speaker_config=SpeakerFocusConfig(
             focus_speakers=["S2"],
-            focus_mode=DiarizationFocusMode.IGNORE,
+            focus_mode=SpeakerFocusMode.IGNORE,
         ),
         speakers_present=["S2"],
     ),
@@ -72,7 +72,7 @@ SAMPLES: list[SpeakerTest] = [
         path="./assets/audio_02_8kHz.wav",
         sample_rate=8000,
         segment_regex=["^Welcome to GeoRouter", "clarify", "Rickmansworth"],
-        speaker_config=DiarizationSpeakerConfig(
+        speaker_config=SpeakerFocusConfig(
             ignore_speakers=["S2"],
         ),
         speakers_present=["S1"],

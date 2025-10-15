@@ -170,8 +170,8 @@ The `VoiceAgentClient` can be configured with a number of options to control the
 - **`speaker_sensitivity`** (`float`): Diarization sensitivity. A higher value increases the sensitivity of diarization and helps when two or more speakers have similar voices. Defaults to `0.5`.
 - **`max_speakers`** (`Optional[int]`): Maximum number of speakers to detect. This forces the STT engine to cluster words into a fixed number of speakers. It should not be used to limit the number of speakers, unless it is clear that there will only be a known number of speakers. Defaults to `None`.
 - **`prefer_current_speaker`** (`bool`): Prefer current speaker ID. When set to true, groups of words close together are given extra weight to be identified as the same speaker. Defaults to `False`.
-- **`speaker_config`** (`DiarizationSpeakerConfig`): Configuration to specify speakers to focus on, ignore and how to deal with speakers that are not in focus. Defaults to `DiarizationSpeakerConfig()`.
-- **`known_speakers`** (`list[DiarizationKnownSpeaker]`): List of known speaker labels and identifiers. If you supply a list of labels and identifiers for speakers, then the STT engine will use them to attribute any spoken words to that speaker. This is useful when you want to attribute words to a specific speaker, such as the assistant or a specific user. Labels and identifiers can be obtained from a running STT session and then used in subsequent sessions. Identifiers are unique to each Speechmatics account and cannot be used across accounts. Defaults to `[]`.
+- **`speaker_config`** (`SpeakerFocusConfig`): Configuration to specify speakers to focus on, ignore and how to deal with speakers that are not in focus. Defaults to `SpeakerFocusConfig()`.
+- **`known_speakers`** (`list[SpeakerIdentifier]`): List of known speaker labels and identifiers. If you supply a list of labels and identifiers for speakers, then the STT engine will use them to attribute any spoken words to that speaker. This is useful when you want to attribute words to a specific speaker, such as the assistant or a specific user. Labels and identifiers can be obtained from a running STT session and then used in subsequent sessions. Identifiers are unique to each Speechmatics account and cannot be used across accounts. Defaults to `[]`.
 
 #### Advanced Features
 
@@ -189,7 +189,7 @@ The `VoiceAgentClient` can be configured with a number of options to control the
 from speechmatics.voice import (
     AdditionalVocabEntry,
     AudioEncoding,
-    DiarizationSpeakerConfig,
+    SpeakerFocusConfig,
     EndOfUtteranceMode,
     OperatingPoint,
     VoiceAgentConfig
@@ -215,10 +215,10 @@ advanced_config = VoiceAgentConfig(
     speaker_sensitivity=0.5,
     max_speakers=6,
     prefer_current_speaker=True,
-    speaker_config=DiarizationSpeakerConfig(
+    speaker_config=SpeakerFocusConfig(
         focus_speakers=["S1", "S2"],
         ignore_speakers=["S3"],
-        focus_mode=DiarizationFocusMode.RETAIN,
+        focus_mode=SpeakerFocusMode.RETAIN,
     ),
     additional_vocab=[
         AdditionalVocabEntry(

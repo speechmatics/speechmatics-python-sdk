@@ -25,6 +25,7 @@ from ._models import OperatingPoint
 from ._models import ServerMessageType
 from ._models import SessionInfo
 from ._models import SpeakerDiarizationConfig
+from ._models import SpeakerIdentifier
 from ._models import TranscriptionConfig
 from ._models import TranscriptResult
 from ._models import TranslationConfig
@@ -53,6 +54,7 @@ __all__ = [
     "SessionError",
     "SessionInfo",
     "SpeakerDiarizationConfig",
+    "SpeakerIdentifier",
     "StaticKeyAuth",
     "TimeoutError",
     "TranscriptResult",

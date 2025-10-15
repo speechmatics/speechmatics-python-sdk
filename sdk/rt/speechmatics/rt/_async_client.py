@@ -81,7 +81,6 @@ class AsyncClient(_BaseClient):
             self._recognition_started_evt,
             self._session_done_evt,
         ) = self._init_session_info()
-        self._eos_sent = False
 
         transport = self._create_transport_from_config(
             auth=auth,
@@ -96,6 +95,7 @@ class AsyncClient(_BaseClient):
         self.on(ServerMessageType.END_OF_TRANSCRIPT, self._on_eot)
         self.on(ServerMessageType.ERROR, self._on_error)
         self.on(ServerMessageType.WARNING, self._on_warning)
+        self.on(ServerMessageType.AUDIO_ADDED, self._on_audio_added)
 
         self._logger.debug("AsyncClient initialized (request_id=%s)", self._session.request_id)
 
@@ -140,6 +140,26 @@ class AsyncClient(_BaseClient):
             audio_events_config=audio_events_config,
             ws_headers=ws_headers,
         )
+
+    async def stop_session(self) -> None:
+        """
+        This method closes the WebSocket connection and ends the transcription session.
+
+        Raises:
+            ConnectionError: If the WebSocket connection fails.
+            TranscriptionError: If the server reports an error during teardown.
+            TimeoutError: If the connection or teardown times out.
+
+        Examples:
+            Basic streaming:
+                >>> async with AsyncClient() as client:
+                ...     await client.start_session()
+                ...     await client.send_audio(frame)
+                ...     await client.stop_session()
+        """
+        await self._send_eos(self._seq_no)
+        await self._session_done_evt.wait()  # Wait for end of transcript event to indicate we can stop listening
+        await self.close()
 
     async def transcribe(
         self,
@@ -233,7 +253,6 @@ class AsyncClient(_BaseClient):
             chunk_size: Chunk size for audio data
         """
         src = FileSource(source, chunk_size=chunk_size)
-        seq_no = 0
 
         try:
             async for frame in src:
@@ -242,13 +261,12 @@ class AsyncClient(_BaseClient):
 
                 try:
                     await self.send_audio(frame)
-                    seq_no += 1
                 except Exception as e:
                     self._logger.error("Failed to send audio frame: %s", e)
                     self._session_done_evt.set()
                     break
 
-            await self._send_eos(seq_no)
+            await self.stop_session()
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -286,6 +304,10 @@ class AsyncClient(_BaseClient):
         self._session_done_evt.set()
         raise TranscriptionError(error)
 
+    def _on_audio_added(self, msg: dict[str, Any]) -> None:
+        """Handle AudioAdded message from server."""
+        self._seq_no = msg.get("seq_no", 0)
+
     def _on_warning(self, msg: dict[str, Any]) -> None:
         """Handle Warning message from server."""
         self._logger.warning("Server warning: %s", msg.get("reason", "unknown"))
@@ -293,6 +315,8 @@ class AsyncClient(_BaseClient):
     async def close(self) -> None:
         """
         Close the client and clean up resources.
+        WARNING: this closes the client without waiting for remaining messages to be processed.
+        It is recommended to use stop_session() instead.
 
         Ensures the session is marked as complete and delegates to the base
         class for full cleanup including WebSocket connection termination.

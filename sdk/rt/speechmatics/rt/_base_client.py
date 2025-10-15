@@ -8,6 +8,8 @@ import uuid
 from typing import Any
 from typing import Optional
 
+from typing_extensions import Self
+
 from ._auth import AuthBase
 from ._auth import StaticKeyAuth
 from ._events import EventEmitter
@@ -39,6 +41,8 @@ class _BaseClient(EventEmitter):
         self._transport = transport
         self._recv_task: Optional[asyncio.Task[None]] = None
         self._closed_evt = asyncio.Event()
+        self._eos_sent = False
+        self._seq_no = 0
 
         self._logger = get_logger("speechmatics.rt.base_client")
 
@@ -96,7 +100,7 @@ class _BaseClient(EventEmitter):
         await self._transport.connect(ws_headers)
         self._recv_task = asyncio.create_task(self._recv_loop())
 
-    async def __aenter__(self) -> _BaseClient:
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(self, *args: Any) -> None:
@@ -110,7 +114,7 @@ class _BaseClient(EventEmitter):
             >>> audio_chunk = b""
             >>> await client.send_audio(audio_chunk)
         """
-        if self._closed_evt.is_set():
+        if self._closed_evt.is_set() or self._eos_sent:
             raise TransportError("Client is closed")
 
         if not isinstance(payload, bytes):
@@ -118,6 +122,7 @@ class _BaseClient(EventEmitter):
 
         try:
             await self._transport.send_message(payload)
+            self._seq_no += 1
         except Exception:
             self._closed_evt.set()
             raise
@@ -131,7 +136,7 @@ class _BaseClient(EventEmitter):
             >>> msg = json.dumps({"message": "StartRecognition", ...})
             >>> await client.send_message(msg)
         """
-        if self._closed_evt.is_set():
+        if self._closed_evt.is_set() or self._eos_sent:
             raise TransportError("Client is closed")
 
         if not isinstance(message, dict):

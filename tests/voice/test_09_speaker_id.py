@@ -11,8 +11,8 @@ from _utils import send_audio_file
 from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentClientMessageType
 from speechmatics.voice import AgentServerMessageType
-from speechmatics.voice import DiarizationKnownSpeaker
 from speechmatics.voice import EndOfUtteranceMode
+from speechmatics.voice import SpeakerIdentifier
 from speechmatics.voice import SpeechSegmentConfig
 from speechmatics.voice import VoiceAgentConfig
 from speechmatics.voice._models import SpeakerSegment
@@ -26,7 +26,7 @@ URL: Optional[str] = os.getenv("SPEECHMATICS_SERVER_URL", "wss://preview.rt.spee
 SHOW_LOG = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
 
 # List of know speakers during tests
-speaker_ids: list[DiarizationKnownSpeaker] = []
+speaker_ids: list[SpeakerIdentifier] = []
 
 
 @pytest.mark.asyncio
@@ -96,7 +96,7 @@ async def test_extract_speaker_ids():
                 continue
 
             speaker_ids.append(
-                DiarizationKnownSpeaker(
+                SpeakerIdentifier(
                     label=label,
                     speaker_identifiers=speaker_identifiers,
                 )

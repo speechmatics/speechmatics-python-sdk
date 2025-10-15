@@ -20,9 +20,9 @@ from speechmatics.rt import Microphone
 from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentClientMessageType
 from speechmatics.voice import AgentServerMessageType
-from speechmatics.voice import DiarizationFocusMode
-from speechmatics.voice import DiarizationKnownSpeaker
-from speechmatics.voice import DiarizationSpeakerConfig
+from speechmatics.voice import SpeakerFocusConfig
+from speechmatics.voice import SpeakerFocusMode
+from speechmatics.voice import SpeakerIdentifier
 from speechmatics.voice import VoiceAgentClient
 from speechmatics.voice import VoiceAgentConfig
 
@@ -74,9 +74,7 @@ async def main() -> None:
     speaker_config = create_speaker_config(args)
 
     # Known speakers
-    known_speakers: list[DiarizationKnownSpeaker] = (
-        [DiarizationKnownSpeaker(**s) for s in args.speakers] if args.speakers else []
-    )
+    known_speakers: list[SpeakerIdentifier] = [SpeakerIdentifier(**s) for s in args.speakers] if args.speakers else []
 
     # Create Voice Agent configuration
     config = VoiceAgentConfig(
@@ -259,24 +257,24 @@ def setup_audio_output(audio_source: dict, args) -> AudioPlayer | None:
 # ==============================================================================
 
 
-def create_speaker_config(args) -> DiarizationSpeakerConfig:
+def create_speaker_config(args) -> SpeakerFocusConfig:
     """Create speaker diarization configuration from arguments.
 
     Args:
         args: Command-line arguments
 
     Returns:
-        DiarizationSpeakerConfig instance.
+        SpeakerFocusConfig instance.
     """
     if args.focus_speakers or args.ignore_speakers:
-        focus_mode = DiarizationFocusMode.IGNORE if args.ignore_mode else DiarizationFocusMode.RETAIN
-        return DiarizationSpeakerConfig(
+        focus_mode = SpeakerFocusMode.IGNORE if args.ignore_mode else SpeakerFocusMode.RETAIN
+        return SpeakerFocusConfig(
             focus_speakers=args.focus_speakers or [],
             ignore_speakers=args.ignore_speakers or [],
             focus_mode=focus_mode,
         )
     else:
-        return DiarizationSpeakerConfig()
+        return SpeakerFocusConfig()
 
 
 # ==============================================================================

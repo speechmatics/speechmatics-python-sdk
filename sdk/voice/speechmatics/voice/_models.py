@@ -14,6 +14,7 @@ from pydantic import Field
 
 from speechmatics.rt import AudioEncoding
 from speechmatics.rt import OperatingPoint
+from speechmatics.rt import SpeakerIdentifier
 
 # ==============================================================================
 # ENUMS
@@ -90,7 +91,7 @@ class TranscriptionUpdatePreset(str, Enum):
     TIMING = "timing"
 
 
-class DiarizationFocusMode(str, Enum):
+class SpeakerFocusMode(str, Enum):
     """Speaker focus mode for diarization.
 
     - `RETAIN`: Retain words spoken by other speakers (not listed in `ignore_speakers`)
@@ -99,15 +100,15 @@ class DiarizationFocusMode(str, Enum):
 
     Examples:
         Retain all speakers but mark focus:
-            >>> config = DiarizationSpeakerConfig(
+            >>> config = SpeakerFocusConfig(
             ...     focus_speakers=["S1"],
-            ...     focus_mode=DiarizationFocusMode.RETAIN
+            ...     focus_mode=SpeakerFocusMode.RETAIN
             ... )
 
         Ignore non-focus speakers completely:
-            >>> config = DiarizationSpeakerConfig(
+            >>> config = SpeakerFocusConfig(
             ...     focus_speakers=["S1", "S2"],
-            ...     focus_mode=DiarizationFocusMode.IGNORE
+            ...     focus_mode=SpeakerFocusMode.IGNORE
             ... )
     """
 
@@ -300,44 +301,8 @@ class AdditionalVocabEntry(BaseModel):
     sounds_like: list[str] = Field(default_factory=list)
 
 
-class DiarizationKnownSpeaker(BaseModel):
-    """Known speakers for speaker diarization.
-
-    Parameters:
-        label: The label of the speaker.
-        speaker_identifiers: One or more data strings for the speaker.
-
-    Examples:
-        Adding a known speaker:
-            >>> speaker = DiarizationKnownSpeaker(
-            ...     label="Alice",
-            ...     speaker_identifiers=["speaker_abc123"]
-            ... )
-
-        Using multiple known speakers:
-            >>> known_speakers = [
-            ...     DiarizationKnownSpeaker(
-            ...         label="Alice",
-            ...         speaker_identifiers=["speaker_abc123"]
-            ...     ),
-            ...     DiarizationKnownSpeaker(
-            ...         label="Bob",
-            ...         speaker_identifiers=["speaker_def456"]
-            ...     )
-            ... ]
-            >>> config = VoiceAgentConfig(
-            ...     language="en",
-            ...     enable_diarization=True,
-            ...     known_speakers=known_speakers
-            ... )
-    """
-
-    label: str
-    speaker_identifiers: list[str]
-
-
-class DiarizationSpeakerConfig(BaseModel):
-    """Speaker Diarization Config.
+class SpeakerFocusConfig(BaseModel):
+    """Speaker Focus Config.
 
     List of speakers to focus on, ignore and how to deal with speakers that are not
     in focus. These settings can be changed during a session. Other changes may require
@@ -358,16 +323,16 @@ class DiarizationSpeakerConfig(BaseModel):
             `__ASSISTANT__`).
             Defaults to [].
 
-        focus_mode: Speaker focus mode for diarization. When set to `DiarizationFocusMode.RETAIN`,
+        focus_mode: Speaker focus mode for diarization. When set to `SpeakerFocusMode.RETAIN`,
             the STT engine will retain words spoken by other speakers (not listed in `ignore_speakers`)
-            and process them as passive speaker frames. When set to `DiarizationFocusMode.IGNORE`,
+            and process them as passive speaker frames. When set to `SpeakerFocusMode.IGNORE`,
             the STT engine will ignore words spoken by other speakers and they will not be processed.
-            Defaults to `DiarizationFocusMode.RETAIN`.
+            Defaults to `SpeakerFocusMode.RETAIN`.
     """
 
     focus_speakers: list[str] = Field(default_factory=list)
     ignore_speakers: list[str] = Field(default_factory=list)
-    focus_mode: DiarizationFocusMode = DiarizationFocusMode.RETAIN
+    focus_mode: SpeakerFocusMode = SpeakerFocusMode.RETAIN
 
 
 class SpeechSegmentConfig(BaseModel):
@@ -481,7 +446,7 @@ class VoiceAgentConfig(BaseModel):
             together are given extra weight to be identified as the same speaker.
             Defaults to False.
 
-        speaker_config: DiarizationSpeakerConfig to configure the speakers to focus on, ignore and
+        speaker_config: SpeakerFocusConfig to configure the speakers to focus on, ignore and
             how to deal with speakers that are not in focus.
 
         known_speakers: List of known speaker labels and identifiers. If you supply a list of
@@ -539,9 +504,9 @@ class VoiceAgentConfig(BaseModel):
             >>> config = VoiceAgentConfig(
             ...     language="en",
             ...     enable_diarization=True,
-            ...     speaker_config=DiarizationSpeakerConfig(
+            ...     speaker_config=SpeakerFocusConfig(
             ...         focus_speakers=["S1"],
-            ...         focus_mode=DiarizationFocusMode.RETAIN
+            ...         focus_mode=SpeakerFocusMode.RETAIN
             ...     ),
             ...     end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE
             ... )
@@ -551,7 +516,7 @@ class VoiceAgentConfig(BaseModel):
             ...     language="en",
             ...     enable_diarization=True,
             ...     known_speakers=[
-            ...         DiarizationKnownSpeaker(
+            ...         SpeakerIdentifier(
             ...             label="Alice",
             ...             speaker_identifiers=["speaker_abc123"]
             ...         )
@@ -573,7 +538,7 @@ class VoiceAgentConfig(BaseModel):
             ...         AdditionalVocabEntry(content="API"),
             ...         AdditionalVocabEntry(content="WebSocket")
             ...     ],
-            ...     speaker_config=DiarizationSpeakerConfig(
+            ...     speaker_config=SpeakerFocusConfig(
             ...         focus_speakers=["S1", "S2"]
             ...     )
             ... )
@@ -598,8 +563,8 @@ class VoiceAgentConfig(BaseModel):
     speaker_sensitivity: float = 0.5
     max_speakers: Optional[int] = None
     prefer_current_speaker: bool = False
-    speaker_config: DiarizationSpeakerConfig = Field(default_factory=DiarizationSpeakerConfig)
-    known_speakers: list[DiarizationKnownSpeaker] = Field(default_factory=list)
+    speaker_config: SpeakerFocusConfig = Field(default_factory=SpeakerFocusConfig)
+    known_speakers: list[SpeakerIdentifier] = Field(default_factory=list)
 
     # Advanced features
     include_results: bool = False

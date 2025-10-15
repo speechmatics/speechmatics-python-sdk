@@ -18,9 +18,10 @@ from urllib.parse import urlencode
 from speechmatics.rt import AsyncClient
 from speechmatics.rt import AudioEncoding
 from speechmatics.rt import AudioFormat
-from speechmatics.rt import ClientMessageType
 from speechmatics.rt import ConversationConfig
 from speechmatics.rt import ServerMessageType
+from speechmatics.rt import SpeakerDiarizationConfig
+from speechmatics.rt import SpeakerIdentifier
 from speechmatics.rt import TranscriptionConfig
 
 from . import __version__
@@ -31,11 +32,11 @@ from ._models import AgentServerMessageType
 from ._models import AnnotationFlags
 from ._models import AnnotationResult
 from ._models import ClientSessionInfo
-from ._models import DiarizationFocusMode
-from ._models import DiarizationSpeakerConfig
 from ._models import EndOfUtteranceMode
 from ._models import LanguagePackInfo
 from ._models import SessionSpeaker
+from ._models import SpeakerFocusConfig
+from ._models import SpeakerFocusMode
 from ._models import SpeakerSegmentView
 from ._models import SpeakerVADStatus
 from ._models import SpeechFragment
@@ -121,7 +122,7 @@ class VoiceAgentClient(AsyncClient):
         self._logger = get_logger(__name__)
 
         # Process the config
-        self._config, self._transcription_config, self._audio_format = self._process_config(config)
+        self._config, self._transcription_config, self._audio_format = self._prepare_config(config)
 
         # Connection status
         self._is_connected: bool = False
@@ -227,7 +228,7 @@ class VoiceAgentClient(AsyncClient):
         # Register handlers
         self._register_event_handlers()
 
-    def _process_config(
+    def _prepare_config(
         self, config: Optional[VoiceAgentConfig] = None
     ) -> tuple[VoiceAgentConfig, TranscriptionConfig, AudioFormat]:
         """Create a formatted STT transcription and audio config.
@@ -269,19 +270,23 @@ class VoiceAgentClient(AsyncClient):
 
         # Diarization
         if config.enable_diarization:
-            dz_cfg: dict[str, Any] = {}
-            if config.speaker_sensitivity is not None:
-                dz_cfg["speaker_sensitivity"] = config.speaker_sensitivity
-            if config.prefer_current_speaker is not None:
-                dz_cfg["prefer_current_speaker"] = config.prefer_current_speaker
+            # List of known speakers
+            dz_speakers: list[SpeakerIdentifier] = []
             if config.known_speakers:
-                dz_cfg["speakers"] = [
-                    {"label": s.label, "speaker_identifiers": s.speaker_identifiers} for s in config.known_speakers
-                ]
-            if config.max_speakers is not None:
-                dz_cfg["max_speakers"] = config.max_speakers
-            if dz_cfg:
-                transcription_config.speaker_diarization_config = dz_cfg
+                dz_speakers.extend(
+                    [
+                        SpeakerIdentifier(label=s.label, speaker_identifiers=s.speaker_identifiers)
+                        for s in config.known_speakers
+                    ]
+                )
+
+            # Diarization config
+            transcription_config.speaker_diarization_config = SpeakerDiarizationConfig(
+                speaker_sensitivity=config.speaker_sensitivity,
+                prefer_current_speaker=config.prefer_current_speaker,
+                max_speakers=config.max_speakers,
+                speakers=dz_speakers or None,
+            )
 
         # End of Utterance (for fixed)
         if config.end_of_utterance_silence_trigger and config.end_of_utterance_mode == EndOfUtteranceMode.FIXED:
@@ -412,10 +417,13 @@ class VoiceAgentClient(AsyncClient):
         self._is_ready_for_audio = False
         self._stop_metrics_task()
 
-        # Send end of transcript to release resources
-        await self.send_message(
-            {"message": ClientMessageType.END_OF_STREAM, "last_seq_no": self._session.sequence_number}
-        )
+        # end session
+        try:
+            await self.stop_session()
+        except Exception as e:
+            self._logger.error(f"Error closing session: {e}")
+        finally:
+            self._is_connected = False
 
         # Stop end of turn-related tasks
         self._end_of_turn_handler.cancel_tasks()
@@ -428,18 +436,6 @@ class VoiceAgentClient(AsyncClient):
             except asyncio.CancelledError:
                 pass
             self._stt_queue_task = None
-
-        # Wait for the EndOfTranscript event to be received
-        try:
-            await asyncio.wait_for(self._session_done_evt.wait(), timeout=5.0)
-        except asyncio.TimeoutError:
-            self._logger.warning(f"{self} Timeout while closing Speechmatics client connection")
-            raise
-        except Exception as e:
-            self._logger.error(f"{self} Error closing Speechmatics client: {e}")
-            raise
-        finally:
-            self._is_connected = False
 
     # ============================================================================
     # PUBLIC API METHODS
@@ -489,7 +485,7 @@ class VoiceAgentClient(AsyncClient):
             self._total_bytes += len(payload)
             self._total_time += len(payload) / self._audio_sample_rate / self._audio_sample_width
 
-    def update_diarization_config(self, config: DiarizationSpeakerConfig) -> None:
+    def update_diarization_config(self, config: SpeakerFocusConfig) -> None:
         """Update the diarization configuration.
 
         You can update the speakers that needs to be focussed on or ignored during
@@ -501,17 +497,17 @@ class VoiceAgentClient(AsyncClient):
 
         Examples:
             Focus on specific speakers:
-                >>> from speechmatics.voice import DiarizationSpeakerConfig, DiarizationFocusMode
-                >>> config = DiarizationSpeakerConfig(
+                >>> from speechmatics.voice import SpeakerFocusConfig, SpeakerFocusMode
+                >>> config = SpeakerFocusConfig(
                 ...     focus_speakers=["speaker_1", "speaker_2"],
-                ...     focus_mode=DiarizationFocusMode.RETAIN
+                ...     focus_mode=SpeakerFocusMode.RETAIN
                 ... )
                 >>> client.update_diarization_config(config)
 
             Ignore specific speakers:
-                >>> config = DiarizationSpeakerConfig(
+                >>> config = SpeakerFocusConfig(
                 ...     ignore_speakers=["speaker_3"],
-                ...     focus_mode=DiarizationFocusMode.IGNORE
+                ...     focus_mode=SpeakerFocusMode.IGNORE
                 ... )
                 >>> client.update_diarization_config(config)
 
@@ -520,7 +516,7 @@ class VoiceAgentClient(AsyncClient):
                 >>> await client.connect()
                 >>> # Later, focus on main speaker
                 >>> client.update_diarization_config(
-                ...     DiarizationSpeakerConfig(focus_speakers=["main_speaker"])
+                ...     SpeakerFocusConfig(focus_speakers=["main_speaker"])
                 ... )
         """
         self._dz_config = config
@@ -823,7 +819,7 @@ class VoiceAgentClient(AsyncClient):
 
                         # Drop speakers not focussed on
                         if (
-                            self._dz_config.focus_mode == DiarizationFocusMode.IGNORE
+                            self._dz_config.focus_mode == SpeakerFocusMode.IGNORE
                             and self._dz_config.focus_speakers
                             and fragment.speaker not in self._dz_config.focus_speakers
                         ):

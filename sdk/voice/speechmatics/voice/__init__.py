@@ -16,36 +16,35 @@ __version__ = "0.0.0"
 from speechmatics.rt import AudioEncoding
 from speechmatics.rt import AudioFormat
 from speechmatics.rt import OperatingPoint
+from speechmatics.rt import SpeakerDiarizationConfig
+from speechmatics.rt import SpeakerIdentifier
 
 from ._client import VoiceAgentClient
 from ._models import AdditionalVocabEntry
 from ._models import AgentClientMessageType
 from ._models import AgentServerMessageType
-from ._models import DiarizationFocusMode
-from ._models import DiarizationKnownSpeaker
-from ._models import DiarizationSpeakerConfig
 from ._models import EndOfUtteranceMode
 from ._models import SmartTurnConfig
+from ._models import SpeakerFocusConfig
+from ._models import SpeakerFocusMode
 from ._models import SpeechSegmentConfig
 from ._models import VoiceAgentConfig
 
 __all__ = [
-    # SDK
     "__version__",
-    # Conversation config
-    "VoiceAgentConfig",
-    "EndOfUtteranceMode",
-    "DiarizationSpeakerConfig",
-    "DiarizationFocusMode",
     "AdditionalVocabEntry",
-    "DiarizationKnownSpeaker",
-    "AudioEncoding",
-    "AudioFormat",
-    "OperatingPoint",
-    "SmartTurnConfig",
-    "SpeechSegmentConfig",
-    # Client
-    "VoiceAgentClient",
     "AgentClientMessageType",
     "AgentServerMessageType",
+    "AudioEncoding",
+    "AudioFormat",
+    "EndOfUtteranceMode",
+    "OperatingPoint",
+    "SpeakerDiarizationConfig",
+    "SpeakerFocusConfig",
+    "SpeakerFocusMode",
+    "SpeakerIdentifier",
+    "SmartTurnConfig",
+    "SpeechSegmentConfig",
+    "VoiceAgentClient",
+    "VoiceAgentConfig",
 ]
