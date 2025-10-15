@@ -325,22 +325,25 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
             with open(args.output_file, "a") as f:
                 f.write(json.dumps(message) + "\n")
 
-    # Register handlers
+    # Register standard handlers
     client.on(AgentServerMessageType.RECOGNITION_STARTED, log_message)
     client.on(AgentServerMessageType.END_OF_TRANSCRIPT, log_message)
     client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, log_message)
     client.on(AgentServerMessageType.ADD_SEGMENT, log_message)
-    client.on(AgentServerMessageType.SPEAKER_STARTED, log_message)
-    client.on(AgentServerMessageType.SPEAKER_ENDED, log_message)
     client.on(AgentServerMessageType.END_OF_TURN, log_message)
     client.on(AgentServerMessageType.SPEAKERS_RESULT, log_message)
 
-    # Verbose turn prediction
+    # Verbose VAD events
     if args.verbose >= 1:
+        client.on(AgentServerMessageType.SPEAKER_STARTED, log_message)
+        client.on(AgentServerMessageType.SPEAKER_ENDED, log_message)
+
+    # Verbose turn prediction
+    if args.verbose >= 2:
         client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, log_message)
 
     # Verbose STT events
-    if args.verbose >= 2:
+    if args.verbose >= 3:
         client.on(AgentServerMessageType.END_OF_UTTERANCE, log_message)
         client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, log_message)
         client.on(AgentServerMessageType.ADD_TRANSCRIPT, log_message)
@@ -557,7 +560,7 @@ def parse_args():
         "--verbose",
         action="count",
         default=0,
-        help="Increase logging verbosity (-v: include END_OF_TURN_PREDICTION, -vv: include additional payloads)",
+        help="Increase logging verbosity (-v: add speaker VAD events, -vv: add END_OF_TURN_PREDICTION, -vvv: add additional payloads)",
     )
 
     # ==============================================================================

@@ -939,30 +939,6 @@ class VoiceAgentClient(AsyncClient):
         # Emit the segments
         await self._emit_segments()
 
-        # For ADAPTIVE and SMART_TURN only
-        if self._end_of_utterance_mode in [EndOfUtteranceMode.ADAPTIVE, EndOfUtteranceMode.SMART_TURN]:
-            """Based off the changes, determine if the end of turn message should be emitted.
-
-            A number of factors influence this decision:
-            - contents of the final active segment
-            - rate of speech of the user
-            - whether the smart turn detector has predicted the end of the turn (audio based)
-            """
-
-            # Process to test for end of turn
-            async def process_eot() -> None:
-                """Async function to process end of turn."""
-
-                # Delay to finalize
-                delay = await self._calculate_finalize_delay(self._current_view, changes, change_filter)
-
-                # Set the finalize timer
-                if delay:
-                    self._end_of_turn_handler.update_timer(delay)
-
-            # Create async task to process end of turn
-            asyncio.create_task(process_eot())
-
     async def _emit_segments(self, finalize: bool = False, end_of_turn: bool = False) -> None:
         """Emit segments to listeners.
 
@@ -994,11 +970,20 @@ class VoiceAgentClient(AsyncClient):
 
                 # Emit finals first
                 if final_segments:
+                    """Final segments are checked for end of sentence."""
+
                     # Metadata for final segments uses actual start/end times of the segments being emitted
                     final_metadata = {
                         "start_time": final_segments[0].start_time,
                         "end_time": final_segments[-1].end_time,
                     }
+
+                    # Ensure final segment ends with EOS
+                    # last_segment = final_segments[-1]
+                    # if not last_segment.fragments[-1].is_eos:
+                    #     last_segment.fragments.append(SpeechFragment(content="$", is_eos=True))
+
+                    # Emit segments
                     self.emit(
                         AgentServerMessageType.ADD_SEGMENT,
                         {
@@ -1014,11 +999,15 @@ class VoiceAgentClient(AsyncClient):
 
                 # Emit interim segments
                 if interim_segments:
+                    """Partial segments are emitted as is."""
+
                     # Metadata for partial segments uses actual start/end times of the segments being emitted
                     partial_metadata = {
                         "start_time": interim_segments[0].start_time,
                         "end_time": interim_segments[-1].end_time,
                     }
+
+                    # Emit segments
                     self.emit(
                         AgentServerMessageType.ADD_PARTIAL_SEGMENT,
                         {
@@ -1132,7 +1121,7 @@ class VoiceAgentClient(AsyncClient):
 
             # Calculations
             clamped_delay: float = self._config.end_of_utterance_max_delay
-            emit_delay: Optional[float] = None
+            finalize_delay: Optional[float] = None
             time_slip: Optional[float] = None
 
             # Reasons for the calculation
@@ -1192,10 +1181,10 @@ class VoiceAgentClient(AsyncClient):
                 clamped_delay = min(delay, self._config.end_of_utterance_max_delay)
 
             # Establish the real-world time
-            time_slip = 0  # self._total_time - self._last_fragment_end_time
+            time_slip = self._total_time - self._last_fragment_end_time
 
             # Adjust time and make sure no less than 100ms
-            emit_delay = max(clamped_delay - time_slip, 0.1)
+            finalize_delay = max(clamped_delay - time_slip, 0.1)
 
             # Emit prediction
             if self.listeners(AgentServerMessageType.END_OF_TURN_PREDICTION):
@@ -1205,16 +1194,17 @@ class VoiceAgentClient(AsyncClient):
                         "message": AgentServerMessageType.END_OF_TURN_PREDICTION.value,
                         "turn_id": self._end_of_turn_handler.turn_id,
                         "metadata": {
-                            "ttl": emit_delay,
+                            "ttl": round(finalize_delay, 2),
+                            "time_slip": round(time_slip, 2),
                             "reasons": [_reason for _, _reason in reasons],
                         },
                     },
                 )
 
             # Return the time
-            return emit_delay
+            return finalize_delay
 
-        # Invalid
+        # Invalid / not EOT
         return None
 
     # ============================================================================
@@ -1324,15 +1314,18 @@ class VoiceAgentClient(AsyncClient):
             # Reset current speaker
             self._current_speaker = None
 
-            # Check for end of turn prediction
-            if self._config.end_of_utterance_mode == EndOfUtteranceMode.SMART_TURN:
-                """Use Smart Turn prediction."""
+            # For ADAPTIVE and SMART_TURN only
+            if self._end_of_utterance_mode in [EndOfUtteranceMode.ADAPTIVE, EndOfUtteranceMode.SMART_TURN]:
+                """When ADAPTIVE or SMART_TURN, we need to do EOT detection / prediction."""
 
                 # Callback
-                async def do_smart_turn(end_time: float, language: str) -> None:
+                async def do_eot_detection(end_time: float, language: str) -> None:
                     try:
                         # Wait for Smart Turn result
-                        result = await self._predict_smart_turn(end_time, language)
+                        if self._config.end_of_utterance_mode == EndOfUtteranceMode.SMART_TURN:
+                            result = await self._predict_smart_turn(end_time, language)
+                        else:
+                            result = None
 
                         # Create a new task to evaluate the finalize delay
                         delay = await self._calculate_finalize_delay(self._current_view, smart_turn_prediction=result)
@@ -1345,7 +1338,8 @@ class VoiceAgentClient(AsyncClient):
 
                 # Add task
                 self._end_of_turn_handler.add_task(
-                    asyncio.create_task(do_smart_turn(speaker_end_time, self._config.language)), "smart_turn"
+                    asyncio.create_task(do_eot_detection(speaker_end_time, self._config.language)),
+                    self._config.end_of_utterance_mode.value,
                 )
 
         # Speaking has started

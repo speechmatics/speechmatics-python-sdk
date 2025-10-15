@@ -47,7 +47,7 @@ Enable formatted console output with colours and emojis.
 Save all output to a JSONL file for later analysis.
 
 **`-v, --verbose`**
-Increase logging verbosity. `-v` includes `END_OF_TURN_PREDICTION`. `-vv` adds additional payloads: `END_OF_UTTERANCE`, `ADD_PARTIAL_TRANSCRIPT`, and `ADD_TRANSCRIPT`. Useful for debugging or detailed analysis. Default: `0`.
+Increase logging verbosity. `-v` adds speaker start/end VAD events. `-vv` also emits `END_OF_TURN_PREDICTION`. `-vvv` adds additional payloads: `END_OF_UTTERANCE`, `ADD_PARTIAL_TRANSCRIPT`, and `ADD_TRANSCRIPT`. Useful for debugging or detailed analysis. Default: `0`.
 
 ### Audio Configuration
 
@@ -188,16 +188,22 @@ python ./examples/voice/cli/main.py -k YOUR_KEY -o output.jsonl -p
 
 ### Verbose logging
 
-Show turn prediction events:
+Show speaker start/end events:
 
 ```bash
 python ./examples/voice/cli/main.py -k YOUR_KEY -i audio.wav -v -p
 ```
 
-Include additional payloads for debugging:
+Include turn prediction events:
 
 ```bash
 python ./examples/voice/cli/main.py -k YOUR_KEY -i audio.wav -vv -p
+```
+
+Include additional payloads for debugging:
+
+```bash
+python ./examples/voice/cli/main.py -k YOUR_KEY -i audio.wav -vvv -p
 ```
 
 ### Audio file with speaker focus

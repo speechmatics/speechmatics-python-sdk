@@ -100,15 +100,32 @@ class FragmentUtils:
         # Create SpeakerFragments objects
         segments: list[SpeakerSegment] = []
         for group in speaker_groups:
-            segment = FragmentUtils.segment_from_fragments(
-                session=session,
-                fragments=group,
-                focus_speakers=focus_speakers,
-                annotate=annotate_segments,
-            )
-            if segment:
-                segment.text = FragmentUtils.format_segment_text(session=session, segment=segment)
-                segments.append(segment)
+            # Skip if the group is empty
+            if not group:
+                continue
+
+            # Split group into sub-groups by end-of-sentence markers (finals only)
+            subgroup: list[SpeechFragment] = []
+            subgroups: list[list[SpeechFragment]] = []
+            for frag in group:
+                subgroup.append(frag)
+                if frag.is_eos and frag.is_final:
+                    subgroups.append(subgroup)
+                    subgroup = []
+            if subgroup:
+                subgroups.append(subgroup)
+
+            # Process each of the sub-groups
+            for fragments_subset in subgroups:
+                segment = FragmentUtils.segment_from_fragments(
+                    session=session,
+                    fragments=fragments_subset,
+                    focus_speakers=focus_speakers,
+                    annotate=annotate_segments,
+                )
+                if segment:
+                    segment.text = FragmentUtils.format_segment_text(session=session, segment=segment)
+                    segments.append(segment)
 
         # Return the grouped SpeakerFragments objects
         return segments
