@@ -126,6 +126,7 @@ async def test_prediction(sample: TranscriptionTest):
     client.on(AgentServerMessageType.ADD_SEGMENT, log_message)
     client.on(AgentServerMessageType.SPEAKER_STARTED, log_message)
     client.on(AgentServerMessageType.SPEAKER_ENDED, log_message)
+    client.on(AgentServerMessageType.SPEAKER_METRICS, log_message)
     client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, log_message)
     client.on(AgentServerMessageType.END_OF_TURN, log_message)
 

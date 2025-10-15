@@ -1026,15 +1026,42 @@ class VoiceAgentClient(AsyncClient):
                 if not self._turn_start_time:
                     self._turn_start_time = self._current_view.start_time
 
-            # Send updated speaker metrics
-            if self._dz_enabled and self.listeners(AgentServerMessageType.SPEAKER_METRICS):
-                self.emit(
-                    AgentServerMessageType.SPEAKER_METRICS,
-                    {
-                        "message": AgentServerMessageType.SPEAKER_METRICS.value,
-                        "speakers": [s.model_dump() for s in self._session_speakers.values()],
-                    },
-                )
+                # Send updated speaker metrics
+                if self._dz_enabled and self.listeners(AgentServerMessageType.SPEAKER_METRICS):
+                    """Update the metrics of the speakers in the sesseion."""
+
+                    # Finalized words
+                    final_words = [
+                        f
+                        for seg in final_segments
+                        for f in seg.fragments
+                        if f.type_ == "word" and f.speaker is not None
+                    ]
+
+                    # Only process if we have words
+                    if final_words:
+                        # Update the metrics of the speakers in the session
+                        for frag in final_words:
+                            # Check we have a speaker
+                            if frag.speaker is None:
+                                continue
+
+                            # Create new speaker
+                            if frag.speaker not in self._session_speakers:
+                                self._session_speakers[frag.speaker] = SessionSpeaker(speaker_id=frag.speaker)
+
+                            # Update metrics
+                            self._session_speakers[frag.speaker].word_count += 1
+                            self._session_speakers[frag.speaker].last_heard = frag.end_time
+
+                        # Emit
+                        self.emit(
+                            AgentServerMessageType.SPEAKER_METRICS,
+                            {
+                                "message": AgentServerMessageType.SPEAKER_METRICS.value,
+                                "speakers": [s.model_dump() for s in self._session_speakers.values()],
+                            },
+                        )
 
         # Emit end of turn
         if end_of_turn and self._previous_view:
@@ -1248,16 +1275,6 @@ class VoiceAgentClient(AsyncClient):
 
         # Are we already speaking
         already_speaking = self._is_speaking
-
-        # Update speaker info based off partials
-        if self._dz_enabled and self.listeners(AgentServerMessageType.SPEAKER_METRICS):
-            for frag in partial_words:
-                if frag.speaker is None:
-                    continue
-                if frag.speaker not in self._session_speakers:
-                    self._session_speakers[frag.speaker] = SessionSpeaker(speaker_id=frag.speaker)
-                self._session_speakers[frag.speaker].word_count += 1
-                self._session_speakers[frag.speaker].last_heard = frag.end_time
 
         # Speakers
         current_speaker = self._current_speaker
