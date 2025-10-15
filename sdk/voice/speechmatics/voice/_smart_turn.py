@@ -8,23 +8,37 @@ import datetime
 import logging
 import os
 import urllib.request
+from typing import Any
 from typing import Optional
 from urllib.parse import urlparse
 
 import numpy as np
-import onnxruntime as ort
 from pydantic import BaseModel
 
-os.environ["TRANSFORMERS_NO_ADVISORY_WARNINGS"] = "1"
-from transformers import WhisperFeatureExtractor  # noqa: E402
-
+ort: Any
+WhisperFeatureExtractor: Any
 logger = logging.getLogger(__name__)
+
+try:
+    os.environ["TRANSFORMERS_NO_ADVISORY_WARNINGS"] = "1"
+    import onnxruntime as _ort
+    from transformers import WhisperFeatureExtractor as _WhisperFeatureExtractor
+
+    ort = _ort
+    WhisperFeatureExtractor = _WhisperFeatureExtractor
+except ModuleNotFoundError:
+    WhisperFeatureExtractor = None
+    ort = None
+
 
 # Base model from HuggingFace
 ONNX_HF_URL = os.getenv(
     "SMART_TURN_HF_URL", "https://huggingface.co/pipecat-ai/smart-turn-v3/resolve/main/smart-turn-v3.0.onnx"
 )
 ONNX_MODEL_PATH = os.getenv("SMART_TURN_MODEL_PATH", ".models/smart-turn-v3.0.onnx")
+
+# Hint for when dependencies are not available
+SMART_TURN_INSTALL_HINT = "SMART_TURN mode unavailable. Install `speechmatics-voice[smart]` to enable SMART_TURN mode."
 
 
 class SmartTurnPredictionResult(BaseModel):
@@ -70,11 +84,21 @@ class SmartTurnDetector:
         if auto_init:
             self.setup()
 
+    @staticmethod
+    def dependencies_available() -> bool:
+        """Return whether optional Smart Turn dependencies are installed."""
+        return ort is not None and WhisperFeatureExtractor is not None
+
     def setup(self) -> None:
         """Setup the detector.
 
         Initialises the ONNX model and feature extractor.
         """
+
+        # Show warning if dependencies are not available
+        if not self.dependencies_available():
+            logger.warning(SMART_TURN_INSTALL_HINT)
+            return
 
         try:
             # Check / download the model
@@ -106,6 +130,10 @@ class SmartTurnDetector:
         Returns:
             ONNX inference session.
         """
+
+        # Show warning if dependencies are not available
+        if ort is None:
+            raise RuntimeError("onnxruntime is not available")
 
         # Build the session
         so = ort.SessionOptions()

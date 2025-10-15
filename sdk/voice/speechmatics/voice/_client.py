@@ -42,6 +42,7 @@ from ._models import SpeakerVADStatus
 from ._models import SpeechFragment
 from ._models import TranscriptionUpdatePreset
 from ._models import VoiceAgentConfig
+from ._smart_turn import SMART_TURN_INSTALL_HINT
 from ._smart_turn import SmartTurnDetector
 from ._smart_turn import SmartTurnPredictionResult
 from ._turn import TurnTaskProcessor
@@ -191,14 +192,23 @@ class VoiceAgentClient(AsyncClient):
         )
         self._turn_detector: Optional[SmartTurnDetector] = None
 
-        # Start turn detector
+        # Start turn detector if SMART_TURN requested
         if self._config.end_of_utterance_mode == EndOfUtteranceMode.SMART_TURN:
-            detector = SmartTurnDetector(auto_init=True, threshold=self._config.smart_turn_config.smart_turn_threshold)
-            if detector.model_exists():
-                self._turn_detector = detector
-                self._config.smart_turn_config.audio_buffer_length = 10.0
+            eou_mode_ok: bool = False
+            if not SmartTurnDetector.dependencies_available():
+                self._logger.warning(SMART_TURN_INSTALL_HINT)
             else:
-                self._logger.warning("Smart Turn model not available.")
+                detector = SmartTurnDetector(
+                    auto_init=True,
+                    threshold=self._config.smart_turn_config.smart_turn_threshold,
+                )
+                if detector.model_exists():
+                    self._turn_detector = detector
+                    self._config.smart_turn_config.audio_buffer_length = 10.0
+                    eou_mode_ok = True
+            if not eou_mode_ok:
+                self._logger.warning("Smart Turn model not available. Falling back to ADAPTIVE.")
+                self._config.end_of_utterance_mode = EndOfUtteranceMode.ADAPTIVE
 
         # Diarization / speaker focus
         self._end_of_utterance_mode: EndOfUtteranceMode = self._config.end_of_utterance_mode
@@ -1354,7 +1364,7 @@ class VoiceAgentClient(AsyncClient):
                 async def do_eot_detection(end_time: float, language: str) -> None:
                     try:
                         # Wait for Smart Turn result
-                        if self._config.end_of_utterance_mode == EndOfUtteranceMode.SMART_TURN:
+                        if self._end_of_utterance_mode == EndOfUtteranceMode.SMART_TURN:
                             result = await self._predict_smart_turn(end_time, language)
                         else:
                             result = None
@@ -1371,7 +1381,7 @@ class VoiceAgentClient(AsyncClient):
                 # Add task
                 self._end_of_turn_handler.add_task(
                     asyncio.create_task(do_eot_detection(speaker_end_time, self._config.language)),
-                    self._config.end_of_utterance_mode.value,
+                    self._end_of_utterance_mode.value,
                 )
 
         # Speaking has started

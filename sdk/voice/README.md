@@ -8,50 +8,17 @@ An SDK for working with the Speechmatics Real-Time API optimised for use in voic
 
 The Voice Agent SDK is designed to be a set of helper classes that use the Real-Time AsyncClient to connect to the Speechmatics Real-Time API and process the transcription results from the STT engine and combine them into manageable segments of text. Taking advantage of speaker diarization, the transcription is grouped into individual speakers, with advanced options to focus on and/or ignore specific speakers.
 
-```mermaid
-graph TD
-    A[Client connects] --> B[Recognition started]
-    B --> C[Audio chunks sent]
-    C --> D[STT processing]
-
-    D --> E[Partial transcripts rx]
-    D --> F[Final transcripts rx]
-
-    E --> G[Process transcripts]
-    F --> G
-
-    G --> H[Accumulate speech fragments]
-    H --> I{Changes detected?}
-
-    I -->|No| J[Skip]
-    I -->|Yes| K[Create speaker segments]
-
-    K --> L{Segment type?}
-    L -->|Final| M[Emit final segments]
-    L -->|Partial| N[Emit partial segments]
-
-    M --> O[Trim fragments]
-    N --> P{End of utterance?}
-    O --> P
-
-    P -->|FIXED mode| Q[Wait for STT signal]
-    P -->|ADAPTIVE mode| R[Calculate timing]
-
-    Q --> S[Emit END_OF_TURN]
-    R --> S
-
-    style A fill:#e1f5fe
-    style B fill:#e8f5e8
-    style M fill:#fff3e0
-    style N fill:#fff3e0
-    style S fill:#fce4ec
-```
-
 ## Installation
 
 ```bash
+# Install with standard turn detection
 pip install speechmatics-voice
+
+# Install with SMART_TURN (includes ONNX runtime and transformers)
+pip install speechmatics-voice[smart]
 ```
+
+> **Note:** If the `smart` extras are not installed, selecting `EndOfUtteranceMode.SMART_TURN` will emit a warning and automatically fall back to `EndOfUtteranceMode.ADAPTIVE`.
 
 ## Requirements
 
@@ -157,7 +124,7 @@ The `VoiceAgentClient` can be configured with a number of options to control the
 - **`max_delay`** (`float`): Maximum delay in seconds for transcription. This forces the STT engine to speed up the processing of transcribed words and reduces the interval between partial and final results. Lower values can have an impact on accuracy. Defaults to `0.7`.
 - **`end_of_utterance_silence_trigger`** (`float`): Maximum delay in seconds for end of utterance trigger. The delay is used to wait for any further transcribed words before emitting the final word frames. The value must be lower than `max_delay`. Defaults to `0.2`.
 - **`end_of_utterance_max_delay`** (`float`): Maximum delay in seconds for end of utterance delay. The delay is used to wait for any further transcribed words before emitting the final word frames. The value must be greater than `end_of_utterance_silence_trigger`. Defaults to `10.0`.
-- **`end_of_utterance_mode`** (`EndOfUtteranceMode`): End of utterance delay mode. When `ADAPTIVE` is used, the delay can be adjusted on the content of what the most recent speaker has said, such as rate of speech and whether they have any pauses or disfluencies. When `FIXED` is used, the delay is fixed to the value of `end_of_utterance_silence_trigger`. Use of `EXTERNAL` disables end of utterance detection and uses a fallback timer. Defaults to `EndOfUtteranceMode.FIXED`.
+- **`end_of_utterance_mode`** (`EndOfUtteranceMode`): End of utterance delay mode. When `ADAPTIVE` is used, the delay can be adjusted on the content of what the most recent speaker has said, such as rate of speech and whether they have any pauses or disfluencies. When `FIXED` is used, the delay is fixed to the value of `end_of_utterance_silence_trigger`. Use of `EXTERNAL` disables end of utterance detection and uses a fallback timer. `SMART_TURN` uses an acoustic model (requires installing `speechmatics-voice[smart]`) and automatically falls back to `ADAPTIVE` when the optional dependencies or model are unavailable. Defaults to `EndOfUtteranceMode.FIXED`.
 
 #### Language and Vocabulary Features
 
@@ -177,6 +144,9 @@ The `VoiceAgentClient` can be configured with a number of options to control the
 
 - **`include_results`** (`bool`): Include word data in the response. This is useful for debugging and understanding the STT engine's behaviour. Defaults to `False`.
 - **`enable_preview_features`** (`bool`): Enable preview features. Defaults to `False`.
+- **`transcription_update_preset`** (`TranscriptionUpdatePreset`): Controls when transcription updates are emitted (e.g. only on finalized changes or when timings shift). Defaults to `TranscriptionUpdatePreset.COMPLETE`.
+- **`smart_turn_config`** (`SmartTurnConfig`): Configures SMART_TURN behaviour, such as audio buffer length and probability threshold. Only applies when `end_of_utterance_mode` is `SMART_TURN`.
+- **`speech_segment_config`** (`SpeechSegmentConfig`): Fine-tunes how speech segments are generated and post-processed before emission.
 
 #### Audio Configuration
 
@@ -190,8 +160,12 @@ from speechmatics.voice import (
     AdditionalVocabEntry,
     AudioEncoding,
     SpeakerFocusConfig,
+    SmartTurnConfig,
+    SpeechSegmentConfig,
+    SpeakerFocusMode,
     EndOfUtteranceMode,
     OperatingPoint,
+    TranscriptionUpdatePreset,
     VoiceAgentConfig
 )
 
@@ -227,8 +201,26 @@ advanced_config = VoiceAgentConfig(
         )
     ],
     include_results=True,
+    transcription_update_preset=TranscriptionUpdatePreset.COMPLETE_PLUS_TIMING,
+    smart_turn_config=SmartTurnConfig(
+        audio_buffer_length=8.0,
+        smart_turn_threshold=0.78,
+        slice_margin=0.1,
+    ),
+    speech_segment_config=SpeechSegmentConfig(),
     sample_rate=16000,
     audio_encoding=AudioEncoding.PCM_S16LE
+)
+
+# SMART_TURN configuration (requires `pip install speechmatics-voice[smart]`)
+smart_turn_enabled_config = VoiceAgentConfig(
+    language="en",
+    end_of_utterance_mode=EndOfUtteranceMode.SMART_TURN,
+    smart_turn_config=SmartTurnConfig(
+        audio_buffer_length=10.0,
+        smart_turn_threshold=0.75,
+        slice_margin=0.05,
+    )
 )
 ```
 
@@ -345,6 +337,7 @@ The message is emitted differently for the different `EndOfUtterance` modes:
 
 - `FIXED` -> emitted when the fixed delay has elapsed with the STT engine
 - `ADAPTIVE` -> emitted when the adaptive delay has elapsed with the client
+- `SMART_TURN` -> emitted when the acoustic model predicts the turn has completed (requires optional smart extras; falls back to `ADAPTIVE` if unavailable)
 - `EXTERNAL` -> emitted when an external trigger forces the end of turn
 
 The `ADAPTIVE` mode takes into consideration a number of factors to determine whether the most recent speaker as completed their turn. These include:
@@ -353,7 +346,9 @@ The `ADAPTIVE` mode takes into consideration a number of factors to determine wh
 - Whether they have been using disfluencies (e.g. "um", "er", "ah")
 - If the words spoken are considered to be a complete sentence
 
-The `end_of_utterance_silence_trigger` is used to calculate the baseline `FIXED` and `ADAPTIVE` delays. As a fallback, the `end_of_utterance_max_delay` is used to trigger the end of turn after a fixed amount of time, regardless of the content of what the most recent speaker has said.
+Finally, `SMART_TURN` mode, in addition to the above, takes into consideration the output of the acoustic model to determine whether the most recent speaker as completed their turn.
+
+The `end_of_utterance_silence_trigger` is used to calculate the baseline `FIXED`, `ADAPTIVE` and `SMART_TURN` delays. As a fallback, the `end_of_utterance_max_delay` is used to trigger the end of turn after a fixed amount of time, regardless of the content of what the most recent speaker has said.
 
 When using `EXTERNAL` mode, call `client.finalize()` to force the end of turn.
 
@@ -368,7 +363,9 @@ When using `EXTERNAL` mode, call `client.finalize()` to force the end of turn.
 
 - `SPEECHMATICS_API_KEY` - Your Speechmatics API key
 - `SPEECHMATICS_RT_URL` - Custom WebSocket endpoint (optional)
-- `SPEECHMATICS_DEBUG_MORE` - Enable verbose debugging
+- `SPEECHMATICS_DEBUG_MORE` - Enable verbose debugging (optional)
+- `SMART_TURN_MODEL_PATH` - Path for the SMART_TURN ONNX model (optional)
+- `SMART_TURN_HF_URL` - Override download URL for the SMART_TURN ONNX model (optional)
 
 ## Documentation
 
