@@ -166,6 +166,8 @@ class AgentServerMessageType(str, Enum):
         SpeakerEnded: Speech has ended.
         AddPartialSegment: A partial / interim segment has been detected.
         AddSegment: A final segment has been detected.
+        StartOfTurn: Start of turn has been detected.
+        EndOfTurnPrediction: End of turn prediction timing.
         EndOfTurn: End of turn has been detected.
         SpeakersResult: Speakers result has been detected.
         Metrics: Metrics for the STT engine.
@@ -213,6 +215,7 @@ class AgentServerMessageType(str, Enum):
     ADD_SEGMENT = "AddSegment"
 
     # End of turn messages
+    START_OF_TURN = "StartOfTurn"
     END_OF_TURN_PREDICTION = "EndOfTurnPrediction"
     END_OF_TURN = "EndOfTurn"
 

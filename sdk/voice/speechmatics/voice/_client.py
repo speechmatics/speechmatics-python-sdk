@@ -1069,7 +1069,7 @@ class VoiceAgentClient(AsyncClient):
                             },
                         )
 
-        # Emit end of turn
+        # Emit END_OF_TURN
         if end_of_turn and self._previous_view:
             # Metadata (for LAST view)
             metadata = {"start_time": self._turn_start_time, "end_time": self._previous_view.end_time}
@@ -1334,6 +1334,20 @@ class VoiceAgentClient(AsyncClient):
 
         # Event time
         event_time = speaker_start_time if self._is_speaking else speaker_end_time
+
+        # Emit start of turn
+        if self._is_speaking and self._end_of_utterance_mode in [
+            EndOfUtteranceMode.ADAPTIVE,
+            EndOfUtteranceMode.SMART_TURN,
+        ]:
+            self.emit(
+                AgentServerMessageType.START_OF_TURN,
+                {
+                    "message": AgentServerMessageType.START_OF_TURN.value,
+                    "speaker_id": speaker,
+                    "time": event_time,
+                },
+            )
 
         # Emit the event for latest speaker
         msg: AgentServerMessageType = (
