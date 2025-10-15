@@ -1344,8 +1344,10 @@ class VoiceAgentClient(AsyncClient):
                 AgentServerMessageType.START_OF_TURN,
                 {
                     "message": AgentServerMessageType.START_OF_TURN.value,
-                    "speaker_id": speaker,
-                    "time": event_time,
+                    "turn_id": self._end_of_turn_handler.turn_id,
+                    "metadata": {
+                        "start_time": event_time,
+                    },
                 },
             )
 
