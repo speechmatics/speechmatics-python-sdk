@@ -78,10 +78,10 @@ Maximum transcription delay in seconds. Default: `0.7`.
 
 ### Speaker Management
 
-**`--focus-speakers S1 S2 ...`**
+**`--focus-speakers 'S1' 'S2' ...`**
 Speakers to focus on. Only these speakers will be emitted as finalized frames.
 
-**`--ignore-speakers S1 S2 ...`**
+**`--ignore-speakers 'S1' 'S2' ...`**
 Specific speakers to exclude from transcription.
 
 **`--ignore-mode`**
@@ -94,6 +94,7 @@ Enrol speakers and output their identifiers at the end of the session.
 
 **`-s, --speakers JSON|FILE`**
 Use known speakers from previous sessions. Provide as either:
+
 - A JSON string: `'[{"label": "Alice", "speaker_identifiers": ["XX...XX"]}]'`
 - A path to a JSON file: `speakers.json`
 

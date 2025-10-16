@@ -23,6 +23,7 @@ from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import SpeakerFocusConfig
 from speechmatics.voice import SpeakerFocusMode
 from speechmatics.voice import SpeakerIdentifier
+from speechmatics.voice import SpeechSegmentConfig
 from speechmatics.voice import VoiceAgentClient
 from speechmatics.voice import VoiceAgentConfig
 
@@ -90,6 +91,7 @@ async def main() -> None:
             AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"]),
         ],
         known_speakers=known_speakers,
+        speech_segment_config=SpeechSegmentConfig(split_on_eos=not args.no_split),
     )
 
     # Create Voice Agent client
@@ -328,24 +330,34 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
     # Register standard handlers
     client.on(AgentServerMessageType.RECOGNITION_STARTED, log_message)
     client.on(AgentServerMessageType.END_OF_TRANSCRIPT, log_message)
-    client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, log_message)
-    client.on(AgentServerMessageType.ADD_SEGMENT, log_message)
-    client.on(AgentServerMessageType.START_OF_TURN, log_message)
-    client.on(AgentServerMessageType.END_OF_TURN, log_message)
-    client.on(AgentServerMessageType.SPEAKERS_RESULT, log_message)
 
-    # Verbose VAD events
-    if args.verbose >= 1:
-        client.on(AgentServerMessageType.SPEAKER_STARTED, log_message)
-        client.on(AgentServerMessageType.SPEAKER_ENDED, log_message)
-        client.on(AgentServerMessageType.SPEAKER_METRICS, log_message)
+    # Voice SDK messages
+    if not args.legacy:
+        # Segment messages
+        client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, log_message)
+        client.on(AgentServerMessageType.ADD_SEGMENT, log_message)
+        client.on(AgentServerMessageType.START_OF_TURN, log_message)
+        client.on(AgentServerMessageType.END_OF_TURN, log_message)
+        client.on(AgentServerMessageType.SPEAKERS_RESULT, log_message)
 
-    # Verbose turn prediction
-    if args.verbose >= 2:
-        client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, log_message)
+        # Verbose VAD events
+        if args.verbose >= 1:
+            client.on(AgentServerMessageType.SPEAKER_STARTED, log_message)
+            client.on(AgentServerMessageType.SPEAKER_ENDED, log_message)
+            client.on(AgentServerMessageType.SPEAKER_METRICS, log_message)
 
-    # Verbose STT events
-    if args.verbose >= 3:
+        # Verbose turn prediction
+        if args.verbose >= 2:
+            client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, log_message)
+
+        # Verbose STT events
+        if args.verbose >= 3:
+            client.on(AgentServerMessageType.END_OF_UTTERANCE, log_message)
+            client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, log_message)
+            client.on(AgentServerMessageType.ADD_TRANSCRIPT, log_message)
+
+    # Legacy messages
+    else:
         client.on(AgentServerMessageType.END_OF_UTTERANCE, log_message)
         client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, log_message)
         client.on(AgentServerMessageType.ADD_TRANSCRIPT, log_message)
@@ -564,6 +576,12 @@ def parse_args():
         default=0,
         help="Increase logging verbosity (-v: add speaker VAD events, -vv: add END_OF_TURN_PREDICTION, -vvv: add additional payloads)",
     )
+    parser.add_argument(
+        "-l",
+        "--legacy",
+        action="store_true",
+        help="Only show payloads from AsyncClient (AddPartialTranscript | AddTranscript) (default: False)",
+    )
 
     # ==============================================================================
     # Voice Agent configuration
@@ -590,6 +608,12 @@ def parse_args():
         choices=["FIXED", "ADAPTIVE", "EXTERNAL", "SMART_TURN"],
         default="ADAPTIVE",
         help="End of utterance detection mode (default: ADAPTIVE)",
+    )
+    parser.add_argument(
+        "-S",
+        "--no-split",
+        action="store_true",
+        help="Do not emit finalized sentences, only complete segments. (default: False)",
     )
 
     # ==============================================================================

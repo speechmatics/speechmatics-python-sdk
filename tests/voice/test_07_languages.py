@@ -8,15 +8,14 @@ from typing import Any
 from typing import Optional
 
 import pytest
-from _utils import cer
 from _utils import get_client
-from _utils import normalize
 from _utils import send_audio_file
 
 from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import VoiceAgentConfig
+from speechmatics.voice._utils import TextUtils
 
 # Skip for CI testing
 pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping language tests in CI")
@@ -188,9 +187,9 @@ async def test_transcribe_languages(sample: AudioSample):
     transcribed = sample.sentence_break.join([seg["text"] for seg in segments])
 
     # Get normalized versions of the transcription and reference
-    str_original = normalize(sample.transcript)
-    str_transcribed = normalize(transcribed)
-    str_cer = cer(str_original, str_transcribed)
+    str_original = TextUtils.normalize(sample.transcript)
+    str_transcribed = TextUtils.normalize(transcribed)
+    str_cer = TextUtils.cer(str_original, str_transcribed)
 
     # Assert the CER
     if sample.use_cer:

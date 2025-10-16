@@ -475,7 +475,6 @@ class VoiceAgentConfig(BaseModel):
             Defaults to `TranscriptionUpdatePreset.COMPLETE`.
 
         smart_turn_config: Smart turn configuration for the Speechmatics Voice Agent.
-
         speech_segment_config: Speech segment configuration for the Speechmatics Voice Agent.
 
         sample_rate: Audio sample rate for streaming. Defaults to `16000`.

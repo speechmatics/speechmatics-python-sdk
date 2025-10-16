@@ -760,8 +760,8 @@ class VoiceAgentClient(AsyncClient):
             is_final=is_final,
         )
 
-        # Skip if no fragments or `AddTranscript`
-        if not fragments_available or is_final:
+        # Skip if no fragments
+        if not fragments_available:
             return
 
         # Process
@@ -845,10 +845,6 @@ class VoiceAgentClient(AsyncClient):
                     # Track the last fragment end time
                     self._last_fragment_end_time = max(self._last_fragment_end_time, fragment.end_time)
 
-            # Evaluate for VAD (only done on partials)
-            if not is_final:
-                self._vad_evaluation(fragments)
-
             # Fragments to retain
             retained_fragments = [
                 frag for frag in self._speech_fragments if frag.is_final and frag.start_time >= self._trim_before_time
@@ -866,6 +862,10 @@ class VoiceAgentClient(AsyncClient):
                 and self._speech_fragments[0].attaches_to == "previous"
             ):
                 self._speech_fragments.pop(0)
+
+            # Evaluate for VAD (only done on partials)
+            if not is_final:
+                self._vad_evaluation(fragments)
 
             # Debug the fragments
             if DEBUG_MORE:
