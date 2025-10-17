@@ -764,8 +764,9 @@ class VoiceAgentClient(AsyncClient):
         if not fragments_available:
             return
 
-        # Process
-        await self._process_speech_fragments(self._change_filter)
+        # Process (only done with non-finals)
+        if not is_final:
+            await self._process_speech_fragments(self._change_filter)
 
     async def _add_speech_fragments(self, message: dict[str, Any], is_final: bool = False) -> bool:
         """Takes a new Partial or Final from the STT engine.
