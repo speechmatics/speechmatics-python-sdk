@@ -32,10 +32,10 @@ except ModuleNotFoundError:
 
 
 # Base model from HuggingFace
-ONNX_HF_URL = os.getenv(
+SMART_TURN_MODEL_URL = os.getenv(
     "SMART_TURN_HF_URL", "https://huggingface.co/pipecat-ai/smart-turn-v3/resolve/main/smart-turn-v3.0.onnx"
 )
-ONNX_MODEL_PATH = os.getenv("SMART_TURN_MODEL_PATH", ".models/smart-turn-v3.0.onnx")
+SMART_TURN_MODEL_LOCAL_PATH = os.getenv("SMART_TURN_MODEL_PATH", ".models/smart-turn-v3.0.onnx")
 
 # Hint for when dependencies are not available
 SMART_TURN_INSTALL_HINT = "SMART_TURN mode unavailable. Install `speechmatics-voice[smart]` to enable SMART_TURN mode."
@@ -110,7 +110,7 @@ class SmartTurnDetector:
                 return
 
             # Build the session
-            self.session = self.build_session(ONNX_MODEL_PATH)
+            self.session = self.build_session(SMART_TURN_MODEL_LOCAL_PATH)
 
             # Load the feature extractor
             self.feature_extractor = WhisperFeatureExtractor(chunk_length=8)
@@ -256,7 +256,7 @@ class SmartTurnDetector:
             return
 
         # Check the URL for valid schemes
-        parsed_url = urlparse(ONNX_HF_URL)
+        parsed_url = urlparse(SMART_TURN_MODEL_URL)
         if parsed_url.scheme not in ("http", "https"):
             logger.error(f"Invalid URL scheme: {parsed_url.scheme}")
             return
@@ -265,10 +265,10 @@ class SmartTurnDetector:
         logger.warning("Smart Turn model not found. Downloading from HuggingFace...")
 
         # Create the directory
-        os.makedirs(os.path.dirname(ONNX_MODEL_PATH), exist_ok=True)
+        os.makedirs(os.path.dirname(SMART_TURN_MODEL_LOCAL_PATH), exist_ok=True)
 
         # Download
-        urllib.request.urlretrieve(ONNX_HF_URL, ONNX_MODEL_PATH)  # nosec B310
+        urllib.request.urlretrieve(SMART_TURN_MODEL_URL, SMART_TURN_MODEL_LOCAL_PATH)  # nosec B310
 
     @staticmethod
     def model_exists() -> bool:
@@ -277,7 +277,7 @@ class SmartTurnDetector:
         Returns:
             True if the model file exists, False otherwise.
         """
-        return os.path.exists(ONNX_MODEL_PATH)
+        return os.path.exists(SMART_TURN_MODEL_LOCAL_PATH)
 
     @staticmethod
     def valid_language(language: str) -> bool:
