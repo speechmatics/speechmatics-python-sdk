@@ -748,7 +748,7 @@ class VoiceAgentClient(AsyncClient):
         """Handle the partial and final transcript events (async).
 
         As `AddTranscript` messages are _always_ followed by `AddPartialTranscript` messages,
-        we can skip processing. Also skop if there are no fragments in the buffer.
+        we can skip processing. Also skip if there are no fragments in the buffer.
 
         Args:
             message: The new Partial or Final from the STT engine.
@@ -1099,9 +1099,6 @@ class VoiceAgentClient(AsyncClient):
             self._previous_view = None
             self._turn_start_time = None
 
-            # Update the turn handler (which will cancel any pending tasks)
-            self._end_of_turn_handler.next()
-
     # ============================================================================
     # TURN DETECTION & FINALIZATION
     # ============================================================================
@@ -1171,7 +1168,7 @@ class VoiceAgentClient(AsyncClient):
             if last_active_segment.annotation.has(AnnotationFlags.ENDS_WITH_DISFLUENCY):
                 add_multipler_reason(2.5, "ends_with_disfluency")
             elif last_active_segment.annotation.has(AnnotationFlags.HAS_DISFLUENCY):
-                add_multipler_reason(1.0, "has_disfluency")
+                add_multipler_reason(0.25, "has_disfluency")
 
             # Ends with an end of sentence
             if last_active_segment.annotation.has(AnnotationFlags.ENDS_WITH_EOS, AnnotationFlags.ENDS_WITH_FINAL):
@@ -1290,30 +1287,34 @@ class VoiceAgentClient(AsyncClient):
         # Evaluate if any valid partial words exist
         has_valid_partial = len(partial_words) > 0
 
-        # Are we already speaking
-        already_speaking = self._is_speaking
-
-        # Speakers
+        # Current states
+        current_is_speaking = self._is_speaking
         current_speaker = self._current_speaker
-        speaker = partial_words[-1].speaker if has_valid_partial else self._current_speaker
-        speaker_changed = speaker != current_speaker and current_speaker is not None
 
-        # Start time (taken from the first partial word)
+        # Establish the speaker from latest partials
+        latest_speaker = partial_words[-1].speaker if has_valid_partial else current_speaker
+
+        # Determine if the speaker has changed (and we have a speaker)
+        speaker_changed = latest_speaker != current_speaker and current_speaker is not None
+
+        # Start / end times (earliest and latest)
         speaker_start_time = partial_words[0].start_time if has_valid_partial else None
-
-        # End time (taken from the last partial final)
         speaker_end_time = self._last_fragment_end_time
 
         # If diarization is enabled, indicate speaker switching
-        if self._dz_enabled and speaker is not None:
+        if self._dz_enabled and latest_speaker is not None:
             """When enabled, we send a speech events if the speaker has changed.
+
+            This
+            will emit a SPEAKER_ENDED for the previous speaker and a SPEAKER_STARTED
+            for the new speaker.
 
             For any client that wishes to show _which_ speaker is speaking, this will
             emit events to indicate when speakers switch.
             """
 
             # Check if speaker is different to the current speaker
-            if already_speaking and speaker_changed:
+            if current_is_speaking and speaker_changed:
                 self.emit(
                     AgentServerMessageType.SPEAKER_ENDED,
                     {
@@ -1328,29 +1329,33 @@ class VoiceAgentClient(AsyncClient):
                     {
                         "message": AgentServerMessageType.SPEAKER_STARTED.value,
                         "status": SpeakerVADStatus(
-                            speaker_id=speaker, is_active=True, time=speaker_end_time
+                            speaker_id=latest_speaker, is_active=True, time=speaker_end_time
                         ).model_dump(),
                     },
                 )
 
-        # Update current speaker
-        self._current_speaker = speaker
-
-        # No change required
-        if has_valid_partial == already_speaking:
+        # No further processing if we have no new fragments and we are not speaking
+        if has_valid_partial == current_is_speaking:
             return
 
-        # Set the speaking state
-        self._is_speaking = not self._is_speaking
+        # Update current speaker + speaking states
+        self._current_speaker = latest_speaker
+        self._is_speaking = not current_is_speaking
 
         # Event time
         event_time = speaker_start_time if self._is_speaking else speaker_end_time
 
         # Emit start of turn
-        if self._is_speaking and self._end_of_utterance_mode in [
-            EndOfUtteranceMode.ADAPTIVE,
-            EndOfUtteranceMode.SMART_TURN,
-        ]:
+        if (
+            not self._end_of_turn_handler.turn_active
+            and self._is_speaking
+            and self._end_of_utterance_mode
+            in [
+                EndOfUtteranceMode.ADAPTIVE,
+                EndOfUtteranceMode.SMART_TURN,
+            ]
+        ):
+            self._end_of_turn_handler.start_turn()
             self.emit(
                 AgentServerMessageType.START_OF_TURN,
                 {
@@ -1362,16 +1367,19 @@ class VoiceAgentClient(AsyncClient):
                 },
             )
 
-        # Emit the event for latest speaker
-        msg: AgentServerMessageType = (
-            AgentServerMessageType.SPEAKER_STARTED if self._is_speaking else AgentServerMessageType.SPEAKER_ENDED
-        )
+        # Determine start or end of speaking
+        if self._is_speaking:
+            msg = AgentServerMessageType.SPEAKER_STARTED
+        else:
+            msg = AgentServerMessageType.SPEAKER_ENDED
+
+        # Emit the event
         self.emit(
             msg,
             {
                 "message": msg.value,
                 "status": SpeakerVADStatus(
-                    speaker_id=speaker, is_active=self._is_speaking, time=event_time
+                    speaker_id=latest_speaker, is_active=self._is_speaking, time=event_time
                 ).model_dump(),
             },
         )

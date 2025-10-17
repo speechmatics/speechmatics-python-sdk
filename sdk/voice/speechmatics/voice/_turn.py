@@ -31,6 +31,7 @@ class TurnTaskProcessor:
 
         # Turn id (used to validate tasks)
         self._turn_id = turn_id
+        self._turn_active = False
 
         # Tasks + events
         self._tasks: dict[str, asyncio.Task] = {}
@@ -56,6 +57,15 @@ class TurnTaskProcessor:
             The current turn ID.
         """
         return self._turn_id
+
+    @property
+    def turn_active(self) -> bool:
+        """Get the turn active state.
+
+        Returns:
+            The current turn active state.
+        """
+        return self._turn_active
 
     def update_timer(self, delay: float) -> None:
         """Set a new done trigger.
@@ -104,7 +114,7 @@ class TurnTaskProcessor:
         """Do the done callback."""
 
         # Cancel any pending tasks
-        self.cancel_tasks()
+        self.complete_turn()
 
         # Do the callback
         if self._done_callback:
@@ -126,6 +136,15 @@ class TurnTaskProcessor:
     def reset(self) -> None:
         """Reset the end of turn."""
         self.cancel_tasks()
+
+    def start_turn(self) -> None:
+        """Start the end of turn."""
+        self._turn_active = True
+
+    def complete_turn(self) -> None:
+        """Complete the end of turn."""
+        self.next()
+        self._turn_active = False
 
     def next(self) -> None:
         """Increment the end of turn."""
