@@ -81,6 +81,7 @@ async def main() -> None:
     # Create Voice Agent configuration
     config = VoiceAgentConfig(
         sample_rate=audio_source["sample_rate"],
+        language=args.language,
         end_of_utterance_silence_trigger=args.end_of_utterance_silence_trigger,
         max_delay=args.max_delay,
         enable_diarization=True,
@@ -584,7 +585,7 @@ def parse_args():
         help="Increase logging verbosity (-v: add speaker VAD events, -vv: add END_OF_TURN_PREDICTION, -vvv: add additional payloads)",
     )
     parser.add_argument(
-        "-l",
+        "-L",
         "--legacy",
         action="store_true",
         help="Only show payloads from AsyncClient (AddPartialTranscript | AddTranscript) (default: False)",
@@ -600,6 +601,13 @@ def parse_args():
     # Voice Agent configuration
     # ==============================================================================
 
+    parser.add_argument(
+        "-l",
+        "--language",
+        type=str,
+        default="en",
+        help="Language code (default: en)",
+    )
     parser.add_argument(
         "-d",
         "--max-delay",
