@@ -14,6 +14,7 @@ from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import SpeechSegmentConfig
+from speechmatics.voice import SpeechSegmentEmitMode
 from speechmatics.voice import VoiceAgentConfig
 from speechmatics.voice._smart_turn import SmartTurnDetector
 
@@ -103,7 +104,7 @@ async def test_prediction(sample: TranscriptionTest):
             sample_rate=sample.sample_rate,
             additional_vocab=sample.additional_vocab,
             enable_preview_features=True,
-            speech_segment_config=SpeechSegmentConfig(split_on_eos=False),
+            speech_segment_config=SpeechSegmentConfig(emit_mode=SpeechSegmentEmitMode.ON_END_OF_TURN),
         ),
     )
 

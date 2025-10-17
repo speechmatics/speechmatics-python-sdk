@@ -16,6 +16,7 @@ from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import SpeakerFocusConfig
 from speechmatics.voice import SpeakerFocusMode
 from speechmatics.voice import SpeechSegmentConfig
+from speechmatics.voice import SpeechSegmentEmitMode
 from speechmatics.voice import VoiceAgentConfig
 from speechmatics.voice._models import SpeakerSegment
 
@@ -104,7 +105,7 @@ async def test_multiple_speakers(sample: SpeakerTest):
         additional_vocab=[
             AdditionalVocabEntry(content="GeoRouter"),
         ],
-        speech_segment_config=SpeechSegmentConfig(split_on_eos=False),
+        speech_segment_config=SpeechSegmentConfig(emit_mode=SpeechSegmentEmitMode.ON_END_OF_TURN),
     )
 
     # Diarization options

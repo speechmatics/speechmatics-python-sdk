@@ -91,7 +91,7 @@ async def main() -> None:
             AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"]),
         ],
         known_speakers=known_speakers,
-        speech_segment_config=SpeechSegmentConfig(split_on_eos=not args.no_split),
+        speech_segment_config=SpeechSegmentConfig(emit_mode=args.emit_mode.lower()),
     )
 
     # Create Voice Agent client
@@ -194,8 +194,12 @@ def setup_microphone_source(args) -> dict | None:
     Returns:
         Dictionary with microphone information or None on error.
     """
-    print("\nSelect microphone input device:")
-    selected_device = select_audio_device()
+
+    if not args.default_device:
+        print("\nSelect microphone input device:")
+        selected_device = select_audio_device()
+    else:
+        selected_device = None
 
     mic = Microphone(
         sample_rate=args.sample_rate,
@@ -238,8 +242,11 @@ def setup_audio_output(audio_source: dict, args) -> AudioPlayer | None:
         print("\nAudio playback muted - transcription only")
         return None
 
-    print("\nSelect audio output device for playback:")
-    output_device = select_audio_output_device()
+    if not args.default_device:
+        print("\nSelect audio output device for playback:")
+        output_device = select_audio_output_device()
+    else:
+        output_device = None
 
     audio_player = AudioPlayer(
         sample_rate=audio_source["sample_rate"],
@@ -582,6 +589,12 @@ def parse_args():
         action="store_true",
         help="Only show payloads from AsyncClient (AddPartialTranscript | AddTranscript) (default: False)",
     )
+    parser.add_argument(
+        "-D",
+        "--default-device",
+        action="store_true",
+        help="Use default device (default: False)",
+    )
 
     # ==============================================================================
     # Voice Agent configuration
@@ -610,10 +623,12 @@ def parse_args():
         help="End of utterance detection mode (default: ADAPTIVE)",
     )
     parser.add_argument(
-        "-S",
-        "--no-split",
-        action="store_true",
-        help="Do not emit finalized sentences, only complete segments. (default: False)",
+        "-e",
+        "--emit-mode",
+        type=lambda s: s.upper(),
+        choices=["ON_SPEAKER_ENDED", "ON_FINALIZED_SENTENCE", "ON_END_OF_TURN"],
+        default="ON_SPEAKER_ENDED",
+        help="End of segment emit mode (default: ON_SPEAKER_ENDED)",
     )
 
     # ==============================================================================
@@ -641,7 +656,7 @@ def parse_args():
     # ==============================================================================
 
     parser.add_argument(
-        "-e",
+        "-E",
         "--enrol",
         action="store_true",
         help="Enrol a speaker (default: False)",

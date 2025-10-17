@@ -89,7 +89,7 @@ Use ignore mode instead of focus mode for `--focus-speakers`.
 
 ### Speaker Identification
 
-**`-e, --enrol`**
+**`-E, --enrol`**
 Enrol speakers and output their identifiers at the end of the session.
 
 **`-s, --speakers JSON|FILE`**

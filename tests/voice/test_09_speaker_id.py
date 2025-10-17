@@ -14,6 +14,7 @@ from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import SpeakerIdentifier
 from speechmatics.voice import SpeechSegmentConfig
+from speechmatics.voice import SpeechSegmentEmitMode
 from speechmatics.voice import VoiceAgentConfig
 from speechmatics.voice._models import SpeakerSegment
 
@@ -262,7 +263,7 @@ async def test_ignoring_assistant():
             enable_diarization=True,
             sample_rate=8000,
             known_speakers=known_speakers,
-            speech_segment_config=SpeechSegmentConfig(split_on_eos=False),
+            speech_segment_config=SpeechSegmentConfig(emit_mode=SpeechSegmentEmitMode.ON_END_OF_TURN),
         ),
     )
 
