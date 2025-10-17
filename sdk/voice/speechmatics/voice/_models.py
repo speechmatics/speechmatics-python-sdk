@@ -338,19 +338,39 @@ class SpeakerFocusConfig(BaseModel):
     focus_mode: SpeakerFocusMode = SpeakerFocusMode.RETAIN
 
 
+class SpeechSegmentEmitMode(str, Enum):
+    """EMode for when to emit finalized segments.
+
+    As transcription is processed, segments are emitted based on the selected emit mode. This gives
+    the client more control in how to process incomplete and complete segments of speech.
+
+    - `ON_SPEAKER_ENDED`: Emit segments when a speaker has ended. If a speaker change is detected
+        during a turn, then multiple finalized segments may be emitted in sequence.
+
+    - `ON_FINALIZED_SENTENCE`: Emit segments when a sentence has ended. A finalized segment is emitted
+        as soon as a finalized end of sentence is detected. If a speaker continues to speak during
+        a turn, then multiple finalized segments may be emitted during the turn.
+
+    - `ON_END_OF_TURN`: No finalized segments will be emitted until the turn has been completed.
+    """
+
+    ON_SPEAKER_ENDED = "on_speaker_ended"
+    ON_FINALIZED_SENTENCE = "on_finalized_sentence"
+    ON_END_OF_TURN = "on_end_of_turn"
+
+
 class SpeechSegmentConfig(BaseModel):
     """Configuration on how segments are emitted.
 
     Parameters:
         add_trailing_eos: Add trailing end of sentence to segments. When enabled, segments are
-            emitted with trailing end of sentence. Defaults to False.
+            emitted with missing trailing end of sentence added. Defaults to False.
 
-        split_on_eos: Split segments on end of sentence. When enabled, segments are split
-            on end of sentence and emitted as final segments. Defaults to True.
+        emit_mode: How to emit segments. Defaults to `SpeechSegmentEmitMode.ON_SPEAKER_ENDED`.
     """
 
     add_trailing_eos: bool = False
-    split_on_eos: bool = True
+    emit_mode: SpeechSegmentEmitMode = SpeechSegmentEmitMode.ON_SPEAKER_ENDED
 
 
 class SmartTurnConfig(BaseModel):

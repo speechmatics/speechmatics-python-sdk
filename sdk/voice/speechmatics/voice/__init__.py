@@ -28,6 +28,7 @@ from ._models import SmartTurnConfig
 from ._models import SpeakerFocusConfig
 from ._models import SpeakerFocusMode
 from ._models import SpeechSegmentConfig
+from ._models import SpeechSegmentEmitMode
 from ._models import VoiceAgentConfig
 
 __all__ = [
@@ -45,6 +46,7 @@ __all__ = [
     "SpeakerIdentifier",
     "SmartTurnConfig",
     "SpeechSegmentConfig",
+    "SpeechSegmentEmitMode",
     "VoiceAgentClient",
     "VoiceAgentConfig",
 ]

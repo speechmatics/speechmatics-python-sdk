@@ -40,6 +40,7 @@ from ._models import SpeakerFocusMode
 from ._models import SpeakerSegmentView
 from ._models import SpeakerVADStatus
 from ._models import SpeechFragment
+from ._models import SpeechSegmentEmitMode
 from ._models import TranscriptionUpdatePreset
 from ._models import VoiceAgentConfig
 from ._smart_turn import SMART_TURN_INSTALL_HINT
@@ -968,14 +969,22 @@ class VoiceAgentClient(AsyncClient):
                     final_segments = self._current_view.segments
                     interim_segments = []
 
-                # Split between finals and interim segments
-                else:
+                # Split between finals and interim segments (`ON_FINALIZED_SENTENCE` or `ON_SPEAKER_ENDED`)
+                elif self._config.speech_segment_config.emit_mode in [
+                    SpeechSegmentEmitMode.ON_FINALIZED_SENTENCE,
+                    SpeechSegmentEmitMode.ON_SPEAKER_ENDED,
+                ]:
                     final_segments = [
                         s
                         for s in self._current_view.segments
                         if s.annotation.has(AnnotationFlags.ENDS_WITH_FINAL, AnnotationFlags.ENDS_WITH_EOS)
                     ]
                     interim_segments = [s for s in self._current_view.segments if s not in final_segments]
+
+                # Keep until end of turn (`ON_END_OF_TURN`)
+                else:
+                    final_segments = []
+                    interim_segments = self._current_view.segments
 
                 # Emit finals first
                 if final_segments:
@@ -988,9 +997,10 @@ class VoiceAgentClient(AsyncClient):
                     }
 
                     # Ensure final segment ends with EOS
-                    # last_segment = final_segments[-1]
-                    # if not last_segment.fragments[-1].is_eos:
-                    #     last_segment.fragments.append(SpeechFragment(content="$", is_eos=True))
+                    if self._config.speech_segment_config.add_trailing_eos:
+                        last_segment = final_segments[-1]
+                        if not last_segment.fragments[-1].is_eos:
+                            last_segment.fragments.append(SpeechFragment(content=".", is_eos=True))
 
                     # Emit segments
                     self.emit(

@@ -15,6 +15,7 @@ from ._models import ClientSessionInfo
 from ._models import SpeakerSegment
 from ._models import SpeakerSegmentView
 from ._models import SpeechFragment
+from ._models import SpeechSegmentEmitMode
 
 
 class FragmentUtils:
@@ -107,7 +108,7 @@ class FragmentUtils:
                 continue
 
             # Split group into sub-groups by end-of-sentence markers (finals only)
-            if session.config.speech_segment_config.split_on_eos:
+            if session.config.speech_segment_config.emit_mode == SpeechSegmentEmitMode.ON_FINALIZED_SENTENCE:
                 subgroup: list[SpeechFragment] = []
                 subgroups: list[list[SpeechFragment]] = []
                 for frag in group:
