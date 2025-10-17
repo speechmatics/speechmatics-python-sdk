@@ -19,7 +19,6 @@ async def main() -> None:
 
     transcription_config = TranscriptionConfig(
         max_delay=0.8,
-        enable_partials=True,
         operating_point=OperatingPoint.ENHANCED,
         diarization="speaker",
     )
