@@ -8,3 +8,8 @@ The SDK requires an API key to be set as an environment variable before it can b
 
 - Install Speechmatics RT SDK: `pip install speechmatics-rt`
 - Export Speechmatics API key: `export SPEECHMATICS_API_KEY=YOUR-API-KEY`
+
+## Usage
+
+- Generate speaker IDs: `python generate.py` - this will generate a `speakers.json` file
+- Transcribe audio: `python transcribe.py` - this will use the `speakers.json` file to perform speaker ID on a conversation

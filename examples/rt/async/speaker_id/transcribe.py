@@ -1,13 +1,14 @@
 import asyncio
 import logging
+import json
 
-from speechmatics.rt import ServerMessageType
+from speechmatics.rt import SpeakerIdentifier
+from speechmatics.rt import SpeakerDiarizationConfig
 from speechmatics.rt import (
     AsyncClient,
-    AudioEncoding,
-    AudioFormat,
     OperatingPoint,
     TranscriptionConfig,
+    ServerMessageType
 )
 
 
@@ -17,10 +18,16 @@ logging.basicConfig(level=logging.INFO)
 async def main() -> None:
     """Run async transcription example."""
 
+    with open('./speakers.json') as f:
+        speaker_identifiers = [SpeakerIdentifier(**s) for s in json.load(f)]
+
     transcription_config = TranscriptionConfig(
-        max_delay=0.8,
         operating_point=OperatingPoint.ENHANCED,
         diarization="speaker",
+        max_delay=4,
+        speaker_diarization_config=SpeakerDiarizationConfig(
+            speakers=speaker_identifiers,
+        )
     )
 
     # Initialize client with API key from environment
@@ -28,18 +35,13 @@ async def main() -> None:
         try:
             @client.on(ServerMessageType.ADD_TRANSCRIPT)
             def handle_finals(msg):
-                print(f"Final: {msg['metadata']['transcript']}")
-
-            @client.on(ServerMessageType.SPEAKERS_RESULT)
-            def handle_speakers_result(msg):
-                print(msg)
+                print(f"Final: {msg['metadata']['speaker']} {msg['metadata']['transcript']}")
 
             # Transcribe audio file
-            with open("./examples/example.wav", "rb") as audio_file:
+            with open("./examples/conversation.wav", "rb") as audio_file:
                 await client.transcribe(
                     audio_file,
                     transcription_config=transcription_config,
-                    get_speakers=True,
                 )
         except Exception as e:
             print(f"Transcription error: {e}")
