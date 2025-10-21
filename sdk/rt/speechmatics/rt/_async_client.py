@@ -163,8 +163,9 @@ class AsyncClient(_BaseClient):
 
     async def force_end_of_utterance(self) -> None:
         """
-        This method sends a ForceEndOfUtterance message to the server to signal
-        the end of an utterance.
+    This method sends a ForceEndOfUtterance message to the server to signal
+        the end of an utterance. Forcing end of utterance will cause the final
+        transcript to be sent to the client early.
 
         Raises:
             ConnectionError: If the WebSocket connection fails.
