@@ -12,8 +12,8 @@ from ._exceptions import JobError
 from ._exceptions import TimeoutError
 from ._exceptions import TransportError
 from ._models import ConnectionConfig
-from ._models import Voice
 from ._models import OutputFormat
+from ._models import Voice
 
 __all__ = [
     "AsyncClient",

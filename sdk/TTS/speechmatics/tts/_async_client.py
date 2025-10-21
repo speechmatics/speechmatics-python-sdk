@@ -1,37 +1,33 @@
 """
-Asynchronous client for Speechmatics batch transcription.
+Asynchronous client for Speechmatics TTS transcription.
 
-This module provides the main AsyncClient class that handles batch
-speech-to-text transcription using the Speechmatics Batch API.
+This module provides the main AsyncClient class that handles text-to-speech
+using the Speechmatics TTS API.
 """
 
 from __future__ import annotations
 
-import asyncio
 import os
 import uuid
-from typing import Any, AsyncGenerator
-from typing import BinaryIO
+from typing import Any
 from typing import Optional
-from typing import Union
 
 import aiohttp
 
 from ._auth import AuthBase
 from ._auth import StaticKeyAuth
-from ._exceptions import AuthenticationError
-from ._exceptions import TimeoutError
 from ._logging import get_logger
-from ._models import ConnectionConfig, OutputFormat, Voice
-
+from ._models import ConnectionConfig
+from ._models import OutputFormat
+from ._models import Voice
 from ._transport import Transport
 
 
 class AsyncClient:
     """
-    Asynchronous client for Speechmatics batch speech transcription.
+    Asynchronous client for Speechmatics TTS transcription.
 
-    This client provides a full-featured async interface to the Speechmatics Batch API,
+    This client provides a full-featured async interface to the Speechmatics TTS API,
     supporting job submission, monitoring, and result retrieval with comprehensive
     error management. It properly implements the Speechmatics REST API.
 
@@ -45,7 +41,7 @@ class AsyncClient:
         auth: Authentication instance. If not provided, uses StaticKeyAuth
               with api_key parameter or SPEECHMATICS_API_KEY environment variable.
         api_key: Speechmatics API key (used only if auth not provided).
-        url: REST API endpoint URL. If not provided, uses SPEECHMATICS_BATCH_URL
+        url: REST API endpoint URL. If not provided, uses SPEECHMATICS_TTS_URL
              environment variable or defaults to production endpoint.
         conn_config: Complete connection configuration object. If provided, overrides
                other parameters.
@@ -56,9 +52,8 @@ class AsyncClient:
     Examples:
         Basic usage:
             >>> async with AsyncClient(api_key="your-key") as client:
-            ...     job = await client.submit_job("audio.wav")
-            ...     result = await client.wait_for_completion(job.id)
-            ...     print(result.transcript)
+            ...     response = await client.generate(text="Hello world")
+            ...     print(response)
 
         With JWT authentication:
             >>> from speechmatics.batch import JWTAuth
@@ -83,7 +78,7 @@ class AsyncClient:
             auth: Authentication method, it can be StaticKeyAuth or JWTAuth.
                 If None, creates StaticKeyAuth with the api_key.
             api_key: Speechmatics API key. If None, uses SPEECHMATICS_API_KEY env var.
-            url: REST API endpoint URL. If None, uses SPEECHMATICS_BATCH_URL env var
+            url: REST API endpoint URL. If None, uses SPEECHMATICS_TTS_URL env var
                  or defaults to production endpoint.
             conn_config: Complete connection configuration.
 
@@ -108,7 +103,8 @@ class AsyncClient:
 
         Examples:
             >>> async with AsyncClient(api_key="key") as client:
-            ...     job = await client.submit_job("audio.wav")
+            ...     response = await client.generate(text="Hello world")
+            ...     print(response)
         """
         return self
 
@@ -135,7 +131,7 @@ class AsyncClient:
             TransportError: If synthesis fails.
 
         Examples:
-            >>> response = await client.generate("Hello world")
+            >>> response = await client.generate(text="Hello world")
             >>> audio_data = await response.read()
             >>> with open("output.wav", "wb") as f:
             ...     f.write(audio_data)
@@ -145,7 +141,9 @@ class AsyncClient:
             "text": text,
         }
 
-        response = await self._transport.post(f"/generate/{voice.value}?output_format={output_format.value}", json_data=request_data)
+        response = await self._transport.post(
+            f"/generate/{voice.value}?output_format={output_format.value}", json_data=request_data
+        )
         return response
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:

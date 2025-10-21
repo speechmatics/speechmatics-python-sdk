@@ -90,14 +90,13 @@ class Transport:
         """Async context manager exit with automatic cleanup."""
         await self.close()
 
-
     async def post(
         self,
         path: str,
         json_data: Optional[dict[str, Any]] = None,
         multipart_data: Optional[dict[str, Any]] = None,
         timeout: Optional[float] = None,
-    ) -> aiohttp.ClientResponse:    
+    ) -> aiohttp.ClientResponse:
         """
         Send POST request to the API.
 
@@ -115,8 +114,6 @@ class Transport:
             TransportError: If request fails
         """
         return await self._request("POST", path, json_data=json_data, multipart_data=multipart_data, timeout=timeout)
-
-
 
     async def close(self) -> None:
         """
@@ -296,7 +293,6 @@ class Transport:
                 self._logger.error("HTTP error %d %s: %s", response.status, response.reason, error_text)
                 raise TransportError(f"HTTP {response.status}: {response.reason} - {error_text}")
             return response
-
 
         except aiohttp.ContentTypeError as e:
             self._logger.error("Failed to parse JSON response: %s", e)
