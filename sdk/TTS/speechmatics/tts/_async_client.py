@@ -91,7 +91,7 @@ class AsyncClient:
             ConfigurationError: If auth is None and API key is not provided/found.
         """
         self._auth = auth or StaticKeyAuth(api_key)
-        self._url = url or os.environ.get("SPEECHMATICS_TTS_URL") or "https://tts.api.speechmatics.com/v2"
+        self._url = url or os.environ.get("SPEECHMATICS_TTS_URL") or "https://preview.tts.speechmatics.com"
         self._conn_config = conn_config or ConnectionConfig()
         self._request_id = str(uuid.uuid4())
         self._transport = Transport(self._url, self._conn_config, self._auth, self._request_id)
@@ -145,7 +145,7 @@ class AsyncClient:
             "text": text,
         }
 
-        response = await self._transport.post(f"/generate/{voice}?output_format={output_format}", json_data=request_data)
+        response = await self._transport.post(f"/generate/{voice.value}?output_format={output_format.value}", json_data=request_data)
         return response
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -175,7 +175,7 @@ class AsyncClient:
         Examples:
             >>> client = AsyncClient(api_key="key")
             >>> try:
-            ...     result = await client.transcribe("audio.wav")
+            ...     result = await client.generate(text="Hello world")
             >>> finally:
             ...     await client.close()
         """
