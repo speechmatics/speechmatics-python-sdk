@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import os
 import uuid
-from typing import Any
+from typing import Any, AsyncGenerator
 from typing import BinaryIO
 from typing import Optional
 from typing import Union
@@ -22,7 +22,7 @@ from ._auth import StaticKeyAuth
 from ._exceptions import AuthenticationError
 from ._exceptions import TimeoutError
 from ._logging import get_logger
-from ._models import ConnectionConfig
+from ._models import ConnectionConfig, OutputFormat, Voice
 
 from ._transport import Transport
 
@@ -112,14 +112,12 @@ class AsyncClient:
         """
         return self
 
-    async def synthesize_speech(
+    async def generate(
         self,
-        text: str,
         *,
-        voice: Optional[str] = None,
-        output_format: str = "wav",
-        sample_rate: Optional[int] = None,
-        speed: Optional[float] = None,
+        text: str = "",
+        voice: Voice = Voice.SARAH,
+        output_format: OutputFormat = OutputFormat.RAW_PCM_16000,
     ) -> aiohttp.ClientResponse:
         """
         Convert text to speech audio.
@@ -128,8 +126,6 @@ class AsyncClient:
             text: Text to convert to speech.
             voice: Voice ID to use for synthesis (e.g., "en-US-neural-1").
             output_format: Audio format ("wav", "mp3", "ogg").
-            sample_rate: Audio sample rate in Hz (e.g., 22050, 44100).
-            speed: Speech speed multiplier (0.5 to 2.0).
 
         Returns:
             Audio data as bytes.
@@ -139,7 +135,7 @@ class AsyncClient:
             TransportError: If synthesis fails.
 
         Examples:
-            >>> response = await client.synthesize_speech("Hello world")
+            >>> response = await client.generate("Hello world")
             >>> audio_data = await response.read()
             >>> with open("output.wav", "wb") as f:
             ...     f.write(audio_data)
@@ -147,71 +143,11 @@ class AsyncClient:
         # Prepare synthesis request
         request_data = {
             "text": text,
-            "output_format": output_format,
         }
-        
-        if voice:
-            request_data["voice"] = voice
-        if sample_rate:
-            request_data["sample_rate"] = str(sample_rate)
-        if speed:
-            request_data["speed"] = str(speed)
 
-        response = await self._transport.post("/synthesize", json_data=request_data)
+        response = await self._transport.post(f"/generate/{voice}?output_format={output_format}", json_data=request_data)
         return response
 
-    async def synthesize_from_file(
-        self,
-        file_path: Union[str, os.PathLike],
-        *,
-        voice: Optional[str] = None,
-        output_format: str = "wav",
-        sample_rate: Optional[int] = None,
-        speed: Optional[float] = None,
-    ) -> aiohttp.ClientResponse:
-        """
-        Convert text from a file to speech audio.
-
-        Args:
-            file_path: Path to text or SSML file.
-            voice: Voice ID to use for synthesis.
-            output_format: Audio format ("wav", "mp3", "ogg").
-            sample_rate: Audio sample rate in Hz.
-            speed: Speech speed multiplier (0.5 to 2.0).
-
-        Returns:
-            Raw aiohttp ClientResponse object.
-
-        Raises:
-            FileNotFoundError: If file doesn't exist.
-            AuthenticationError: If API key is invalid.
-            TransportError: If synthesis fails.
-
-        Examples:
-            >>> response = await client.synthesize_from_file("script.txt")
-            >>> audio_data = await response.read()
-            >>> with open("output.wav", "wb") as f:
-            ...     f.write(audio_data)
-        """
-        import aiofiles
-        from pathlib import Path
-        
-        file_path_obj = Path(file_path)
-        if not file_path_obj.exists():
-            raise FileNotFoundError(f"File not found: {file_path}")
-        
-        # Read text content
-        async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
-            text_content = await f.read()
-        
-        return await self.synthesize_speech(
-            text_content,
-            voice=voice,
-            output_format=output_format,
-            sample_rate=sample_rate,
-            speed=speed,
-        )   
-        
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """
         Async context manager exit with automatic cleanup.
