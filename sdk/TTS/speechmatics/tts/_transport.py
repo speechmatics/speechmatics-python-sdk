@@ -51,7 +51,7 @@ class Transport:
             >>> conn_config = ConnectionConfig()
             >>> auth = StaticKeyAuth("your-api-key")
             >>> transport = Transport(conn_config, auth)
-            >>> response = await transport.get("/jobs")
+            >>> response = await transport.post("/generate/sarah")
             >>> await transport.close()
     """
 
