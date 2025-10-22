@@ -65,6 +65,9 @@ test-tts:
 
 # Formatting targets
 format-all: format-rt format-batch format-flow format-tts
+format-tests:
+	cd tests && black .
+	cd tests && ruff check --fix .
 
 format-rt:
 	cd sdk/rt/speechmatics && black .
@@ -97,6 +100,9 @@ lint-flow:
 lint-tts:
 	cd sdk/tts/speechmatics && ruff check .
 
+lint-tests:
+	cd tests && ruff check .
+
 # Type checking targets
 type-check-all: type-check-rt type-check-batch type-check-flow type-check-tts
 
@@ -112,13 +118,16 @@ type-check-flow:
 type-check-tts:
 	cd sdk/tts/speechmatics && mypy .
 
+type-check-tests:
+	cd tests && mypy .
+
 # Installation targets
 install-dev:
 	python -m pip install --upgrade pip
-	python -m pip install -e sdk/rt[dev]
-	python -m pip install -e sdk/batch[dev]
-	python -m pip install -e sdk/flow[dev]
-	python -m pip install -e sdk/tts[dev]
+	python -m pip install -e sdk/rt[dev] --config-settings editable_mode=strict
+	python -m pip install -e sdk/batch[dev] --config-settings editable_mode=strict
+	python -m pip install -e sdk/flow[dev] --config-settings editable_mode=strict
+	python -m pip install -e sdk/tts[dev] --config-settings editable_mode=strict
 
 install-build:
 	python -m pip install --upgrade build
