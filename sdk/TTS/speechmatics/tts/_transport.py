@@ -28,7 +28,7 @@ from ._models import ConnectionConfig
 
 class Transport:
     """
-    HTTP transport layer for Speechmatics Batch API communication.
+    HTTP transport layer for Speechmatics TTS API communication.
 
     This class handles all low-level HTTP communication with the Speechmatics
     Batch API, including connection management, request serialization,
