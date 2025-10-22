@@ -35,7 +35,7 @@ class Transport:
     authentication, and response handling.
 
     Args:
-        url: Base URL for the Speechmatics Batch API.
+        url: Base URL for the Speechmatics TTS API.
         conn_config: Connection configuration including URL and timeouts.
         auth: Authentication instance for handling credentials.
         request_id: Optional unique identifier for request tracking. Generated
