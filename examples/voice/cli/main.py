@@ -127,6 +127,10 @@ async def main() -> None:
     else:
         print("\nMicrophone ready - speak now... (Press CTRL+C to stop)\n")
 
+    # Debug the config
+    if args.verbose >= 1:
+        print(f"Configuration used:\n{config.model_dump_json()}\n")
+
     # Connect to the Voice Agent service
     try:
         await client.connect()
