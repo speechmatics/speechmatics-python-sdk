@@ -20,10 +20,12 @@ from speechmatics.rt import Microphone
 from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentClientMessageType
 from speechmatics.voice import AgentServerMessageType
+from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import SpeakerFocusConfig
 from speechmatics.voice import SpeakerFocusMode
 from speechmatics.voice import SpeakerIdentifier
 from speechmatics.voice import SpeechSegmentConfig
+from speechmatics.voice import SpeechSegmentEmitMode
 from speechmatics.voice import VoiceAgentClient
 from speechmatics.voice import VoiceAgentConfig
 
@@ -58,6 +60,8 @@ COLORS = {
 
 async def main() -> None:
     """Run the transcription CLI."""
+
+    # Parse the command line arguments
     args = parse_args()
 
     # Setup audio source (microphone or file)
@@ -78,22 +82,37 @@ async def main() -> None:
     # Known speakers
     known_speakers: list[SpeakerIdentifier] = [SpeakerIdentifier(**s) for s in args.speakers] if args.speakers else []
 
+    # Use JSON config
+    if args.config is not None:
+        try:
+            config = VoiceAgentConfig.model_validate(args.config)
+        except Exception as e:
+            print(f"Error validating config: {e}")
+            return
+
     # Create Voice Agent configuration
-    config = VoiceAgentConfig(
-        sample_rate=audio_source["sample_rate"],
-        language=args.language,
-        end_of_utterance_silence_trigger=args.end_of_utterance_silence_trigger,
-        max_delay=args.max_delay,
-        enable_diarization=True,
-        end_of_utterance_mode=args.end_of_utterance_mode.lower(),
-        speaker_config=speaker_config,
-        enable_preview_features=args.preview,
-        additional_vocab=[
-            AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"]),
-        ],
-        known_speakers=known_speakers,
-        speech_segment_config=SpeechSegmentConfig(emit_mode=args.emit_mode.lower()),
-    )
+    else:
+        config = VoiceAgentConfig(
+            language=args.language or "en",
+            end_of_utterance_silence_trigger=args.end_of_utterance_silence_trigger or 0.5,
+            max_delay=args.max_delay or 0.7,
+            end_of_utterance_mode=(
+                args.end_of_utterance_mode.lower() if args.end_of_utterance_mode else EndOfUtteranceMode.ADAPTIVE
+            ),
+            speaker_config=speaker_config,
+            enable_preview_features=args.preview,
+            additional_vocab=[
+                AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"]),
+            ],
+            known_speakers=known_speakers,
+            speech_segment_config=SpeechSegmentConfig(
+                emit_mode=args.emit_mode.lower() if args.emit_mode else SpeechSegmentEmitMode.ON_SPEAKER_ENDED
+            ),
+        )
+
+    # Set common items
+    config.enable_diarization = True
+    config.sample_rate = audio_source["sample_rate"]
 
     # Create Voice Agent client
     client = VoiceAgentClient(api_key=args.api_key, url=args.url, config=config)
@@ -203,7 +222,7 @@ def setup_microphone_source(args) -> dict | None:
         selected_device = None
 
     mic = Microphone(
-        sample_rate=args.sample_rate,
+        sample_rate=args.sample_rate or None,
         chunk_size=args.chunk_size,
         device_index=selected_device,
     )
@@ -469,14 +488,14 @@ async def stream_microphone(
 # ==============================================================================
 
 
-def load_speakers(value: str):
-    """Load speakers from JSON string or file path.
+def load_json(value: str):
+    """Load JSON string or file path.
 
     Args:
         value: Either a JSON string or path to a JSON file
 
     Returns:
-        Parsed speakers list
+        Parsed json object
 
     Raises:
         argparse.ArgumentTypeError: If the value cannot be parsed
@@ -602,24 +621,27 @@ def parse_args():
     # ==============================================================================
 
     parser.add_argument(
+        "-c",
+        "--config",
+        type=load_json,
+        help="Config JSON string or path to JSON file (default: None)",
+    )
+    parser.add_argument(
         "-l",
         "--language",
         type=str,
-        default="en",
         help="Language code (default: en)",
     )
     parser.add_argument(
         "-d",
         "--max-delay",
         type=float,
-        default=0.7,
         help="Maximum delay for transcription results in seconds (default: 0.7)",
     )
     parser.add_argument(
         "-t",
         "--end-of-utterance-silence-trigger",
         type=float,
-        default=0.5,
         help="Silence duration to trigger end of utterance in seconds (default: 0.5)",
     )
     parser.add_argument(
@@ -627,7 +649,6 @@ def parse_args():
         "--end-of-utterance-mode",
         type=lambda s: s.upper(),
         choices=["FIXED", "ADAPTIVE", "EXTERNAL", "SMART_TURN"],
-        default="ADAPTIVE",
         help="End of utterance detection mode (default: ADAPTIVE)",
     )
     parser.add_argument(
@@ -635,7 +656,6 @@ def parse_args():
         "--emit-mode",
         type=lambda s: s.upper(),
         choices=["ON_SPEAKER_ENDED", "ON_FINALIZED_SENTENCE", "ON_END_OF_TURN"],
-        default="ON_SPEAKER_ENDED",
         help="End of segment emit mode (default: ON_SPEAKER_ENDED)",
     )
 
@@ -644,16 +664,19 @@ def parse_args():
     # ==============================================================================
 
     parser.add_argument(
+        "-f",
         "--focus-speakers",
         nargs="*",
         help="Speakers to focus on (e.g., S1 S2). Use with --ignore-mode to ignore these speakers instead",
     )
     parser.add_argument(
+        "-I",
         "--ignore-speakers",
         nargs="*",
         help="Specific speakers to ignore (e.g., S1 S2)",
     )
     parser.add_argument(
+        "-x",
         "--ignore-mode",
         action="store_true",
         help="Use ignore mode instead of focus mode for --focus-speakers",
@@ -672,7 +695,7 @@ def parse_args():
     parser.add_argument(
         "-s",
         "--speakers",
-        type=load_speakers,
+        type=load_json,
         help="Known speakers as JSON string or path to JSON file (default: None)",
     )
     parser.add_argument(
@@ -681,7 +704,34 @@ def parse_args():
         help="Use preview features (default: False)",
     )
 
-    return parser.parse_args()
+    # ==============================================================================
+    # Check for mutually exclusive options
+    # ==============================================================================
+
+    args = parser.parse_args()
+
+    mutually_excludive = [
+        "emit-mode",
+        "end-of-utterance-mode",
+        "end-of-utterance-silence-trigger",
+        "focus-speakers",
+        "ignore-mode",
+        "ignore-speakers",
+        "language",
+        "max-delay",
+    ]
+
+    if args.config is not None:
+        conflicts: list[str] = []
+        for arg in mutually_excludive:
+            if getattr(args, arg.replace("-", "_")):
+                conflicts.append(arg)
+        if conflicts:
+            print(f"**ERROR** -> You cannot use {[f'--{arg}' for arg in conflicts]} in combination with -c/--config")
+            exit(1)
+
+    # Return the parsed arguments
+    return args
 
 
 # ==============================================================================
@@ -689,4 +739,7 @@ def parse_args():
 # ==============================================================================
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\nCLI utility stopped by user")
