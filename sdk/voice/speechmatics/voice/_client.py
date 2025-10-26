@@ -999,8 +999,17 @@ class VoiceAgentClient(AsyncClient):
                     # Ensure final segment ends with EOS
                     if self._config.speech_segment_config.add_trailing_eos:
                         last_segment = final_segments[-1]
-                        if not last_segment.fragments[-1].is_eos:
-                            last_segment.fragments.append(SpeechFragment(content=".", is_eos=True))
+                        last_fragment = last_segment.fragments[-1]
+                        if not last_fragment.is_eos:
+                            last_segment.fragments.append(
+                                SpeechFragment(
+                                    idx=self._next_fragment_id(),
+                                    start_time=last_fragment.end_time,
+                                    end_time=last_fragment.end_time,
+                                    content=".",
+                                    is_eos=True,
+                                )
+                            )
 
                     # Emit segments
                     self.emit(
