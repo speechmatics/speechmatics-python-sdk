@@ -42,13 +42,12 @@ async def test_extract_speaker_ids():
     """
 
     # API key
-    api_key = os.getenv("SPEECHMATICS_API_KEY")
-    if not api_key:
+    if not API_KEY:
         pytest.skip("Valid API key required for test")
 
     # Client
     client = await get_client(
-        api_key=api_key,
+        api_key=API_KEY,
         url=URL,
         connect=False,
         config=VoiceAgentConfig(
@@ -168,8 +167,7 @@ async def test_known_speakers():
     """
 
     # API key
-    api_key = os.getenv("SPEECHMATICS_API_KEY")
-    if not api_key:
+    if not API_KEY:
         pytest.skip("Valid API key required for test")
 
     # Copy known speakers
@@ -179,7 +177,7 @@ async def test_known_speakers():
 
     # Client
     client = await get_client(
-        api_key=api_key,
+        api_key=API_KEY,
         url=URL,
         connect=False,
         config=VoiceAgentConfig(
@@ -189,6 +187,10 @@ async def test_known_speakers():
             enable_diarization=True,
             sample_rate=8000,
             known_speakers=known_speakers,
+            speech_segment_config=SpeechSegmentConfig(emit_mode=SpeechSegmentEmitMode.ON_END_OF_TURN),
+            additional_vocab=[
+                AdditionalVocabEntry(content="GeoRouter"),
+            ],
         ),
     )
 
@@ -223,8 +225,8 @@ async def test_known_speakers():
     speakers = [segment.get("speaker_id") for segment in final_segments]
     assert set(speakers) == set({"Assistant", "John Doe"})
 
-    # Should be 11 segments
-    assert len(final_segments) == 11
+    # Should be 5 segments
+    assert len(final_segments) == 5
 
     # Close session
     await client.disconnect()
@@ -242,8 +244,7 @@ async def test_ignoring_assistant():
     """
 
     # API key
-    api_key = os.getenv("SPEECHMATICS_API_KEY")
-    if not api_key:
+    if not API_KEY:
         pytest.skip("Valid API key required for test")
 
     # Copy known speakers
@@ -253,7 +254,7 @@ async def test_ignoring_assistant():
 
     # Client
     client = await get_client(
-        api_key=api_key,
+        api_key=API_KEY,
         url=URL,
         connect=False,
         config=VoiceAgentConfig(
@@ -264,6 +265,9 @@ async def test_ignoring_assistant():
             sample_rate=8000,
             known_speakers=known_speakers,
             speech_segment_config=SpeechSegmentConfig(emit_mode=SpeechSegmentEmitMode.ON_END_OF_TURN),
+            additional_vocab=[
+                AdditionalVocabEntry(content="GeoRouter"),
+            ],
         ),
     )
 

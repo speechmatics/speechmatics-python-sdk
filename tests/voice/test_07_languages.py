@@ -105,13 +105,12 @@ async def test_transcribe_languages(sample: AudioSample):
     """
 
     # API key
-    api_key = os.getenv("SPEECHMATICS_API_KEY")
-    if not api_key:
+    if not API_KEY:
         pytest.skip("Valid API key required for test")
 
     # Client
     client = await get_client(
-        api_key=api_key,
+        api_key=API_KEY,
         connect=False,
         config=VoiceAgentConfig(
             max_delay=1.2,

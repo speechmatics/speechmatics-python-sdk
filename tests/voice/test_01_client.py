@@ -6,6 +6,9 @@ from _utils import get_client
 from speechmatics.voice import VoiceAgentClient
 from speechmatics.voice import VoiceAgentConfig
 
+# Constants
+API_KEY = os.getenv("SPEECHMATICS_API_KEY")
+
 
 @pytest.mark.asyncio
 async def test_client():
@@ -16,13 +19,12 @@ async def test_client():
     """
 
     # API key
-    api_key = os.getenv("SPEECHMATICS_API_KEY")
-    if not api_key:
+    if not API_KEY:
         pytest.skip("Valid API key required for test")
 
     # Create client
     client = await get_client(
-        api_key=api_key,
+        api_key=API_KEY,
         connect=False,
     )
 
@@ -54,15 +56,14 @@ async def test_client_context_manager():
     """
 
     # API key
-    api_key = os.getenv("SPEECHMATICS_API_KEY")
-    if not api_key:
+    if not API_KEY:
         pytest.skip("Valid API key required for test")
 
     # Create config
     config = VoiceAgentConfig(language="en")
 
     # Use client as context manager
-    async with VoiceAgentClient(api_key=api_key, config=config) as client:
+    async with VoiceAgentClient(api_key=API_KEY, config=config) as client:
         # Check we are connected automatically
         assert client._is_connected
 
@@ -84,8 +85,7 @@ async def test_client_context_manager_with_exception():
     """
 
     # API key
-    api_key = os.getenv("SPEECHMATICS_API_KEY")
-    if not api_key:
+    if not API_KEY:
         pytest.skip("Valid API key required for test")
 
     # Create config
@@ -93,7 +93,7 @@ async def test_client_context_manager_with_exception():
 
     # Use client as context manager and raise an exception
     with pytest.raises(ValueError, match="Test exception"):
-        async with VoiceAgentClient(api_key=api_key, config=config) as client:
+        async with VoiceAgentClient(api_key=API_KEY, config=config) as client:
             # Check we are connected
             assert client._is_connected
 

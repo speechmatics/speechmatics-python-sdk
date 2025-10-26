@@ -93,8 +93,7 @@ async def test_multiple_speakers(sample: SpeakerTest):
     """
 
     # API key
-    api_key = os.getenv("SPEECHMATICS_API_KEY")
-    if not api_key:
+    if not API_KEY:
         pytest.skip("Valid API key required for test")
 
     # Config
@@ -118,7 +117,7 @@ async def test_multiple_speakers(sample: SpeakerTest):
 
     # Client
     client = await get_client(
-        api_key=api_key,
+        api_key=API_KEY,
         connect=False,
         config=config,
     )
@@ -194,8 +193,6 @@ async def test_multiple_speakers(sample: SpeakerTest):
         print("---")
         print()
         print()
-
-    print(final_segments)
 
     # Check final segments against regex
     for idx, _test in enumerate(sample.segment_regex):

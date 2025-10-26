@@ -26,13 +26,12 @@ async def test_transcribe_partial():
     """
 
     # API key
-    api_key = os.getenv("SPEECHMATICS_API_KEY")
-    if not api_key:
+    if not API_KEY:
         pytest.skip("Valid API key required for test")
 
     # Client
     client = await get_client(
-        api_key=api_key,
+        api_key=API_KEY,
         connect=True,
         config=VoiceAgentConfig(
             additional_vocab=[
@@ -82,12 +81,11 @@ async def test_transcribe_final():
     """
 
     # API key
-    api_key = os.getenv("SPEECHMATICS_API_KEY")
-    if not api_key:
+    if not API_KEY:
         pytest.skip("Valid API key required for test")
 
     # Client
-    client = await get_client(api_key=api_key, connect=True)
+    client = await get_client(api_key=API_KEY, connect=True)
 
     # Check we are connected
     assert client._is_connected
@@ -130,12 +128,11 @@ async def test_partial_segment():
     """
 
     # API key
-    api_key = os.getenv("SPEECHMATICS_API_KEY")
-    if not api_key:
+    if not API_KEY:
         pytest.skip("Valid API key required for test")
 
     # Client
-    client = await get_client(api_key=api_key, connect=True, config=VoiceAgentConfig())
+    client = await get_client(api_key=API_KEY, connect=True, config=VoiceAgentConfig())
 
     # Check we are connected
     assert client._is_connected
