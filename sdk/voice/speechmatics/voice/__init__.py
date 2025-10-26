@@ -30,6 +30,7 @@ from ._models import SpeakerFocusMode
 from ._models import SpeechSegmentConfig
 from ._models import SpeechSegmentEmitMode
 from ._models import VoiceAgentConfig
+from ._presets import VoiceAgentConfigPreset
 
 __all__ = [
     "__version__",
@@ -49,4 +50,5 @@ __all__ = [
     "SpeechSegmentEmitMode",
     "VoiceAgentClient",
     "VoiceAgentConfig",
+    "VoiceAgentConfigPreset",
 ]
