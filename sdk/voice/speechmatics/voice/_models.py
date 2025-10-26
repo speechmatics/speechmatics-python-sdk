@@ -384,7 +384,7 @@ class SmartTurnConfig(BaseModel):
             by end of thought models. Defaults to 0.0 seconds.
 
         smart_turn_threshold: Smart turn threshold. This is used to determine when a turn has completed.
-            Only used when `end_of_utterance_mode` is `EndOfUtteranceMode.SMART_TURN`. Defaults to 0.75.
+            Only used when `end_of_utterance_mode` is `EndOfUtteranceMode.SMART_TURN`. Defaults to 0.5.
 
         slice_margin: Margin to add to the audio buffer to ensure that the end of thought models have
             enough audio to work with. Defaults to 0.05 seconds.
@@ -398,7 +398,7 @@ class SmartTurnConfig(BaseModel):
     """
 
     audio_buffer_length: float = 0.0
-    smart_turn_threshold: float = 0.75
+    smart_turn_threshold: float = 0.5
     slice_margin: float = 0.05
 
 
@@ -554,7 +554,7 @@ class VoiceAgentConfig(BaseModel):
             ...     max_speakers=3,
             ...     end_of_utterance_mode=EndOfUtteranceMode.SMART_TURN,
             ...     smart_turn_config=SmartTurnConfig(
-            ...         smart_turn_threshold=0.8
+            ...         smart_turn_threshold=0.55
             ...     ),
             ...     additional_vocab=[
             ...         AdditionalVocabEntry(content="API"),
