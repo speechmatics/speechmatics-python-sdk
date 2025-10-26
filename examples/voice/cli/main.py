@@ -683,7 +683,7 @@ def parse_args():
         "-x",
         "--ignore-mode",
         action="store_true",
-        help="Use ignore mode instead of focus mode for --focus-speakers",
+        help="Use IGNORE mode instead of RETAIN mode for non-focus speakers",
     )
 
     # ==============================================================================
