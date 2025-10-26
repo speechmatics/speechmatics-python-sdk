@@ -546,7 +546,7 @@ def parse_args():
     parser.add_argument(
         "-u",
         "--url",
-        default=os.getenv("SPEECHMATICS_SERVER_URL"),
+        default=os.getenv("SPEECHMATICS_RT_URL"),
         help="Speechmatics server URL (optional)",
     )
 

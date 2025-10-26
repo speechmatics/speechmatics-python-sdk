@@ -35,7 +35,7 @@ python ./examples/voice/cli/main.py [OPTIONS]
 Speechmatics API key. Defaults to `SPEECHMATICS_API_KEY` environment variable.
 
 **`-u, --url`**
-Custom Speechmatics server URL. Also uses `SPEECHMATICS_SERVER_URL` environment variable, if not provided. Optional, defaults to production endpoint.
+Custom Speechmatics server URL. Also uses `SPEECHMATICS_RT_URL` environment variable, if not provided. Optional, defaults to production endpoint.
 
 **`-i, --input-file FILE`**
 Path to input audio file (WAV format, mono 16-bit). If not provided, uses microphone.
