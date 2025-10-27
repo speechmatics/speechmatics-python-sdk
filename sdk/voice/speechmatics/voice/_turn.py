@@ -17,21 +17,21 @@ class TurnTaskProcessor:
     make a call to the `done_callback` function (sync or async).
     """
 
-    def __init__(self, name: str, turn_id: int = 0, done_callback: Optional[Callable] = None):
+    def __init__(self, name: str, handler_id: int = 0, done_callback: Optional[Callable] = None):
         """Create new handler.
 
         Args:
             name: The name of the processor.
-            turn_id: The turn id (used to validate tasks).
+            handler_id: The base handler id (used to validate tasks).
             done_callback: The callback to call when all tasks are completed.
         """
 
         # Processor name
         self._name = name
 
-        # Turn id (used to validate tasks)
-        self._turn_id = turn_id
-        self._turn_active = False
+        # Handler id (used to validate tasks)
+        self._handler_id = handler_id
+        self._handler_active = False
 
         # Tasks + events
         self._tasks: dict[str, asyncio.Task] = {}
@@ -50,22 +50,22 @@ class TurnTaskProcessor:
         return any(not task.done() for task in self._tasks.values())
 
     @property
-    def turn_id(self) -> int:
-        """Get the turn id.
+    def handler_id(self) -> int:
+        """Get the handler id.
 
         Returns:
-            The current turn ID.
+            The current handler ID.
         """
-        return self._turn_id
+        return self._handler_id
 
     @property
-    def turn_active(self) -> bool:
-        """Get the turn active state.
+    def handler_active(self) -> bool:
+        """Get the handler active state.
 
         Returns:
-            The current turn active state.
+            The current handler active state.
         """
-        return self._turn_active
+        return self._handler_active
 
     def update_timer(self, delay: float) -> None:
         """Set a new done trigger.
@@ -73,6 +73,7 @@ class TurnTaskProcessor:
         Args:
             delay: Delay in seconds before triggering done callback.
         """
+
         if delay < 0:
             return
         self.add_task(
@@ -98,9 +99,9 @@ class TurnTaskProcessor:
         # Wait for the task
         async def wait_for_task(task: asyncio.Task) -> None:
             try:
-                _turn_id = self._turn_id
+                _handler_id = self._handler_id
                 await task
-                if _turn_id != self._turn_id:
+                if _handler_id != self._handler_id:
                     return
                 if not self.has_pending_tasks:
                     asyncio.create_task(self._do_done_callback())
@@ -113,9 +114,6 @@ class TurnTaskProcessor:
     async def _do_done_callback(self) -> None:
         """Do the done callback."""
 
-        # Cancel any pending tasks
-        self.complete_turn()
-
         # Do the callback
         if self._done_callback:
             try:
@@ -125,6 +123,9 @@ class TurnTaskProcessor:
                     self._done_callback()
             except Exception:
                 pass
+
+        # Complete the task
+        self.complete_handler()
 
     def cancel_tasks(self) -> None:
         """Cancel any pending tasks."""
@@ -137,19 +138,19 @@ class TurnTaskProcessor:
         """Reset the end of turn."""
         self.cancel_tasks()
 
-    def start_turn(self) -> None:
+    def start_handler(self) -> None:
         """Start the end of turn."""
-        self._turn_active = True
+        self._handler_active = True
 
-    def complete_turn(self) -> None:
+    def complete_handler(self) -> None:
         """Complete the end of turn."""
         self.next()
-        self._turn_active = False
+        self._handler_active = False
 
     def next(self) -> None:
-        """Increment the end of turn."""
+        """Increment the handler. id"""
         self.reset()
-        self._turn_id += 1
+        self._handler_id += 1
 
     def __str__(self) -> str:
         """Get the string representation of the end of turn.
@@ -157,4 +158,4 @@ class TurnTaskProcessor:
         Returns:
             String representation of the processor state.
         """
-        return f"TurnTaskProcessor(name={self._name}, turn_id={self._turn_id}, tasks={self._tasks.keys()}, pending={self.has_pending_tasks})"
+        return f"TurnTaskProcessor(name={self._name}, turn_id={self._handler_id}, tasks={self._tasks.keys()}, pending={self.has_pending_tasks})"

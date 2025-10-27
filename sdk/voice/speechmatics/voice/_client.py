@@ -184,6 +184,9 @@ class VoiceAgentClient(AsyncClient):
         self._speech_fragments_lock: asyncio.Lock = asyncio.Lock()
         self._current_view: Optional[SpeakerSegmentView] = None
         self._previous_view: Optional[SpeakerSegmentView] = None
+
+        # Current turn
+        self._turn_id: int = 0
         self._turn_start_time: Optional[float] = None
 
         # Speaking states
@@ -192,10 +195,17 @@ class VoiceAgentClient(AsyncClient):
         self._current_speaker: Optional[str] = None
         self._last_fragment_end_time: float = 0
 
-        # Turn detection
-        self._end_of_turn_handler: TurnTaskProcessor = TurnTaskProcessor(
-            name="eot_handler", done_callback=self.finalize
+        # End of utterance handler
+        self._end_of_utterance_handler: TurnTaskProcessor = TurnTaskProcessor(
+            name="eou_handler", done_callback=self.finalize
         )
+
+        # End of turn handler
+        self._end_of_turn_handler: TurnTaskProcessor = TurnTaskProcessor(
+            name="eot_handler", done_callback=self.end_of_turn
+        )
+
+        # Turn detector
         self._turn_detector: Optional[SmartTurnDetector] = None
 
         # Start turn detector if SMART_TURN requested
@@ -217,8 +227,6 @@ class VoiceAgentClient(AsyncClient):
                 self._config.end_of_utterance_mode = EndOfUtteranceMode.ADAPTIVE
 
         # Diarization / speaker focus
-        self._end_of_utterance_mode: EndOfUtteranceMode = self._config.end_of_utterance_mode
-        self._end_of_utterance_delay: float = self._config.end_of_utterance_silence_trigger
         self._dz_enabled: bool = self._config.enable_diarization
         self._dz_config = self._config.speaker_config
 
@@ -442,6 +450,7 @@ class VoiceAgentClient(AsyncClient):
             self._is_connected = False
 
         # Stop end of turn-related tasks
+        self._end_of_utterance_handler.cancel_tasks()
         self._end_of_turn_handler.cancel_tasks()
 
         # Stop the STT queue task
@@ -537,7 +546,7 @@ class VoiceAgentClient(AsyncClient):
         """
         self._dz_config = config
 
-    def finalize(self, ttl: Optional[float] = None) -> None:
+    def finalize(self, ttl: Optional[float] = None, end_of_turn: bool = False) -> None:
         """Finalize segments.
 
         This function will emit segments in the buffer without any further checks
@@ -546,6 +555,7 @@ class VoiceAgentClient(AsyncClient):
 
         Args:
             ttl: Optional delay before finalizing partial segments.
+            end_of_turn: Whether to emit an end of turn message.
 
         Examples:
             Immediate finalization:
@@ -559,15 +569,55 @@ class VoiceAgentClient(AsyncClient):
 
         # Emit the finalize or use EndOfTurn on demand preview
         async def emit() -> None:
+            # Yield for the delay
             if ttl is not None and ttl > 0:
                 await asyncio.sleep(ttl)
+
+            # Emit segments or finalize STT message
             if self._config.enable_preview_features:
+                """Uses the forced end of utterance message to emit segments and finalize."""
+
+                # Listen for the `END_OF_UTTERANCE` event
+                @self.once(ServerMessageType.END_OF_UTTERANCE)  # type: ignore[misc]
+                def _on_eou(message: dict[str, Any]) -> None:
+                    self._stt_message_queue.put_nowait(
+                        lambda: self._emit_segments(finalize=True, end_of_turn=end_of_turn)
+                    )
+
+                # Emit the message
                 await self.send_message({"message": AgentClientMessageType.FINALIZE_TURN})
+
             else:
-                await self._emit_segments(finalize=True, end_of_turn=True)
+                """Standard emit segments and finalize."""
+                await self._emit_segments(finalize=True, end_of_turn=end_of_turn)
+
+            # Cancel any pending tasks for end of utterance (as end of turn will emit segments)
+            self._end_of_utterance_handler.complete_handler()
 
         # Add to queue
         self._stt_message_queue.put_nowait(emit)
+
+    def end_of_turn(self, ttl: Optional[float] = None) -> None:
+        """Trigger end of turn.
+
+        This function will force an end of turn and finalize segments, if required. Use
+        as a helper function for finalize() with end_of_turn=True.
+
+        Args:
+            ttl: Optional delay before finalizing partial segments.
+
+        Examples:
+            Immediate end of turn:
+                >>> # Force end of turn of current segments
+                >>> client.end_of_turn(ttl=0)
+
+            Delayed end of turn:
+                >>> # Wait 0.5 seconds before end of turn
+                >>> client.end_of_turn(ttl=0.5)
+        """
+
+        # Emit the finalize or use EndOfTurn on demand preview
+        self.finalize(ttl=ttl, end_of_turn=True)
 
     # ============================================================================
     # EVENT REGISTRATION & HANDLERS
@@ -598,33 +648,14 @@ class VoiceAgentClient(AsyncClient):
         def _evt_on_partial_transcript(message: dict[str, Any]) -> None:
             if DEBUG_MORE:
                 self._logger.debug(json.dumps(message))
-
-            async def _handle() -> None:
-                await self._handle_transcript(message, is_final=False)
-
-            self._stt_message_queue.put_nowait(_handle)
+            self._stt_message_queue.put_nowait(lambda: self._handle_transcript(message, is_final=False))
 
         # Final transcript event
         @self.on(ServerMessageType.ADD_TRANSCRIPT)  # type: ignore[misc]
         def _evt_on_final_transcript(message: dict[str, Any]) -> None:
             if DEBUG_MORE:
                 self._logger.debug(json.dumps(message))
-
-            async def _handle() -> None:
-                await self._handle_transcript(message, is_final=True)
-
-            self._stt_message_queue.put_nowait(_handle)
-
-        # End of utterance event
-        @self.on(ServerMessageType.END_OF_UTTERANCE)  # type: ignore[misc]
-        def _evt_on_end_of_utterance(message: dict[str, Any]) -> None:
-            if DEBUG_MORE:
-                self._logger.debug(json.dumps(message))
-
-            async def _handle() -> None:
-                await self._emit_segments(finalize=True, end_of_turn=True)
-
-            self._stt_message_queue.put_nowait(_handle)
+            self._stt_message_queue.put_nowait(lambda: self._handle_transcript(message, is_final=True))
 
     # ============================================================================
     # QUEUE PROCESSING
@@ -1104,7 +1135,7 @@ class VoiceAgentClient(AsyncClient):
                 AgentServerMessageType.END_OF_TURN,
                 {
                     "message": AgentServerMessageType.END_OF_TURN.value,
-                    "turn_id": self._end_of_turn_handler.turn_id,
+                    "turn_id": self._turn_id,
                     "metadata": metadata,
                 },
             )
@@ -1207,7 +1238,7 @@ class VoiceAgentClient(AsyncClient):
         multiplier = 1.0 + sum(m for m, _ in reasons)
 
         # Minimum delay (50ms as a minimum)
-        delay = round(max(self._end_of_utterance_delay, 0.05) * multiplier, 2)
+        delay = round(max(self._config.end_of_utterance_silence_trigger, 0.05) * multiplier, 2)
 
         # Clamp to max delay
         clamped_delay = min(delay, self._config.end_of_utterance_max_delay)
@@ -1224,7 +1255,7 @@ class VoiceAgentClient(AsyncClient):
                 AgentServerMessageType.END_OF_TURN_PREDICTION,
                 {
                     "message": AgentServerMessageType.END_OF_TURN_PREDICTION.value,
-                    "turn_id": self._end_of_turn_handler.turn_id,
+                    "turn_id": self._turn_id,
                     "metadata": {
                         "ttl": round(finalize_delay, 2),
                         "time_slip": round(time_slip, 2),
@@ -1359,22 +1390,19 @@ class VoiceAgentClient(AsyncClient):
         # Event time
         event_time = speaker_start_time if self._is_speaking else speaker_end_time
 
-        # Emit start of turn
+        # Emit start of turn (not when using EXTERNAL)
         if (
-            not self._end_of_turn_handler.turn_active
+            not self._end_of_turn_handler.handler_active
             and self._is_speaking
-            and self._end_of_utterance_mode
-            in [
-                EndOfUtteranceMode.ADAPTIVE,
-                EndOfUtteranceMode.SMART_TURN,
-            ]
+            and self._config.end_of_utterance_mode is not EndOfUtteranceMode.EXTERNAL
         ):
-            self._end_of_turn_handler.start_turn()
+            self._end_of_turn_handler.start_handler()
+            self._turn_id = self._end_of_turn_handler.handler_id
             self.emit(
                 AgentServerMessageType.START_OF_TURN,
                 {
                     "message": AgentServerMessageType.START_OF_TURN.value,
-                    "turn_id": self._end_of_turn_handler.turn_id,
+                    "turn_id": self._turn_id,
                     "metadata": {
                         "start_time": event_time,
                     },
@@ -1405,15 +1433,18 @@ class VoiceAgentClient(AsyncClient):
             # Reset current speaker
             self._current_speaker = None
 
+            # Add task for end of utterance
+            self._end_of_utterance_handler.update_timer(self._config.end_of_utterance_silence_trigger)
+
             # For ADAPTIVE and SMART_TURN only
-            if self._end_of_utterance_mode in [EndOfUtteranceMode.ADAPTIVE, EndOfUtteranceMode.SMART_TURN]:
-                """When ADAPTIVE or SMART_TURN, we need to do EOT detection / prediction."""
+            if self._config.end_of_utterance_mode is not EndOfUtteranceMode.EXTERNAL:
+                """When not EXTERNAL, we need to do EOT detection / prediction."""
 
                 # Callback
                 async def do_eot_detection(end_time: float, language: str) -> None:
                     try:
                         # Wait for Smart Turn result
-                        if self._end_of_utterance_mode == EndOfUtteranceMode.SMART_TURN:
+                        if self._config.end_of_utterance_mode == EndOfUtteranceMode.SMART_TURN:
                             result = await self._predict_smart_turn(end_time, language)
                         else:
                             result = None
@@ -1430,7 +1461,7 @@ class VoiceAgentClient(AsyncClient):
                 # Add task
                 self._end_of_turn_handler.add_task(
                     asyncio.create_task(do_eot_detection(speaker_end_time, self._config.language)),
-                    self._end_of_utterance_mode.value,
+                    self._config.end_of_utterance_mode.value,
                 )
 
         # Speaking has started
@@ -1438,6 +1469,7 @@ class VoiceAgentClient(AsyncClient):
             """When speaking has started, reset speaking-related variables."""
 
             # Reset the handlers
+            self._end_of_utterance_handler.reset()
             self._end_of_turn_handler.reset()
 
     # ============================================================================
