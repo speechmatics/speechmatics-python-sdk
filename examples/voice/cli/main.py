@@ -28,6 +28,7 @@ from speechmatics.voice import SpeechSegmentConfig
 from speechmatics.voice import SpeechSegmentEmitMode
 from speechmatics.voice import VoiceAgentClient
 from speechmatics.voice import VoiceAgentConfig
+from speechmatics.voice._models import TranscriptionUpdatePreset
 
 # ==============================================================================
 # CONSTANTS
@@ -108,6 +109,7 @@ async def main() -> None:
             speech_segment_config=SpeechSegmentConfig(
                 emit_mode=args.emit_mode.lower() if args.emit_mode else SpeechSegmentEmitMode.ON_SPEAKER_ENDED
             ),
+            transcription_update_preset=TranscriptionUpdatePreset.COMPLETE_PLUS_TIMING,
         )
 
     # Set common items
