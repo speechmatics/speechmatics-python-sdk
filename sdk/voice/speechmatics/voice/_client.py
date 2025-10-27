@@ -23,6 +23,7 @@ from speechmatics.rt import ServerMessageType
 from speechmatics.rt import SpeakerDiarizationConfig
 from speechmatics.rt import SpeakerIdentifier
 from speechmatics.rt import TranscriptionConfig
+from speechmatics.rt._exceptions import TransportError
 
 from . import __version__
 from ._audio import AudioBuffer
@@ -499,7 +500,16 @@ class VoiceAgentClient(AsyncClient):
             return
 
         # Send to the AsyncClient
-        await super().send_audio(payload)
+        try:
+            await super().send_audio(payload)
+        except TransportError as e:
+            self._logger.warning(f"Error sending audio: {e}")
+            self.emit(
+                AgentServerMessageType.ERROR,
+                {"message": AgentServerMessageType.ERROR.value, "reason": "Transport error - connection being closed"},
+            )
+            await self.disconnect()
+            return
 
         # Add to audio buffer (use put_bytes to handle variable chunk sizes)
         if self._config.smart_turn_config.audio_buffer_length > 0:
