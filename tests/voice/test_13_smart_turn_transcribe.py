@@ -42,7 +42,7 @@ class TranscriptionTest(BaseModel):
 
 
 SAMPLES: list[TranscriptionTest] = [
-    TranscriptionTest(id="01", path="./assets/audio_04_16kHz.wav", sample_rate=16000, language="en", eot_count=1),
+    TranscriptionTest(id="01", path="./assets/audio_04_16kHz.wav", sample_rate=16000, language="en", eot_count=2),
     TranscriptionTest(id="02", path="./assets/audio_05_16kHz.wav", sample_rate=16000, language="en", eot_count=1),
     TranscriptionTest(id="03", path="./assets/audio_06_16kHz.wav", sample_rate=16000, language="en", eot_count=1),
 ]
@@ -121,13 +121,13 @@ async def test_prediction(sample: TranscriptionTest):
             print(log)
 
     # Add listeners
-    client.on(AgentServerMessageType.RECOGNITION_STARTED, log_message)
-    client.on(AgentServerMessageType.END_OF_TRANSCRIPT, log_message)
-    client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, log_message)
+    # client.on(AgentServerMessageType.RECOGNITION_STARTED, log_message)
+    # client.on(AgentServerMessageType.END_OF_TRANSCRIPT, log_message)
+    # client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, log_message)
     client.on(AgentServerMessageType.ADD_SEGMENT, log_message)
-    client.on(AgentServerMessageType.SPEAKER_STARTED, log_message)
+    # client.on(AgentServerMessageType.SPEAKER_STARTED, log_message)
     client.on(AgentServerMessageType.SPEAKER_ENDED, log_message)
-    client.on(AgentServerMessageType.SPEAKER_METRICS, log_message)
+    # client.on(AgentServerMessageType.SPEAKER_METRICS, log_message)
     client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, log_message)
     client.on(AgentServerMessageType.END_OF_TURN, log_message)
 

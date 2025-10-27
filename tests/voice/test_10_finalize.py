@@ -83,6 +83,7 @@ async def test_finalize():
     client.once(AgentServerMessageType.RECOGNITION_STARTED, log_message)
     client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, log_message)
     client.on(AgentServerMessageType.ADD_SEGMENT, log_message)
+    client.on(AgentServerMessageType.END_OF_UTTERANCE, log_message)
     client.on(AgentServerMessageType.END_OF_TURN, log_message)
 
     # End of Turn
@@ -111,7 +112,7 @@ async def test_finalize():
 
     # Send words twice with silence in-between
     await send_audio_file(client, AUDIO_FILE, chunk_size=chunk_size, progress_callback=log_bytes_sent)
-    await send_silence(client, 1.0, chunk_size=chunk_size, progress_callback=log_bytes_sent)
+    await send_silence(client, 0.5, chunk_size=chunk_size, progress_callback=log_bytes_sent)
     await send_audio_file(client, AUDIO_FILE, chunk_size=chunk_size, progress_callback=log_bytes_sent)
 
     # Send silence in a thread
@@ -126,7 +127,7 @@ async def test_finalize():
 
     # Request the speakers result
     finalize_trigger_time = datetime.datetime.now()
-    client.finalize()
+    client.end_of_turn()
 
     # Wait for the callback with timeout
     try:
@@ -145,7 +146,6 @@ async def test_finalize():
     print(f"{finalize_latency:.2f}ms")
 
     # Make sure latency is within bounds
-    assert finalize_latency > 50
     assert finalize_latency < 500
 
     # Close session

@@ -148,6 +148,13 @@ async def test_end_of_utterance_fixed():
     client = await get_client(api_key="NONE", connect=False)
     assert client is not None
 
+    # Debug
+    # client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, lambda message: print(message))
+    # client.on(AgentServerMessageType.ADD_SEGMENT, lambda message: print(message))
+    # client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, lambda message: print(message))
+    # client.on(AgentServerMessageType.END_OF_TURN, lambda message: print(message))
+    # client.on(AgentServerMessageType.END_OF_UTTERANCE, lambda message: print(message))
+
     # Start the queue
     client._start_stt_queue()
 
