@@ -41,7 +41,7 @@ class VoiceAgentConfigPreset:
         return VoiceAgentConfig(
             enable_diarization=True,
             max_delay=0.7,
-            end_of_utterance_silence_trigger=0.4,
+            end_of_utterance_silence_trigger=0.5,
             end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
         )
 
