@@ -24,7 +24,7 @@ class PredictionTest(BaseModel):
 SAMPLES: list[PredictionTest] = [
     PredictionTest(
         id="01",
-        path="./assets/smart_turn/01_false_16KHz.wav",
+        path="./assets/smart_turn/01_false_16kHz.wav",
         language="en",
         expected=SmartTurnPredictionResult(
             prediction=False,
@@ -33,7 +33,7 @@ SAMPLES: list[PredictionTest] = [
     ),
     PredictionTest(
         id="02",
-        path="./assets/smart_turn/02_false_16KHz.wav",
+        path="./assets/smart_turn/02_false_16kHz.wav",
         language="en",
         expected=SmartTurnPredictionResult(
             prediction=False,
@@ -42,7 +42,7 @@ SAMPLES: list[PredictionTest] = [
     ),
     PredictionTest(
         id="03",
-        path="./assets/smart_turn/03_true_16KHz.wav",
+        path="./assets/smart_turn/03_true_16kHz.wav",
         language="en",
         expected=SmartTurnPredictionResult(
             prediction=True,
