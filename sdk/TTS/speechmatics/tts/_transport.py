@@ -31,7 +31,7 @@ class Transport:
     HTTP transport layer for Speechmatics TTS API communication.
 
     This class handles all low-level HTTP communication with the Speechmatics
-    Batch API, including connection management, request serialization,
+    TTS API, including connection management, request serialization,
     authentication, and response handling.
 
     Args:
