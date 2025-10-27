@@ -239,9 +239,11 @@ class AnnotationFlags(str, Enum):
     UPDATED_STRIPPED_LCASE = "updated_stripped_lcase"
     UPDATED_FINALS = "updated_finals"
     UPDATED_PARTIALS = "updated_partials"
-    UPDATED_SPEAKERS = "updated_speakers"
     UPDATED_WORD_TIMINGS = "updated_word_timings"
     FINALIZED = "finalized"
+
+    # Annotations changed
+    UPDATED_ANNOTATIONS = "updated_annotations"
 
     # Content of segments
     ONLY_ACTIVE_SPEAKERS = "only_active_speakers"

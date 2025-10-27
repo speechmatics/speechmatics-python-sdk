@@ -139,7 +139,12 @@ class VoiceAgentClient(AsyncClient):
         )
 
         # Change filter to emit segments
-        self._change_filter: list[AnnotationFlags] = [AnnotationFlags.NEW]
+        self._change_filter: list[AnnotationFlags] = [
+            AnnotationFlags.NEW,
+            AnnotationFlags.UPDATED_PARTIALS,
+            AnnotationFlags.UPDATED_FINALS,
+        ]
+
         # Full text has changed
         if self._config.transcription_update_preset == TranscriptionUpdatePreset.COMPLETE:
             self._change_filter.append(AnnotationFlags.UPDATED_FULL)

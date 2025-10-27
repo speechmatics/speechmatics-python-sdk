@@ -66,6 +66,7 @@ class FragmentUtils:
                 "lang": segment.language,
                 "start_time": fragments[0].start_time if fragments else 0,
                 "end_time": fragments[-1].end_time if fragments else 0,
+                "annotation": segment.annotation or [],
             }
         )
 
@@ -323,13 +324,17 @@ class FragmentUtils:
             if view1_timings_str != view2_timings_str:
                 result.add(AnnotationFlags.UPDATED_WORD_TIMINGS)
 
+            # Annotations
+            view1_annotation_str: str = view1.format_view_text(format="|{annotation}|")
+            view2_annotation_str: str = view2.format_view_text(format="|{annotation}|")
+            if set(view1_annotation_str) != set(view2_annotation_str):
+                result.add(AnnotationFlags.UPDATED_ANNOTATIONS)
+
             # Partials, finals and speakers
             if view1.final_count != view2.final_count:
                 result.add(AnnotationFlags.UPDATED_FINALS)
             if view1.partial_count != view2.partial_count:
                 result.add(AnnotationFlags.UPDATED_PARTIALS)
-            if view1.segment_count != view2.segment_count:
-                result.add(AnnotationFlags.UPDATED_SPEAKERS)
 
         # Assume this is new
         elif view1.segment_count > 0:

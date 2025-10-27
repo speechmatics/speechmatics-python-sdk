@@ -57,7 +57,8 @@ class VoiceAgentConfigPreset:
         This preset will use a model to detect for acoustic indicators from the
         speaker to determine when a turn has ended.
 
-        Use of this will requite `pip install speechmatics-voice[smart]`.
+        Use of this will requite `pip install speechmatics-voice[smart]` and may not
+        be suited to low-power devices.
         """
         return VoiceAgentConfig(
             enable_diarization=True,
