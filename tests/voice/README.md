@@ -2,6 +2,21 @@
 
 You will need a `SPEECHMATICS_API_KEY` to run most of the tests, as they will use live transcription.
 
+You need to have git LFS support installed to run audio file tests.
+
+```bash
+# Windows (select Git LFS when installing Git)
+
+# Linux
+sudo apt install git-lfs
+
+# macOS
+brew install git-lfs
+
+# Download / update FLS files
+git lfs pull
+```
+
 To run tests:
 
 ```bash
