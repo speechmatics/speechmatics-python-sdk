@@ -12,28 +12,37 @@ cd <project_directory>
 
 # Create a virtual environment
 python -m venv .venv
+
+# Activate : macOS / Ubuntu / Debian
 source .venv/bin/activate
 
-# Install requirements for the examples
-pip install -r ./examples/voice/requirements-examples.txt
+# Activate : Windows
+.venv\Scripts\activate
+
+# Update pip
+python -m pip install --upgrade pip
 ```
 
-## Troubleshooting
+**PyAudio installation:**
 
-**PyAudio installation issues:**
+For macOS and Linux you need to install the `portaudio` package.
 
 ```shell
 # macOS
 brew install portaudio
-pip install pyaudio
 
 # Ubuntu/Debian
 sudo apt-get install portaudio19-dev
-pip install pyaudio
 ```
 
-**API key issues:**
+**Package dependencies:**
 
-```bash
-export SPEECHMATICS_API_KEY="your_api_key_here"
+Install dependencies from the project root.
+
+```shell
+# Voice SDK
+python -m pip install -e 'sdk/voice[dev,smart]'
+
+# Required packages
+python -m pip install pyaudio certifi
 ```

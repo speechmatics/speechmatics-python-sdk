@@ -10,13 +10,18 @@ This module provides:
 import asyncio
 import logging
 import sys
-import termios
-import tty
 
 import pyaudio
 
 from speechmatics.rt import Microphone
 from speechmatics.voice import VoiceAgentClient
+
+if sys.platform == "win32":
+    pass
+else:
+    import termios
+    import tty
+
 
 # ==============================================================================
 # ASYNC UTILITIES

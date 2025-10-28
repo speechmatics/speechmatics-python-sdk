@@ -7,13 +7,17 @@ from __future__ import annotations
 import datetime
 import logging
 import os
+import ssl
 import urllib.request
 from typing import Any
 from typing import Optional
 from urllib.parse import urlparse
 
+import certifi
 import numpy as np
 from pydantic import BaseModel
+
+ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where())
 
 ort: Any
 WhisperFeatureExtractor: Any

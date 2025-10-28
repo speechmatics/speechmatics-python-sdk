@@ -40,6 +40,7 @@ keywords = [
 
 [project.optional-dependencies]
 smart = [
+    "certifi>=2025.10.5",
     "onnxruntime>=1.19.0,<2",
     "transformers>=4.57.0,<5",
 ]
