@@ -49,6 +49,9 @@ Save all output to a JSONL file for later analysis.
 **`-v, --verbose`**
 Increase logging verbosity. `-v` adds speaker start/end VAD events. `-vv` also emits `END_OF_TURN_PREDICTION`. `-vvv` shows the `annotation` field in segments. `-vvvv` adds metric messages.`-vvvvv` adds additional payloads: `END_OF_UTTERANCE`, `ADD_PARTIAL_TRANSCRIPT`, and `ADD_TRANSCRIPT`. Useful for debugging or detailed analysis. Default: `0`.
 
+**`--results`**
+Include the individual fragments in the segment payload. Default: `False`.
+
 ### Audio Configuration
 
 **`--sample-rate`**
