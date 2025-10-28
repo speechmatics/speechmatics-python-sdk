@@ -46,6 +46,7 @@ from ._models import SessionSpeaker
 from ._models import SpeakerFocusConfig
 from ._models import SpeakerFocusMode
 from ._models import SpeakerMetricsMessage
+from ._models import SpeakerSegment
 from ._models import SpeakerSegmentView
 from ._models import SpeechFragment
 from ._models import SpeechSegmentEmitMode
@@ -780,6 +781,11 @@ class VoiceAgentClient(AsyncClient):
         Args:
             end_time: The end time of the payload from the STT engine.
         """
+
+        # Skip if not enabled
+        if not (self.listeners(AgentServerMessageType.TTFB_METRICS) or self.listeners(AgentServerMessageType.METRICS)):
+            return
+
         # Skip if no fragments are words
         if len(self._speech_fragments) == 0 or all(f.type_ != "word" for f in self._speech_fragments):
             return
@@ -806,6 +812,48 @@ class VoiceAgentClient(AsyncClient):
         self._emit_message(
             TTFBMetricsMessage(ttfb=int(self._last_ttfb)),
         )
+
+    def calculate_speaker_metrics(self, final_segments: list[SpeakerSegment]) -> None:
+        """Calculate the speaker metrics.
+
+        Used to track the number of final words per speaker. Only valid speakers are
+        considered. Ignored speakers will be excluded.
+
+        Args:
+            final_segments: The final segments to calculate the speaker metrics for.
+        """
+
+        # Skip if not enabled
+        if not self.listeners(AgentServerMessageType.SPEAKER_METRICS):
+            return
+
+        # Finalized words
+        final_words = [
+            f for seg in final_segments for f in seg.fragments if f.type_ == "word" and f.speaker is not None
+        ]
+
+        # Only process if we have words
+        if final_words:
+            # Update the metrics of the speakers in the session
+            for frag in final_words:
+                # Check we have a speaker
+                if frag.speaker is None:
+                    continue
+
+                # Create new speaker
+                if frag.speaker not in self._session_speakers:
+                    self._session_speakers[frag.speaker] = SessionSpeaker(speaker_id=frag.speaker)
+
+                # Update metrics
+                self._session_speakers[frag.speaker].word_count += 1
+                self._session_speakers[frag.speaker].last_heard = frag.end_time
+
+            # Emit
+            self._emit_message(
+                SpeakerMetricsMessage(
+                    speakers=list(self._session_speakers.values()),
+                ),
+            )
 
     # ============================================================================
     # TRANSCRIPT PROCESSING
@@ -950,9 +998,7 @@ class VoiceAgentClient(AsyncClient):
                 self._logger.debug(json.dumps(debug_payload))
 
             # Update TTFB (only if there are listeners)
-            if not is_final and (
-                self.listeners(AgentServerMessageType.TTFB_METRICS) or self.listeners(AgentServerMessageType.METRICS)
-            ):
+            if not is_final:
                 self._calculate_ttfb(end_time=payload_end_time)
 
             # Fragments available
@@ -1172,39 +1218,8 @@ class VoiceAgentClient(AsyncClient):
                     self._turn_start_time = self._current_view.start_time
 
                 # Send updated speaker metrics
-                if self._dz_enabled and self.listeners(AgentServerMessageType.SPEAKER_METRICS):
-                    """Update the metrics of the speakers in the sesseion."""
-
-                    # Finalized words
-                    final_words = [
-                        f
-                        for seg in final_segments
-                        for f in seg.fragments
-                        if f.type_ == "word" and f.speaker is not None
-                    ]
-
-                    # Only process if we have words
-                    if final_words:
-                        # Update the metrics of the speakers in the session
-                        for frag in final_words:
-                            # Check we have a speaker
-                            if frag.speaker is None:
-                                continue
-
-                            # Create new speaker
-                            if frag.speaker not in self._session_speakers:
-                                self._session_speakers[frag.speaker] = SessionSpeaker(speaker_id=frag.speaker)
-
-                            # Update metrics
-                            self._session_speakers[frag.speaker].word_count += 1
-                            self._session_speakers[frag.speaker].last_heard = frag.end_time
-
-                        # Emit
-                        self._emit_message(
-                            SpeakerMetricsMessage(
-                                speakers=list(self._session_speakers.values()),
-                            ),
-                        )
+                if self._dz_enabled:
+                    self.calculate_speaker_metrics(final_segments)
 
         # Emit END_OF_TURN
         if end_of_turn and self._previous_view:
@@ -1265,7 +1280,6 @@ class VoiceAgentClient(AsyncClient):
         # Calculations
         clamped_delay: float = self._config.end_of_utterance_max_delay
         finalize_delay: Optional[float] = None
-        time_slip: Optional[float] = None
 
         # Reasons for the calculation
         reasons: list[tuple[float, str]] = []
@@ -1327,11 +1341,8 @@ class VoiceAgentClient(AsyncClient):
         # Clamp to max delay
         clamped_delay = min(delay, self._config.end_of_utterance_max_delay)
 
-        # Establish the real-world time
-        time_slip = max(self._total_time - self._last_fragment_end_time, 0)
-
         # Adjust time and make sure no less than 25ms
-        finalize_delay = max(clamped_delay - time_slip, 0.025)
+        finalize_delay = max(clamped_delay - (self._last_ttfb / 1000), 0.025)
 
         # Emit prediction
         if self.listeners(AgentServerMessageType.END_OF_TURN_PREDICTION):
@@ -1340,7 +1351,6 @@ class VoiceAgentClient(AsyncClient):
                     turn_id=self._turn_id,
                     metadata=TurnPredictionMetadata(
                         ttl=round(finalize_delay, 2),
-                        time_slip=round(time_slip, 2),
                         reasons=[_reason for _, _reason in reasons],
                     ),
                 ),
@@ -1459,12 +1469,14 @@ class VoiceAgentClient(AsyncClient):
                     ),
                 )
 
+        # Update current speaker
+        self._current_speaker = latest_speaker
+
         # No further processing if we have no new fragments and we are not speaking
         if has_valid_partial == current_is_speaking:
             return
 
-        # Update current speaker + speaking states
-        self._current_speaker = latest_speaker
+        # Update speaking state
         self._is_speaking = not current_is_speaking
 
         # Event time

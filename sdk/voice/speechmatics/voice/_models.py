@@ -1030,12 +1030,10 @@ class TurnPredictionMetadata(BaseMessageModel):
 
     Parameters:
         ttl: The time to live of the prediction in seconds.
-        time_slip: The time slip of the prediction in seconds.
         reasons: The reasons for the prediction.
     """
 
     ttl: float
-    time_slip: float
     reasons: list[str]
 
 
