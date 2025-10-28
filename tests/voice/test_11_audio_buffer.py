@@ -262,8 +262,8 @@ async def test_transcribe_and_slice():
             assert segments
 
             for segment in segments:
-                start_time = segment["start_time"]
-                end_time = segment["end_time"]
+                start_time = segment["metadata"]["start_time"]
+                end_time = segment["metadata"]["end_time"]
                 speaker_id = segment["speaker_id"]
                 asyncio.create_task(
                     save_slice(
@@ -363,8 +363,8 @@ async def x_test_transcribe_and_slice_vad():
     # Bytes logger
     def speaker_ended(message):
         try:
-            end_time = message.get("status", {}).get("time")
-            speaker_id = message.get("status", {}).get("speaker_id")
+            end_time = message["time"]
+            speaker_id = message["speaker_id"]
             asyncio.create_task(
                 save_slice(
                     start_time=end_time - 0.2,
