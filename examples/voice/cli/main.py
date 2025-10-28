@@ -343,8 +343,11 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
         if msg_type in ("AddPartialSegment", "AddSegment"):
             _segs = []
             for segment in payload["segments"]:
-                prefix = "" if segment["is_active"] else " (background)"
-                _segs.append(f"@{segment['speaker_id']}{prefix}: `{segment['text']}` {segment['annotation']}")
+                suffix = "" if segment["is_active"] else " (background)"
+                if args.verbose >= 3:
+                    _segs.append(f"@{segment['speaker_id']}{suffix}: `{segment['text']}` {segment['annotation']}")
+                else:
+                    _segs.append(f"@{segment['speaker_id']}{suffix}: `{segment['text']}`")
             payload = {"segments": _segs}
 
         # Print to console
@@ -384,7 +387,7 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
             client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, log_message)
 
         # Verbose STT events
-        if args.verbose >= 3:
+        if args.verbose >= 4:
             client.on(AgentServerMessageType.END_OF_UTTERANCE, log_message)
             client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, log_message)
             client.on(AgentServerMessageType.ADD_TRANSCRIPT, log_message)

@@ -51,7 +51,7 @@ Enable formatted console output with colours and emojis.
 Save all output to a JSONL file for later analysis.
 
 **`-v, --verbose`**
-Increase logging verbosity. `-v` adds speaker start/end VAD events. `-vv` also emits `END_OF_TURN_PREDICTION`. `-vvv` adds additional payloads: `END_OF_UTTERANCE`, `ADD_PARTIAL_TRANSCRIPT`, and `ADD_TRANSCRIPT`. Useful for debugging or detailed analysis. Default: `0`.
+Increase logging verbosity. `-v` adds speaker start/end VAD events. `-vv` also emits `END_OF_TURN_PREDICTION`. `-vvv` shows the `annotation` field in segments. `-vvvv` adds additional payloads: `END_OF_UTTERANCE`, `ADD_PARTIAL_TRANSCRIPT`, and `ADD_TRANSCRIPT`. Useful for debugging or detailed analysis. Default: `0`.
 
 ### Audio Configuration
 
