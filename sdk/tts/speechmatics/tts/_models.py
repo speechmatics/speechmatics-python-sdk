@@ -47,9 +47,9 @@ class Voice(str, Enum):
     Voice ID for the generated audio.
 
     Attributes:
-        sarah: English (UK) female voice.
-        theo: English (UK) male voice.
-        megan: English (UK) female voice.
+        SARAH: English (UK) female voice.
+        THEO: English (UK) male voice.
+        MEGAN: English (UK) female voice.
     """
 
     SARAH = "sarah"

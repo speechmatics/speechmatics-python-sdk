@@ -28,14 +28,14 @@ from ._models import ConnectionConfig
 
 class Transport:
     """
-    HTTP transport layer for Speechmatics Batch API communication.
+    HTTP transport layer for Speechmatics TTS API communication.
 
     This class handles all low-level HTTP communication with the Speechmatics
-    Batch API, including connection management, request serialization,
+    TTS API, including connection management, request serialization,
     authentication, and response handling.
 
     Args:
-        url: Base URL for the Speechmatics Batch API.
+        url: Base URL for the Speechmatics TTS API.
         conn_config: Connection configuration including URL and timeouts.
         auth: Authentication instance for handling credentials.
         request_id: Optional unique identifier for request tracking. Generated
@@ -51,7 +51,7 @@ class Transport:
             >>> conn_config = ConnectionConfig()
             >>> auth = StaticKeyAuth("your-api-key")
             >>> transport = Transport(conn_config, auth)
-            >>> response = await transport.get("/jobs")
+            >>> response = await transport.post("/generate/sarah")
             >>> await transport.close()
     """
 
