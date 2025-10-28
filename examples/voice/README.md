@@ -43,6 +43,6 @@ Install dependencies from the project root.
 # Voice SDK
 python -m pip install -e 'sdk/voice[dev,smart]'
 
-# Required packages
-python -m pip install pyaudio certifi
+# Required audio package for examples
+python -m pip install pyaudio
 ```
