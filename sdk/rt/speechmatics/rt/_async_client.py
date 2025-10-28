@@ -161,26 +161,6 @@ class AsyncClient(_BaseClient):
         await self._session_done_evt.wait()  # Wait for end of transcript event to indicate we can stop listening
         await self.close()
 
-    async def force_end_of_utterance(self) -> None:
-        """
-    This method sends a ForceEndOfUtterance message to the server to signal
-        the end of an utterance. Forcing end of utterance will cause the final
-        transcript to be sent to the client early.
-
-        Raises:
-            ConnectionError: If the WebSocket connection fails.
-            TranscriptionError: If the server reports an error during teardown.
-            TimeoutError: If the connection or teardown times out.
-
-        Examples:
-            Basic streaming:
-                >>> async with AsyncClient() as client:
-                ...     await client.start_session()
-                ...     await client.send_audio(frame)
-                ...     await client.force_end_of_utterance()
-        """
-        await self.send_message({"message": ClientMessageType.FORCE_END_OF_UTTERANCE})
-
     async def transcribe(
         self,
         source: BinaryIO,
