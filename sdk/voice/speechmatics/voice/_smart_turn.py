@@ -13,19 +13,8 @@ from typing import Any
 from typing import Optional
 from urllib.parse import urlparse
 
-import certifi
 import numpy as np
 from pydantic import BaseModel
-
-
-def _create_ssl_context(*args: Any, **kwargs: Any) -> ssl.SSLContext:
-    """Create SSL context with certifi certificates."""
-    if "cafile" not in kwargs:
-        kwargs["cafile"] = certifi.where()
-    return ssl.create_default_context(*args, **kwargs)
-
-
-ssl._create_default_https_context = _create_ssl_context
 
 ort: Any
 WhisperFeatureExtractor: Any
@@ -33,11 +22,21 @@ logger = logging.getLogger(__name__)
 
 try:
     os.environ["TRANSFORMERS_NO_ADVISORY_WARNINGS"] = "1"
+    import certifi
     import onnxruntime as _ort
     from transformers import WhisperFeatureExtractor as _WhisperFeatureExtractor
 
     ort = _ort
     WhisperFeatureExtractor = _WhisperFeatureExtractor
+
+    def _create_ssl_context(*args: Any, **kwargs: Any) -> ssl.SSLContext:
+        """Create SSL context with certifi certificates."""
+        if "cafile" not in kwargs:
+            kwargs["cafile"] = certifi.where()
+        return ssl.create_default_context(*args, **kwargs)
+
+    ssl._create_default_https_context = _create_ssl_context
+
 except ModuleNotFoundError:
     WhisperFeatureExtractor = None
     ort = None
