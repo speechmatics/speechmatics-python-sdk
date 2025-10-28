@@ -6,7 +6,7 @@ Basic real-time transcription example using your default microphone with speaker
 
 ```bash
 export SPEECHMATICS_API_KEY=your_api_key
-python ./examples/voice/simple/main.py
+python app.py
 ```
 
 Press `CTRL+C` to stop.

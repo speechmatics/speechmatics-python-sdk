@@ -7,17 +7,13 @@ Command-line tool for real-time transcription using the Speechmatics Voice SDK. 
 **Microphone:**
 
 ```bash
-# macOS / Ubuntu / Debian
-python ./examples/voice/cli/main.py -p -k YOUR_API_KEY
-
-# Windows
-python .\examples\voice\cli\main.py -p -k YOUR_API_KEY
+python cli.py -p -k YOUR_API_KEY
 ```
 
 **Audio file:**
 
 ```bash
-python ./examples/voice/cli/main.py -p -k YOUR_API_KEY -i audio.wav
+python cli.py -p -k YOUR_API_KEY -i audio.wav
 ```
 
 Press `CTRL+C` to stop.
@@ -30,7 +26,7 @@ Press `CTRL+C` to stop.
 ## Usage
 
 ```bash
-python ./examples/voice/cli/main.py [OPTIONS]
+python cli.py [OPTIONS]
 ```
 
 ### Core Parameters
@@ -51,7 +47,7 @@ Enable formatted console output with colours and emojis.
 Save all output to a JSONL file for later analysis.
 
 **`-v, --verbose`**
-Increase logging verbosity. `-v` adds speaker start/end VAD events. `-vv` also emits `END_OF_TURN_PREDICTION`. `-vvv` shows the `annotation` field in segments. `-vvvv` adds additional payloads: `END_OF_UTTERANCE`, `ADD_PARTIAL_TRANSCRIPT`, and `ADD_TRANSCRIPT`. Useful for debugging or detailed analysis. Default: `0`.
+Increase logging verbosity. `-v` adds speaker start/end VAD events. `-vv` also emits `END_OF_TURN_PREDICTION`. `-vvv` shows the `annotation` field in segments. `-vvvv` adds metric messages.`-vvvvv` adds additional payloads: `END_OF_UTTERANCE`, `ADD_PARTIAL_TRANSCRIPT`, and `ADD_TRANSCRIPT`. Useful for debugging or detailed analysis. Default: `0`.
 
 ### Audio Configuration
 
@@ -110,31 +106,31 @@ Enable preview features.
 ### Microphone - basic transcription
 
 ```bash
-python ./examples/voice/cli/main.py -k YOUR_KEY -p
+python cli.py -k YOUR_KEY -p
 ```
 
 ### Audio file - basic transcription
 
 ```bash
-python ./examples/voice/cli/main.py -k YOUR_KEY -i audio.wav -p
+python cli.py -k YOUR_KEY -i audio.wav -p
 ```
 
 ### Audio file - muted (no playback)
 
 ```bash
-python ./examples/voice/cli/main.py -k YOUR_KEY -i audio.wav -Mp
+python cli.py -k YOUR_KEY -i audio.wav -Mp
 ```
 
 ### With adaptive turn detection
 
 ```bash
-python ./examples/voice/cli/main.py -k YOUR_KEY -m ADAPTIVE -p
+python cli.py -k YOUR_KEY -m ADAPTIVE -p
 ```
 
 ### Enrol speakers (microphone)
 
 ```bash
-python ./examples/voice/cli/main.py -k YOUR_KEY -ep
+python cli.py -k YOUR_KEY -ep
 ```
 
 Press `CTRL+C` when done. Speaker identifiers will be displayed:
@@ -146,7 +142,7 @@ Press `CTRL+C` when done. Speaker identifiers will be displayed:
 ### Use known speakers (JSON string)
 
 ```bash
-python ./examples/voice/cli/main.py -k YOUR_KEY -s '[{"label": "Alice", "speaker_identifiers": ["XX...XX"]}]' -p
+python cli.py -k YOUR_KEY -s '[{"label": "Alice", "speaker_identifiers": ["XX...XX"]}]' -p
 ```
 
 ### Use known speakers (JSON file)
@@ -169,7 +165,7 @@ Create a `speakers.json` file:
 Then run:
 
 ```bash
-python ./examples/voice/cli/main.py -k YOUR_KEY -s speakers.json -p
+python cli.py -k YOUR_KEY -s speakers.json -p
 ```
 
 Output shows speaker labels:
@@ -182,13 +178,13 @@ Output shows speaker labels:
 ### Focus on specific speakers
 
 ```bash
-python ./examples/voice/cli/main.py -k YOUR_KEY --focus-speakers S1 S2 -p
+python cli.py -k YOUR_KEY --focus-speakers S1 S2 -p
 ```
 
 ### Save to file
 
 ```bash
-python ./examples/voice/cli/main.py -k YOUR_KEY -o output.jsonl -p
+python cli.py -k YOUR_KEY -o output.jsonl -p
 ```
 
 ### Verbose logging
@@ -196,25 +192,25 @@ python ./examples/voice/cli/main.py -k YOUR_KEY -o output.jsonl -p
 Show speaker start/end events:
 
 ```bash
-python ./examples/voice/cli/main.py -k YOUR_KEY -i audio.wav -v -p
+python cli.py -k YOUR_KEY -i audio.wav -v -p
 ```
 
 Include turn prediction events:
 
 ```bash
-python ./examples/voice/cli/main.py -k YOUR_KEY -i audio.wav -vv -p
+python cli.py -k YOUR_KEY -i audio.wav -vv -p
 ```
 
 Include additional payloads for debugging:
 
 ```bash
-python ./examples/voice/cli/main.py -k YOUR_KEY -i audio.wav -vvv -p
+python cli.py -k YOUR_KEY -i audio.wav -vvv -p
 ```
 
 ### Audio file with speaker focus
 
 ```bash
-python ./examples/voice/cli/main.py -k YOUR_KEY -i audio.wav --focus-speakers S2 -p
+python cli.py -k YOUR_KEY -i audio.wav --focus-speakers S2 -p
 ```
 
 ## Speaker Identification

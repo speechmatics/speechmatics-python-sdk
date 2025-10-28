@@ -110,6 +110,7 @@ async def main() -> None:
                 emit_mode=args.emit_mode.lower() if args.emit_mode else SpeechSegmentEmitMode.ON_SPEAKER_ENDED
             ),
             transcription_update_preset=TranscriptionUpdatePreset.COMPLETE_PLUS_TIMING,
+            include_results=args.results,
         )
 
     # Set common items
@@ -386,8 +387,13 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
         if args.verbose >= 2:
             client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, log_message)
 
-        # Verbose STT events
+        # Metrics
         if args.verbose >= 4:
+            client.on(AgentServerMessageType.METRICS, log_message)
+            client.on(AgentServerMessageType.TTFB_METRICS, log_message)
+
+        # Verbose STT events
+        if args.verbose >= 5:
             client.on(AgentServerMessageType.END_OF_UTTERANCE, log_message)
             client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, log_message)
             client.on(AgentServerMessageType.ADD_TRANSCRIPT, log_message)
@@ -623,6 +629,11 @@ def parse_args():
         "--default-device",
         action="store_true",
         help="Use default device (default: False)",
+    )
+    parser.add_argument(
+        "--results",
+        action="store_true",
+        help="Include word transcription payload results in output (default: False)",
     )
 
     # ==============================================================================
