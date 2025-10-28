@@ -949,8 +949,10 @@ class VoiceAgentClient(AsyncClient):
                 }
                 self._logger.debug(json.dumps(debug_payload))
 
-            # Update TTFB
-            if not is_final:
+            # Update TTFB (only if there are listeners)
+            if not is_final and (
+                self.listeners(AgentServerMessageType.TTFB_METRICS) or self.listeners(AgentServerMessageType.METRICS)
+            ):
                 self._calculate_ttfb(end_time=payload_end_time)
 
             # Fragments available
