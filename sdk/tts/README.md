@@ -1,24 +1,20 @@
-# Speechmatics Batch API Client
+# Speechmatics TTS API Client
 
-[![PyPI](https://img.shields.io/pypi/v/speechmatics-batch)](https://pypi.org/project/speechmatics-batch/)
+[![PyPI](https://img.shields.io/pypi/v/speechmatics-tts)](https://pypi.org/project/speechmatics-tts/)
 ![PythonSupport](https://img.shields.io/badge/Python-3.9%2B-green)
 
-Async Python client for Speechmatics Batch API.
+Async Python client for Speechmatics TTS API.
 
 ## Features
 
 - Async API client with comprehensive error handling
 - Type hints throughout for better IDE support
 - Environment variable support for credentials
-- Easy-to-use interface for submitting, monitoring, and retrieving transcription jobs
-- Full job configuration support with all Speechmatics features
-- Intelligent transcript formatting with speaker diarization
-- Support for multiple output formats (JSON, TXT, SRT)
 
 ## Installation
 
 ```bash
-pip install speechmatics-batch
+pip install speechmatics-tts
 ```
 
 ## Usage
@@ -27,114 +23,47 @@ pip install speechmatics-batch
 
 ```python
 import asyncio
-from speechmatics.batch import AsyncClient
+from speechmatics.tts import AsyncClient
+import pydub
 
 async def main():
     # Create a client using environment variable SPEECHMATICS_API_KEY
     async with AsyncClient() as client:
         # Simple transcription
-        result = await client.transcribe("audio.wav")
-        print(result.transcript_text)
-
+        response = await client.generate(text="Hello, this is the Speechmatics TTS API. We are excited to have you here!")
+        assert response.status == "success"
+        assert response.audio is not None
+        pydub.AudioSegment.from_file(response.audio).export("output.wav", format="wav")
 asyncio.run(main())
+
+
 ```
 
-## JWT Authentication
-
-For enhanced security, use temporary JWT tokens instead of static API keys.
-JWTs are short-lived (60 seconds default) and automatically refreshed:
-
-```python
-from speechmatics.batch import AsyncClient, JWTAuth
-
-auth = JWTAuth("your-api-key", ttl=60)
-
-async with AsyncClient(auth=auth) as client:
-    # Tokens are cached and auto-refreshed automatically
-    result = await client.transcribe("audio.wav")
-    print(result.transcript_text)
-```
-
-Ideal for long-running applications or when minimizing API key exposure.
-See the [authentication documentation](https://docs.speechmatics.com/introduction/authentication) for more details.
 
 ### Basic Job Workflow
 
 ```python
 import asyncio
-from speechmatics.batch import AsyncClient, JobConfig, JobType, TranscriptionConfig
+from speechmatics.tts import AsyncClient, JobConfig, JobType, TranscriptionConfig
 
 async def main():
     # Create client with explicit API key
     async with AsyncClient(api_key="your-api-key") as client:
 
-        # Configure transcription
-        config = JobConfig(
-            type=JobType.TRANSCRIPTION,
-            transcription_config=TranscriptionConfig(
-                language="en",
-                enable_entities=True,
-                diarization="speaker"
-            )
-        )
-
         # Submit job
-        job = await client.submit_job("audio.wav", config=config)
-        print(f"Job submitted: {job.id}")
+        response = await client.generate(text="Hello, this is the Speechmatics TTS API. We are excited to have you here!")
+        assert response.status == "success"
+        assert response.audio is not None
 
         # Wait for completion
-        result = await client.wait_for_completion(
-            job.id,
+        response = await client.wait_for_completion(
+            response.job_id,
             polling_interval=2.0,
             timeout=300.0
         )
 
         # Access results
-        print(f"Transcript: {result.transcript_text}")
-        print(f"Confidence: {result.confidence}")
-
-asyncio.run(main())
-```
-
-### Advanced Configuration
-
-```python
-import asyncio
-from speechmatics.batch import (
-    AsyncClient,
-    JobConfig,
-    JobType,
-    OperatingPoint,
-    TranscriptionConfig,
-    TranslationConfig,
-    SummarizationConfig
-)
-
-async def main():
-    async with AsyncClient(api_key="your-api-key") as client:
-
-        # Advanced job configuration
-        config = JobConfig(
-            type=JobType.TRANSCRIPTION,
-            transcription_config=TranscriptionConfig(
-                language="en",
-                operating_point=OperatingPoint.ENHANCED,
-                enable_entities=True,
-                diarization="speaker",
-            ),
-            translation_config=TranslationConfig(target_languages=["es", "fr"]),
-            summarization_config=SummarizationConfig(
-                content_type="conversational", summary_length="brief"
-            ),
-        )
-
-        result = await client.transcribe("audio.wav", config=config)
-
-        # Access advanced features
-        if result.summary:
-            print(f"Summary: {result.summary}")
-        if result.translations:
-            print(f"Translations: {result.translations}")
+        pydub.AudioSegment.from_file(response.audio).export("output.wav", format="wav")
 
 asyncio.run(main())
 ```
@@ -143,54 +72,28 @@ asyncio.run(main())
 
 ```python
 import asyncio
-from speechmatics.batch import AsyncClient, JobStatus
+from speechmatics.tts import AsyncClient, JobStatus
 
 async def main():
     async with AsyncClient() as client:
 
         # Submit job
-        job = await client.submit_job("audio.wav")
+        response = await client.generate(text="Hello, this is the Speechmatics TTS API. We are excited to have you here!")
 
         # Check job status
-        job_details = await client.get_job_info(job.id)
+        job_details = await client.get_job_info(response.job_id)
         print(f"Status: {job_details.status}")
 
         # Wait for completion manually
         while job_details.status == JobStatus.RUNNING:
             await asyncio.sleep(5)
-            job_details = await client.get_job_info(job.id)
+            job_details = await client.get_job_info(response.job_id)
 
         if job_details.status == JobStatus.DONE:
-            # Get transcript
-            transcript = await client.get_transcript(job.id)
-            print(transcript.transcript_text)
+            # Get audio
+            pydub.AudioSegment.from_file(response.audio).export("output.wav", format="wav")
         else:
             print(f"Job failed with status: {job_details.status}")
-
-asyncio.run(main())
-```
-
-### Different Output Formats
-
-```python
-import asyncio
-from speechmatics.batch import AsyncClient, FormatType
-
-async def main():
-    async with AsyncClient() as client:
-        job = await client.submit_job("audio.wav")
-
-        # Get JSON format (default)
-        json_result = await client.get_transcript(job.id, format_type=FormatType.JSON)
-        print(json_result.transcript_text)
-
-        # Get plain text
-        txt_result = await client.get_transcript(job.id, format_type=FormatType.TXT)
-        print(txt_result)
-
-        # Get SRT subtitles
-        srt_result = await client.get_transcript(job.id, format_type=FormatType.SRT)
-        print(srt_result)
 
 asyncio.run(main())
 ```
@@ -199,9 +102,9 @@ asyncio.run(main())
 
 ```python
 import asyncio
-from speechmatics.batch import (
+from speechmatics.tts import (
     AsyncClient,
-    BatchError,
+    ttsError,
     AuthenticationError,
     JobError,
     TimeoutError
@@ -215,7 +118,7 @@ async def main():
 
     except AuthenticationError:
         print("Invalid API key")
-    except BatchError as e:
+    except ttsError as e:
         print(f"Job submission failed: {e}")
     except JobError as e:
         print(f"Job processing failed: {e}")
@@ -231,7 +134,7 @@ asyncio.run(main())
 
 ```python
 import asyncio
-from speechmatics.batch import AsyncClient, ConnectionConfig
+from speechmatics.tts import AsyncClient, ConnectionConfig
 
 async def main():
     # Custom connection settings
@@ -243,8 +146,10 @@ async def main():
     )
 
     async with AsyncClient(conn_config=config) as client:
-        result = await client.transcribe("audio.wav")
-        print(result.transcript_text)
+        response = await client.generate("audio.wav")
+    assert response.status == "success"
+    assert response.audio is not None
+    pydub.AudioSegment.from_file(response.audio).export("output.wav", format="wav")
 
 asyncio.run(main())
 ```
@@ -271,4 +176,4 @@ logging.basicConfig(
 The client supports the following environment variables:
 
 - `SPEECHMATICS_API_KEY`: Your Speechmatics API key
-- `SPEECHMATICS_BATCH_URL`: Custom API endpoint URL (optional)
+- `SPEECHMATICS_TTS_URL`: Custom API endpoint URL (optional)
