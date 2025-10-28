@@ -32,17 +32,29 @@ from ._models import AgentClientMessageType
 from ._models import AgentServerMessageType
 from ._models import AnnotationFlags
 from ._models import AnnotationResult
+from ._models import BaseMessage
 from ._models import ClientSessionInfo
 from ._models import EndOfUtteranceMode
+from ._models import ErrorMessage
 from ._models import LanguagePackInfo
+from ._models import MessageTimeMetadata
+from ._models import MetricsMessage
+from ._models import SegmentMessage
+from ._models import SegmentMessageSegment
+from ._models import SegmentMessageSegmentFragment
 from ._models import SessionSpeaker
 from ._models import SpeakerFocusConfig
 from ._models import SpeakerFocusMode
+from ._models import SpeakerMetricsMessage
 from ._models import SpeakerSegmentView
-from ._models import SpeakerVADStatus
 from ._models import SpeechFragment
 from ._models import SpeechSegmentEmitMode
 from ._models import TranscriptionUpdatePreset
+from ._models import TTFBMetricsMessage
+from ._models import TurnPredictionMessage
+from ._models import TurnPredictionMetadata
+from ._models import TurnStartEndMessage
+from ._models import VADStatusMessage
 from ._models import VoiceAgentConfig
 from ._smart_turn import SMART_TURN_INSTALL_HINT
 from ._smart_turn import SmartTurnDetector
@@ -368,9 +380,10 @@ class VoiceAgentClient(AsyncClient):
 
         # Check if we are already connected
         if self._is_connected:
-            self.emit(
-                AgentServerMessageType.ERROR,
-                {"message": AgentServerMessageType.ERROR.value, "reason": "Already connected"},
+            self._emit_message(
+                ErrorMessage(
+                    reason="Already connected",
+                )
             )
             return
 
@@ -504,9 +517,10 @@ class VoiceAgentClient(AsyncClient):
             await super().send_audio(payload)
         except TransportError as e:
             self._logger.warning(f"Error sending audio: {e}")
-            self.emit(
-                AgentServerMessageType.ERROR,
-                {"message": AgentServerMessageType.ERROR.value, "reason": "Transport error - connection being closed"},
+            self._emit_message(
+                ErrorMessage(
+                    reason="Transport error - connection being closed",
+                )
             )
             await self.disconnect()
             return
@@ -667,6 +681,19 @@ class VoiceAgentClient(AsyncClient):
                 self._logger.debug(json.dumps(message))
             self._stt_message_queue.put_nowait(lambda: self._handle_transcript(message, is_final=True))
 
+    def _emit_message(self, message: BaseMessage) -> None:
+        """Emit a message to the client.
+
+        This takes a BaseMessage class and emits it as a dictionary to the
+        client.
+
+        Args:
+            message: The BaseMessage class message to emit.
+        """
+
+        # Forward to the emit() method
+        self.emit(message.message, message.model_dump())
+
     # ============================================================================
     # QUEUE PROCESSING
     # ============================================================================
@@ -725,15 +752,13 @@ class VoiceAgentClient(AsyncClient):
                 time_s = round(self._total_time, 3)
 
                 # Emit metrics
-                self.emit(
-                    AgentServerMessageType.METRICS,
-                    {
-                        "message": AgentServerMessageType.METRICS.value,
-                        "total_time": time_s,
-                        "total_time_str": time.strftime("%H:%M:%S", time.gmtime(time_s)),
-                        "total_bytes": self._total_bytes,
-                        "last_ttfb": self._last_ttfb,
-                    },
+                self._emit_message(
+                    MetricsMessage(
+                        total_time=time_s,
+                        total_time_str=time.strftime("%H:%M:%S", time.gmtime(time_s)),
+                        total_bytes=self._total_bytes,
+                        last_ttfb=int(self._last_ttfb),
+                    )
                 )
 
         # Trigger the task
@@ -778,12 +803,8 @@ class VoiceAgentClient(AsyncClient):
         self._last_ttfb_time = end_time
 
         # Emit the TTFB
-        self.emit(
-            AgentServerMessageType.TTFB_METRICS,
-            {
-                "message": AgentServerMessageType.TTFB_METRICS.value,
-                "ttfb": self._last_ttfb,
-            },
+        self._emit_message(
+            TTFBMetricsMessage(ttfb=int(self._last_ttfb)),
         )
 
     # ============================================================================
@@ -1013,7 +1034,7 @@ class VoiceAgentClient(AsyncClient):
                 # Force finalize
                 if finalize:
                     final_segments = self._current_view.segments
-                    interim_segments = []
+                    partial_segments = []
 
                 # Split between finals and interim segments (`ON_FINALIZED_SENTENCE` or `ON_SPEAKER_ENDED`)
                 elif self._config.speech_segment_config.emit_mode in [
@@ -1025,22 +1046,22 @@ class VoiceAgentClient(AsyncClient):
                         for s in self._current_view.segments
                         if s.annotation.has(AnnotationFlags.ENDS_WITH_FINAL, AnnotationFlags.ENDS_WITH_EOS)
                     ]
-                    interim_segments = [s for s in self._current_view.segments if s not in final_segments]
+                    partial_segments = [s for s in self._current_view.segments if s not in final_segments]
 
                 # Keep until end of turn (`ON_END_OF_TURN`)
                 else:
                     final_segments = []
-                    interim_segments = self._current_view.segments
+                    partial_segments = self._current_view.segments
 
                 # Emit finals first
                 if final_segments:
                     """Final segments are checked for end of sentence."""
 
                     # Metadata for final segments uses actual start/end times of the segments being emitted
-                    final_metadata = {
-                        "start_time": final_segments[0].start_time,
-                        "end_time": final_segments[-1].end_time,
-                    }
+                    final_metadata = MessageTimeMetadata(
+                        start_time=final_segments[0].start_time,
+                        end_time=final_segments[-1].end_time,
+                    )
 
                     # Ensure final segment ends with EOS
                     if self._config.speech_segment_config.add_trailing_eos:
@@ -1058,13 +1079,38 @@ class VoiceAgentClient(AsyncClient):
                             )
 
                     # Emit segments
-                    self.emit(
-                        AgentServerMessageType.ADD_SEGMENT,
-                        {
-                            "message": AgentServerMessageType.ADD_SEGMENT.value,
-                            "segments": [s.model_dump(self._config.include_results) for s in final_segments],
-                            "metadata": final_metadata,
-                        },
+                    self._emit_message(
+                        SegmentMessage(
+                            message=AgentServerMessageType.ADD_SEGMENT,
+                            segments=[
+                                SegmentMessageSegment(
+                                    speaker_id=s.speaker_id,
+                                    is_active=s.is_active,
+                                    timestamp=s.timestamp,
+                                    language=s.language,
+                                    text=s.text,
+                                    annotation=s.annotation,
+                                    fragments=(
+                                        [
+                                            SegmentMessageSegmentFragment(
+                                                start_time=f.start_time,
+                                                end_time=f.end_time,
+                                                language=f.language,
+                                                direction=f.direction,
+                                                type=f.type_,
+                                                content=f.content,
+                                            )
+                                            for f in s.fragments
+                                        ]
+                                        if self._config.include_results
+                                        else None
+                                    ),
+                                    metadata=MessageTimeMetadata(start_time=s.start_time, end_time=s.end_time),
+                                )
+                                for s in final_segments
+                            ],
+                            metadata=final_metadata,
+                        ),
                     )
                     self._trim_before_time = final_segments[-1].end_time
                     self._speech_fragments = [
@@ -1072,23 +1118,48 @@ class VoiceAgentClient(AsyncClient):
                     ]
 
                 # Emit interim segments
-                if interim_segments:
+                if partial_segments:
                     """Partial segments are emitted as is."""
 
                     # Metadata for partial segments uses actual start/end times of the segments being emitted
-                    partial_metadata = {
-                        "start_time": interim_segments[0].start_time,
-                        "end_time": interim_segments[-1].end_time,
-                    }
+                    partial_metadata = MessageTimeMetadata(
+                        start_time=partial_segments[0].start_time,
+                        end_time=partial_segments[-1].end_time,
+                    )
 
                     # Emit segments
-                    self.emit(
-                        AgentServerMessageType.ADD_PARTIAL_SEGMENT,
-                        {
-                            "message": AgentServerMessageType.ADD_PARTIAL_SEGMENT.value,
-                            "segments": [s.model_dump(self._config.include_results) for s in interim_segments],
-                            "metadata": partial_metadata,
-                        },
+                    self._emit_message(
+                        SegmentMessage(
+                            message=AgentServerMessageType.ADD_PARTIAL_SEGMENT,
+                            segments=[
+                                SegmentMessageSegment(
+                                    speaker_id=s.speaker_id,
+                                    is_active=s.is_active,
+                                    timestamp=s.timestamp,
+                                    language=s.language,
+                                    text=s.text,
+                                    annotation=s.annotation,
+                                    fragments=(
+                                        [
+                                            SegmentMessageSegmentFragment(
+                                                start_time=f.start_time,
+                                                end_time=f.end_time,
+                                                language=f.language,
+                                                direction=f.direction,
+                                                type=f.type_,
+                                                content=f.content,
+                                            )
+                                            for f in s.fragments
+                                        ]
+                                        if self._config.include_results
+                                        else None
+                                    ),
+                                    metadata=MessageTimeMetadata(start_time=s.start_time, end_time=s.end_time),
+                                )
+                                for s in partial_segments
+                            ],
+                            metadata=partial_metadata,
+                        ),
                     )
 
                 # Update the current view
@@ -1127,27 +1198,24 @@ class VoiceAgentClient(AsyncClient):
                             self._session_speakers[frag.speaker].last_heard = frag.end_time
 
                         # Emit
-                        self.emit(
-                            AgentServerMessageType.SPEAKER_METRICS,
-                            {
-                                "message": AgentServerMessageType.SPEAKER_METRICS.value,
-                                "speakers": [s.model_dump() for s in self._session_speakers.values()],
-                            },
+                        self._emit_message(
+                            SpeakerMetricsMessage(
+                                speakers=list(self._session_speakers.values()),
+                            ),
                         )
 
         # Emit END_OF_TURN
         if end_of_turn and self._previous_view:
             # Metadata (for LAST view)
-            metadata = {"start_time": self._turn_start_time, "end_time": self._previous_view.end_time}
+            metadata = MessageTimeMetadata(start_time=self._turn_start_time, end_time=self._previous_view.end_time)
 
             # Emit
-            self.emit(
-                AgentServerMessageType.END_OF_TURN,
-                {
-                    "message": AgentServerMessageType.END_OF_TURN.value,
-                    "turn_id": self._turn_id,
-                    "metadata": metadata,
-                },
+            self._emit_message(
+                TurnStartEndMessage(
+                    message=AgentServerMessageType.END_OF_TURN,
+                    turn_id=self._turn_id,
+                    metadata=metadata,
+                ),
             )
 
             # Reset the previous view
@@ -1178,7 +1246,11 @@ class VoiceAgentClient(AsyncClient):
         """
 
         # Get the current view -or- previous view
-        view = self._current_view or self._previous_view
+        view = (
+            self._current_view
+            if self._current_view and self._current_view.last_active_segment_index > -1
+            else self._previous_view
+        )
 
         # Exit if none
         if not view:
@@ -1261,17 +1333,15 @@ class VoiceAgentClient(AsyncClient):
 
         # Emit prediction
         if self.listeners(AgentServerMessageType.END_OF_TURN_PREDICTION):
-            self.emit(
-                AgentServerMessageType.END_OF_TURN_PREDICTION,
-                {
-                    "message": AgentServerMessageType.END_OF_TURN_PREDICTION.value,
-                    "turn_id": self._turn_id,
-                    "metadata": {
-                        "ttl": round(finalize_delay, 2),
-                        "time_slip": round(time_slip, 2),
-                        "reasons": [_reason for _, _reason in reasons],
-                    },
-                },
+            self._emit_message(
+                TurnPredictionMessage(
+                    turn_id=self._turn_id,
+                    metadata=TurnPredictionMetadata(
+                        ttl=round(finalize_delay, 2),
+                        time_slip=round(time_slip, 2),
+                        reasons=[_reason for _, _reason in reasons],
+                    ),
+                ),
             )
 
         # Return the time
@@ -1370,23 +1440,21 @@ class VoiceAgentClient(AsyncClient):
 
             # Check if speaker is different to the current speaker
             if current_is_speaking and speaker_changed:
-                self.emit(
-                    AgentServerMessageType.SPEAKER_ENDED,
-                    {
-                        "message": AgentServerMessageType.SPEAKER_ENDED.value,
-                        "status": SpeakerVADStatus(
-                            speaker_id=current_speaker, is_active=False, time=speaker_end_time
-                        ).model_dump(),
-                    },
+                self._emit_message(
+                    VADStatusMessage(
+                        message=AgentServerMessageType.SPEAKER_ENDED,
+                        speaker_id=current_speaker,
+                        is_active=False,
+                        time=speaker_end_time,
+                    ),
                 )
-                self.emit(
-                    AgentServerMessageType.SPEAKER_STARTED,
-                    {
-                        "message": AgentServerMessageType.SPEAKER_STARTED.value,
-                        "status": SpeakerVADStatus(
-                            speaker_id=latest_speaker, is_active=True, time=speaker_end_time
-                        ).model_dump(),
-                    },
+                self._emit_message(
+                    VADStatusMessage(
+                        message=AgentServerMessageType.SPEAKER_STARTED,
+                        speaker_id=latest_speaker,
+                        is_active=True,
+                        time=speaker_end_time,
+                    ),
                 )
 
         # No further processing if we have no new fragments and we are not speaking
@@ -1408,32 +1476,28 @@ class VoiceAgentClient(AsyncClient):
         ):
             self._end_of_turn_handler.start_handler()
             self._turn_id = self._end_of_turn_handler.handler_id
-            self.emit(
-                AgentServerMessageType.START_OF_TURN,
-                {
-                    "message": AgentServerMessageType.START_OF_TURN.value,
-                    "turn_id": self._turn_id,
-                    "metadata": {
-                        "start_time": event_time,
-                    },
-                },
+            self._emit_message(
+                TurnStartEndMessage(
+                    message=AgentServerMessageType.START_OF_TURN,
+                    turn_id=self._turn_id,
+                    metadata=MessageTimeMetadata(
+                        start_time=event_time,
+                    ),
+                ),
             )
 
-        # Determine start or end of speaking
-        if self._is_speaking:
-            msg = AgentServerMessageType.SPEAKER_STARTED
-        else:
-            msg = AgentServerMessageType.SPEAKER_ENDED
-
         # Emit the event
-        self.emit(
-            msg,
-            {
-                "message": msg.value,
-                "status": SpeakerVADStatus(
-                    speaker_id=latest_speaker, is_active=self._is_speaking, time=event_time
-                ).model_dump(),
-            },
+        self._emit_message(
+            VADStatusMessage(
+                message=(
+                    AgentServerMessageType.SPEAKER_STARTED
+                    if self._is_speaking
+                    else AgentServerMessageType.SPEAKER_ENDED
+                ),
+                speaker_id=latest_speaker,
+                is_active=self._is_speaking,
+                time=event_time,
+            ),
         )
 
         # Speaking has stopped

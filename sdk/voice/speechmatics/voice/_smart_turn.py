@@ -17,7 +17,15 @@ import certifi
 import numpy as np
 from pydantic import BaseModel
 
-ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where())
+
+def _create_ssl_context(*args: Any, **kwargs: Any) -> ssl.SSLContext:
+    """Create SSL context with certifi certificates."""
+    if "cafile" not in kwargs:
+        kwargs["cafile"] = certifi.where()
+    return ssl.create_default_context(*args, **kwargs)
+
+
+ssl._create_default_https_context = _create_ssl_context
 
 ort: Any
 WhisperFeatureExtractor: Any
@@ -171,8 +179,7 @@ class SmartTurnDetector:
 
         # Check a valid language
         if not self.valid_language(language):
-            logger.warning(f"Invalid language: {language}.")
-            return SmartTurnPredictionResult(error=f"Invalid language: {language}")
+            logger.warning(f"Invalid language: {language}. Results may be unreliable.")
 
         # Record start time
         start_time = datetime.datetime.now()

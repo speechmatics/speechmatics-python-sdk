@@ -7,9 +7,11 @@ from __future__ import annotations
 import datetime
 from enum import Enum
 from typing import Any
+from typing import Literal
 from typing import Optional
 
 from pydantic import BaseModel
+from pydantic import ConfigDict
 from pydantic import Field
 
 from speechmatics.rt import AudioEncoding
@@ -739,7 +741,7 @@ class SpeechFragment(BaseModel):
     result: Optional[Any] = None
     annotation: Optional[AnnotationResult] = None
 
-    model_config = {"arbitrary_types_allowed": True}
+    model_config = ConfigDict(use_enum_values=True, arbitrary_types_allowed=True)
 
 
 class SpeakerSegment(BaseModel):
@@ -763,7 +765,7 @@ class SpeakerSegment(BaseModel):
     text: Optional[str] = None
     annotation: AnnotationResult = Field(default_factory=AnnotationResult)
 
-    model_config = {"arbitrary_types_allowed": True}
+    model_config = ConfigDict(use_enum_values=True, arbitrary_types_allowed=True)
 
     @property
     def start_time(self) -> float:
@@ -910,18 +912,199 @@ class SpeakerSegmentView(BaseModel):
         )
 
 
-class SpeakerVADStatus(BaseModel):
+# ==============================================================================
+# MESSAGES / PAYLOADS
+# ==============================================================================
+
+
+class BaseMessageModel(BaseModel):
+    """Base model for all messages."""
+
+    def model_dump(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        """Default to excluding None values."""
+        return super().model_dump(*args, **kwargs, exclude_none=True, mode="json")  # type: ignore[no-any-return]
+
+    def model_dump_json(self, *args: Any, **kwargs: Any) -> str:
+        """Default to excluding None values."""
+        return super().model_dump_json(*args, **kwargs, exclude_none=True)  # type: ignore[no-any-return]
+
+
+class BaseMessage(BaseMessageModel):
+    """Base model for all messages."""
+
+    message: AgentServerMessageType
+
+
+class ErrorMessage(BaseMessage):
+    """Emitted when an error occurs.
+
+    Parameters:
+        message: The message type.
+        reason: The reason for the error.
+    """
+
+    message: AgentServerMessageType = AgentServerMessageType.ERROR
+    reason: str
+
+
+class MetricsMessage(BaseMessage):
+    """Emitted when metrics are calculated.
+
+    Parameters:
+        message: The message type.
+        total_time: The total time in seconds.
+        total_time_str: The total time in HH:MM:SS format.
+        total_bytes: The total bytes sent to the STT engine.
+        last_ttfb: The last time to first text in seconds.
+    """
+
+    message: AgentServerMessageType = AgentServerMessageType.METRICS
+    total_time: float
+    total_time_str: str
+    total_bytes: int
+    last_ttfb: int
+
+
+class TTFBMetricsMessage(BaseMessage):
+    """Emitted when the time to first text is calculated.
+
+    TTFB is calculated as the time for the audio to be processed by the STT
+    engine and is calculated periodically during the session. This can be
+    used to measure the performance of the STT engine.
+
+    Parameters:
+        message: The message type.
+        ttfb: The time to first text in seconds.
+    """
+
+    message: AgentServerMessageType = AgentServerMessageType.TTFB_METRICS
+    ttfb: int
+
+
+class VADStatusMessage(BaseMessage):
     """Emitted when a speaker starts or ends speaking.
 
     The speaker id is taken from the last word in the segment when
     the event is emitted.
 
     Parameters:
+        message: The message type.
         is_active: Whether the speaker is active.
         speaker_id: The ID of the speaker.
         time: The time of the event (start for STARTED, end for ENDED).
     """
 
+    message: Literal[AgentServerMessageType.SPEAKER_STARTED, AgentServerMessageType.SPEAKER_ENDED]
     is_active: bool
     speaker_id: Optional[str] = None
     time: Optional[float] = None
+
+
+class MessageTimeMetadata(BaseMessageModel):
+    """Metadata for segment messages.
+
+    Parameters:
+        start_time: The start time of the segment.
+        end_time: The end time of the segment.
+    """
+
+    start_time: Optional[float] = None
+    end_time: Optional[float] = None
+
+
+class TurnStartEndMessage(BaseMessage):
+    """Emitted when a turn starts or ends.
+
+    Parameters:
+        turn_id: The ID of the turn.
+        is_active: Whether the turn is active.
+    """
+
+    message: Literal[AgentServerMessageType.START_OF_TURN, AgentServerMessageType.END_OF_TURN]
+    turn_id: int
+    metadata: MessageTimeMetadata
+
+
+class TurnPredictionMetadata(BaseMessageModel):
+    """Metadata for turn prediction messages.
+
+    Parameters:
+        ttl: The time to live of the prediction in seconds.
+        time_slip: The time slip of the prediction in seconds.
+        reasons: The reasons for the prediction.
+    """
+
+    ttl: float
+    time_slip: float
+    reasons: list[str]
+
+
+class TurnPredictionMessage(BaseMessage):
+    """Emitted when a turn prediction is made."""
+
+    message: AgentServerMessageType = AgentServerMessageType.END_OF_TURN_PREDICTION
+    turn_id: int
+    metadata: TurnPredictionMetadata
+
+
+class SpeakerMetricsMessage(BaseMessage):
+    """Emitted when the speaker metrics are updated.
+
+    Parameters:
+        speakers: List of speakers.
+    """
+
+    message: AgentServerMessageType = AgentServerMessageType.SPEAKER_METRICS
+    speakers: list[SessionSpeaker]
+
+
+class SegmentMessageSegmentFragment(BaseMessageModel):
+    """Speech fragment for segment messages.
+
+    Parameters:
+        start_time: The start time of the fragment.
+        end_time: The end time of the fragment.
+        language: The language of the fragment.
+        direction: The direction of the fragment.
+        type_: The type of the fragment.
+        content: The content of the fragment.
+    """
+
+    start_time: float
+    end_time: float
+    language: str = "en"
+    direction: str = "ltr"
+    type: str = "word"
+    content: str = ""
+
+
+class SegmentMessageSegment(BaseMessageModel):
+    """Partial or final segment.
+
+    Parameters:
+        speaker_id: The ID of the speaker.
+        is_active: Whether the speaker is active (emits frame).
+        timestamp: The timestamp of the frame.
+        language: The language of the frame.
+        text: The text of the segment.
+        fragments: The fragments associated with the segment.
+        annotation: The annotation associated with the segment.
+        metadata: The metadata associated with the segment.
+    """
+
+    speaker_id: Optional[str] = None
+    is_active: bool = False
+    timestamp: Optional[str] = None
+    language: Optional[str] = None
+    text: Optional[str] = None
+    fragments: Optional[list[SegmentMessageSegmentFragment]] = None
+    annotation: list[AnnotationFlags] = Field(default_factory=list)
+    metadata: MessageTimeMetadata
+
+
+class SegmentMessage(BaseMessage):
+    """Emitted when a segment is added to the session."""
+
+    message: Literal[AgentServerMessageType.ADD_PARTIAL_SEGMENT, AgentServerMessageType.ADD_SEGMENT]
+    segments: list[SegmentMessageSegment]
+    metadata: MessageTimeMetadata
