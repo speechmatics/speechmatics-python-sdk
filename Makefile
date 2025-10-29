@@ -52,6 +52,7 @@ help:
 
 # Testing targets
 test-all: test-rt test-batch test-flow test-tts
+
 test-rt:
 	pytest tests/rt/ -v
 
