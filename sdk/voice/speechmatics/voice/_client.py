@@ -608,7 +608,7 @@ class VoiceAgentClient(AsyncClient):
                     )
 
                 # Emit the message
-                await self.send_message({"message": AgentClientMessageType.FINALIZE_TURN})
+                await self.send_message({"message": AgentClientMessageType.FORCE_END_OF_UTTERANCE})
 
             else:
                 """Standard emit segments and finalize."""

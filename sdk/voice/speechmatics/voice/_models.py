@@ -125,14 +125,14 @@ class AgentClientMessageType(str, Enum):
     client can send to the Speechmatics RT API during a transcription session.
 
     Attributes:
-        FinalizeTurn: Force the finalization of the current turn.
+        ForceEndOfUtterance: Force the finalization of the STT engine.
         EndOfStream: Signals that no more audio data will be sent.
         GetSpeakers: Internal, Speechmatics only message. Allows the client to request speaker data.
 
     Examples:
         >>> # Finalizing the current turn
         >>> finalize_turn_message = {
-        ...     "message": AgentClientMessageType.FINALIZE_TURN
+        ...     "message": AgentClientMessageType.FORCE_END_OF_UTTERANCE
         ... }
         >>> await client.send_message(finalize_turn_message)
         >>>
@@ -144,7 +144,7 @@ class AgentClientMessageType(str, Enum):
         >>> await client.send_message(end_message)
     """
 
-    FINALIZE_TURN = "Finalize"
+    FORCE_END_OF_UTTERANCE = "ForceEndOfUtterance"
     END_OF_STREAM = "EndOfStream"
     GET_SPEAKERS = "GetSpeakers"
 
