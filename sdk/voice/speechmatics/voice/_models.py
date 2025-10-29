@@ -469,6 +469,8 @@ class VoiceAgentConfig(BaseModel):
         smart_turn_config: Smart turn configuration for the Speechmatics Voice Agent.
         speech_segment_config: Speech segment configuration for the Speechmatics Voice Agent.
 
+        advanced_engine_control: Internal use only.
+
         sample_rate: Audio sample rate for streaming. Defaults to `16000`.
         audio_encoding: Audio encoding format. Defaults to `AudioEncoding.PCM_S16LE`.
 
@@ -566,6 +568,9 @@ class VoiceAgentConfig(BaseModel):
     transcription_update_preset: TranscriptionUpdatePreset = TranscriptionUpdatePreset.COMPLETE
     smart_turn_config: SmartTurnConfig = Field(default_factory=SmartTurnConfig)
     speech_segment_config: SpeechSegmentConfig = Field(default_factory=SpeechSegmentConfig)
+
+    # Advanced engine configuration
+    advanced_engine_control: Optional[dict[str, Any]] = None
 
     # Audio
     sample_rate: int = 16000
@@ -1020,14 +1025,18 @@ class SegmentMessageSegmentFragment(BaseMessageModel):
         direction: The direction of the fragment.
         type_: The type of the fragment.
         content: The content of the fragment.
+        attaches_to: The ID of the fragment that this fragment attaches to.
     """
 
     start_time: float
     end_time: float
     language: str = "en"
     direction: str = "ltr"
-    type: str = "word"
+    type: str = Field(default="word", alias="type_")
     content: str = ""
+    attaches_to: str = ""
+
+    model_config = ConfigDict(extra="ignore")
 
 
 class SegmentMessageSegment(BaseMessageModel):

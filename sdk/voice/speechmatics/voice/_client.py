@@ -291,6 +291,7 @@ class VoiceAgentClient(AsyncClient):
             diarization="speaker" if config.enable_diarization else None,
             enable_partials=True,
             max_delay=config.max_delay,
+            ctrl=config.advanced_engine_control,
         )
 
         # Additional vocab
@@ -1133,17 +1134,7 @@ class VoiceAgentClient(AsyncClient):
                                     text=s.text,
                                     annotation=s.annotation,
                                     fragments=(
-                                        [
-                                            SegmentMessageSegmentFragment(
-                                                start_time=f.start_time,
-                                                end_time=f.end_time,
-                                                language=f.language,
-                                                direction=f.direction,
-                                                type=f.type_,
-                                                content=f.content,
-                                            )
-                                            for f in s.fragments
-                                        ]
+                                        [SegmentMessageSegmentFragment(**f.__dict__) for f in s.fragments]
                                         if self._config.include_results
                                         else None
                                     ),
@@ -1183,17 +1174,7 @@ class VoiceAgentClient(AsyncClient):
                                     text=s.text,
                                     annotation=s.annotation,
                                     fragments=(
-                                        [
-                                            SegmentMessageSegmentFragment(
-                                                start_time=f.start_time,
-                                                end_time=f.end_time,
-                                                language=f.language,
-                                                direction=f.direction,
-                                                type=f.type_,
-                                                content=f.content,
-                                            )
-                                            for f in s.fragments
-                                        ]
+                                        [SegmentMessageSegmentFragment(**f.__dict__) for f in s.fragments]
                                         if self._config.include_results
                                         else None
                                     ),
