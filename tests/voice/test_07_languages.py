@@ -143,7 +143,7 @@ async def test_transcribe_languages(sample: AudioSample):
         last_message = message
         ts = (datetime.datetime.now() - start_time).total_seconds()
         audio_ts = bytes_sent / 16000 / 2
-        log = json.dumps({"ts": round(ts, 3), "audio_ts": round(audio_ts, 2), "payload": message.model_dump()})
+        log = json.dumps({"ts": round(ts, 3), "audio_ts": round(audio_ts, 2), "payload": message})
         messages.append(log)
 
     # Log a segment
