@@ -1102,6 +1102,7 @@ class VoiceAgentClient(AsyncClient):
                     final_metadata = MessageTimeMetadata(
                         start_time=final_segments[0].start_time,
                         end_time=final_segments[-1].end_time,
+                        processing_time=self._last_ttfb,
                     )
 
                     # Ensure final segment ends with EOS
@@ -1166,6 +1167,7 @@ class VoiceAgentClient(AsyncClient):
                     partial_metadata = MessageTimeMetadata(
                         start_time=partial_segments[0].start_time,
                         end_time=partial_segments[-1].end_time,
+                        processing_time=self._last_ttfb,
                     )
 
                     # Emit segments

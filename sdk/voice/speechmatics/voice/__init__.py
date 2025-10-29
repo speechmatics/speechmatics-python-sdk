@@ -15,6 +15,7 @@ __version__ = "0.0.0"
 
 from speechmatics.rt import AudioEncoding
 from speechmatics.rt import AudioFormat
+from speechmatics.rt import ClientMessageType as AgentClientMessageType
 from speechmatics.rt import OperatingPoint
 from speechmatics.rt import SpeakerDiarizationConfig
 from speechmatics.rt import SpeakerIdentifier
@@ -56,6 +57,8 @@ __all__ = [
     "SpeechSegmentEmitMode",
     "VoiceAgentConfig",
     "VoiceAgentConfigPreset",
+    # Client messages
+    "AgentClientMessageType",
     # Server messages
     "AgentServerMessageType",
     "SegmentMessage",

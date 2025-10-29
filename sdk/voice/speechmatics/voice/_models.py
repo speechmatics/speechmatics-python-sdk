@@ -958,10 +958,12 @@ class MessageTimeMetadata(BaseMessageModel):
     Parameters:
         start_time: The start time of the segment.
         end_time: The end time of the segment.
+        processing_time: The processing time of the segment.
     """
 
     start_time: Optional[float] = None
     end_time: Optional[float] = None
+    processing_time: Optional[float] = None
 
 
 class TurnStartEndMessage(BaseMessage):
