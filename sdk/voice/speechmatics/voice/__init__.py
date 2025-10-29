@@ -23,6 +23,8 @@ from speechmatics.rt import SpeakerIdentifier
 from ._client import VoiceAgentClient
 from ._models import AdditionalVocabEntry
 from ._models import AgentServerMessageType
+from ._models import EndOfTurnConfig
+from ._models import EndOfTurnPenaltyItem
 from ._models import EndOfUtteranceMode
 from ._models import SegmentMessage
 from ._models import SessionMetricsMessage
@@ -33,7 +35,7 @@ from ._models import SpeakerMetricsMessage
 from ._models import SpeechSegmentConfig
 from ._models import SpeechSegmentEmitMode
 from ._models import TurnPredictionMessage
-from ._models import TurnStartEndMessage
+from ._models import TurnStartEndResetMessage
 from ._models import VADStatusMessage
 from ._models import VoiceAgentConfig
 from ._presets import VoiceAgentConfigPreset
@@ -46,6 +48,8 @@ __all__ = [
     "AdditionalVocabEntry",
     "AudioEncoding",
     "AudioFormat",
+    "EndOfTurnConfig",
+    "EndOfTurnPenaltyItem",
     "EndOfUtteranceMode",
     "OperatingPoint",
     "SpeakerDiarizationConfig",
@@ -65,6 +69,6 @@ __all__ = [
     "SessionMetricsMessage",
     "SpeakerMetricsMessage",
     "TurnPredictionMessage",
-    "TurnStartEndMessage",
+    "TurnStartEndResetMessage",
     "VADStatusMessage",
 ]

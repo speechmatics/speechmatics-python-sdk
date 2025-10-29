@@ -204,7 +204,7 @@ advanced_config = VoiceAgentConfig(
     transcription_update_preset=TranscriptionUpdatePreset.COMPLETE_PLUS_TIMING,
     smart_turn_config=SmartTurnConfig(
         audio_buffer_length=8.0,
-        smart_turn_threshold=0.78,
+        smart_turn_threshold=0.5,
         slice_margin=0.1,
     ),
     speech_segment_config=SpeechSegmentConfig(),
@@ -218,7 +218,7 @@ smart_turn_enabled_config = VoiceAgentConfig(
     end_of_utterance_mode=EndOfUtteranceMode.SMART_TURN,
     smart_turn_config=SmartTurnConfig(
         audio_buffer_length=10.0,
-        smart_turn_threshold=0.75,
+        smart_turn_threshold=0.5,
         slice_margin=0.05,
     )
 )

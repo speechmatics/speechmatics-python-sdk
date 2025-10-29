@@ -46,6 +46,7 @@ COLORS = {
     # End of turn
     "StartOfTurn": "\033[91m",
     "EndOfTurnPrediction": "\033[95m",
+    "EndOfTurnReset": "\033[95m",
     "EndOfTurn": "\033[1;91m",
     # Transcript events
     "AddPartialTranscript": "\033[90m",
@@ -386,6 +387,7 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
         # Verbose turn prediction
         if args.verbose >= 2:
             client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, log_message)
+            client.on(AgentServerMessageType.END_OF_TURN_RESET, log_message)
 
         # Metrics
         if args.verbose >= 4:

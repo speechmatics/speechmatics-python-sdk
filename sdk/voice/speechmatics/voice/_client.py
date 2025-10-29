@@ -52,7 +52,7 @@ from ._models import SpeechSegmentEmitMode
 from ._models import TranscriptionUpdatePreset
 from ._models import TurnPredictionMessage
 from ._models import TurnPredictionMetadata
-from ._models import TurnStartEndMessage
+from ._models import TurnStartEndResetMessage
 from ._models import VADStatusMessage
 from ._models import VoiceAgentConfig
 from ._smart_turn import SMART_TURN_INSTALL_HINT
@@ -1073,27 +1073,27 @@ class VoiceAgentClient(AsyncClient):
         # Lock the speech fragments
         if self._current_view and self._current_view.segment_count > 0:
             async with self._speech_fragments_lock:
+                # Keep until end of turn (`ON_END_OF_TURN`)
+                if (
+                    self._config.speech_segment_config.emit_mode == SpeechSegmentEmitMode.ON_END_OF_TURN
+                    and not end_of_turn
+                ):
+                    final_segments = []
+                    partial_segments = self._current_view.segments
+
                 # Force finalize
-                if finalize:
+                elif finalize:
                     final_segments = self._current_view.segments
                     partial_segments = []
 
                 # Split between finals and interim segments (`ON_FINALIZED_SENTENCE` or `ON_SPEAKER_ENDED`)
-                elif self._config.speech_segment_config.emit_mode in [
-                    SpeechSegmentEmitMode.ON_FINALIZED_SENTENCE,
-                    SpeechSegmentEmitMode.ON_SPEAKER_ENDED,
-                ]:
+                else:
                     final_segments = [
                         s
                         for s in self._current_view.segments
                         if s.annotation.has(AnnotationFlags.ENDS_WITH_FINAL, AnnotationFlags.ENDS_WITH_EOS)
                     ]
                     partial_segments = [s for s in self._current_view.segments if s not in final_segments]
-
-                # Keep until end of turn (`ON_END_OF_TURN`)
-                else:
-                    final_segments = []
-                    partial_segments = self._current_view.segments
 
                 # Emit finals first
                 if final_segments:
@@ -1204,7 +1204,7 @@ class VoiceAgentClient(AsyncClient):
 
             # Emit
             self._emit_message(
-                TurnStartEndMessage(
+                TurnStartEndResetMessage(
                     message=AgentServerMessageType.END_OF_TURN,
                     turn_id=self._turn_id,
                     metadata=metadata,
@@ -1275,41 +1275,28 @@ class VoiceAgentClient(AsyncClient):
                 - ends with finalizes end of sentence
             """
 
-            # Very speaking
-            if last_active_segment.annotation.has(AnnotationFlags.VERY_SLOW_SPEAKER):
-                add_multipler_reason(3.0, "very_slow_speaker")
-
-            # Slow speaking
-            if last_active_segment.annotation.has(AnnotationFlags.SLOW_SPEAKER):
-                add_multipler_reason(2.0, "slow_speaker")
-
-            # Disfluencies
-            if last_active_segment.annotation.has(AnnotationFlags.ENDS_WITH_DISFLUENCY):
-                add_multipler_reason(2.5, "ends_with_disfluency")
-            elif last_active_segment.annotation.has(AnnotationFlags.HAS_DISFLUENCY):
-                add_multipler_reason(0.25, "has_disfluency")
-
-            # Ends with an end of sentence
-            if last_active_segment.annotation.has(AnnotationFlags.ENDS_WITH_EOS, AnnotationFlags.ENDS_WITH_FINAL):
-                add_multipler_reason(-0.3, "ends_with_eos_and_final")
-
-            # Does NOT end with end of sentence
-            if not last_active_segment.annotation.has(AnnotationFlags.ENDS_WITH_EOS):
-                add_multipler_reason(1.0, "does_not_end_with_eos")
-
-        # If no segments
-        else:
-            add_multipler_reason(0, "no_segments")
+            # Iterate over the penalties
+            for penalty in self._config.end_of_turn_config.penalties:
+                description = "+".join(penalty.annotation)
+                if not penalty.is_not:
+                    if last_active_segment.annotation.has(*penalty.annotation):
+                        add_multipler_reason(penalty.penalty, description)
+                else:
+                    if not last_active_segment.annotation.has(*penalty.annotation):
+                        add_multipler_reason(penalty.penalty, description)
 
         # Smart turn prediction
         if smart_turn_prediction:
             if smart_turn_prediction.prediction:
-                add_multipler_reason(-1.0, "smart_turn_true")
+                add_multipler_reason(self._config.smart_turn_config.positive_penalty, "smart_turn_true")
             else:
-                add_multipler_reason(2.5, "smart_turn_false")
+                add_multipler_reason(self._config.smart_turn_config.negative_penalty, "smart_turn_false")
 
         # Calculate multiplier
-        multiplier = 1.0 + sum(m for m, _ in reasons)
+        multiplier = (
+            self._config.end_of_turn_config.base_multiplier
+            + sum(m for m, _ in reasons) * self._config.end_of_turn_config.end_of_turn_adjustment_factor
+        )
 
         # Minimum delay (50ms as a minimum)
         delay = round(max(self._config.end_of_utterance_silence_trigger, 0.05) * multiplier, 2)
@@ -1318,7 +1305,7 @@ class VoiceAgentClient(AsyncClient):
         clamped_delay = min(delay, self._config.end_of_utterance_max_delay)
 
         # Adjust time and make sure no less than 25ms
-        finalize_delay = max(clamped_delay - self._last_ttfb, 0.025)
+        finalize_delay = max(clamped_delay - self._last_ttfb, self._config.end_of_turn_config.min_end_of_turn_delay)
 
         # Emit prediction
         if self.listeners(AgentServerMessageType.END_OF_TURN_PREDICTION):
@@ -1459,22 +1446,33 @@ class VoiceAgentClient(AsyncClient):
         event_time = speaker_start_time if self._is_speaking else speaker_end_time
 
         # Emit start of turn (not when using EXTERNAL)
-        if (
-            not self._end_of_turn_handler.handler_active
-            and self._is_speaking
-            and self._config.end_of_utterance_mode is not EndOfUtteranceMode.EXTERNAL
-        ):
-            self._end_of_turn_handler.start_handler()
-            self._turn_id = self._end_of_turn_handler.handler_id
-            self._emit_message(
-                TurnStartEndMessage(
-                    message=AgentServerMessageType.START_OF_TURN,
-                    turn_id=self._turn_id,
-                    metadata=MessageTimeMetadata(
-                        start_time=event_time,
+        if self._config.end_of_utterance_mode is not EndOfUtteranceMode.EXTERNAL:
+            # New turn started
+            if not self._end_of_turn_handler.handler_active and self._is_speaking:
+                self._end_of_turn_handler.start_handler()
+                self._turn_id = self._end_of_turn_handler.handler_id
+                self._emit_message(
+                    TurnStartEndResetMessage(
+                        message=AgentServerMessageType.START_OF_TURN,
+                        turn_id=self._turn_id,
+                        metadata=MessageTimeMetadata(
+                            start_time=event_time,
+                        ),
                     ),
-                ),
-            )
+                )
+
+            # Emit end of turn prediction wrong
+            elif self._end_of_turn_handler.handler_active and self._is_speaking:
+                self._end_of_turn_handler.reset()
+                self._emit_message(
+                    TurnStartEndResetMessage(
+                        message=AgentServerMessageType.END_OF_TURN_RESET,
+                        turn_id=self._turn_id,
+                        metadata=MessageTimeMetadata(
+                            time=event_time,
+                        ),
+                    ),
+                )
 
         # Emit the event
         self._emit_message(

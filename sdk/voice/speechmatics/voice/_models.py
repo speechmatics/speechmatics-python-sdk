@@ -188,6 +188,7 @@ class AgentServerMessageType(str, Enum):
     # End of turn messages
     START_OF_TURN = "StartOfTurn"
     END_OF_TURN_PREDICTION = "EndOfTurnPrediction"
+    END_OF_TURN_RESET = "EndOfTurnReset"
     END_OF_TURN = "EndOfTurn"
 
     # Speaker messages
@@ -345,6 +346,52 @@ class SpeechSegmentConfig(BaseModel):
     emit_mode: SpeechSegmentEmitMode = SpeechSegmentEmitMode.ON_SPEAKER_ENDED
 
 
+class EndOfTurnPenaltyItem(BaseModel):
+    """End of turn penalty item.
+
+    Parameters:
+        penalty: Penalty value.
+        annotation: List of annotations to apply the penalty to.
+        is_not: Whether the penalty should be applied when the annotation is not present.
+    """
+
+    penalty: float
+    annotation: list[AnnotationFlags]
+    is_not: bool = False
+
+
+class EndOfTurnConfig(BaseModel):
+    """Configuration for end of turn.
+
+    Parameters:
+        base_multiplier: Base multiplier for end of turn delay.
+        min_end_of_turn_delay: Minimum end of turn delay.
+        end_of_turn_adjustment_factor: End of turn adjustment factor.
+        penalties: List of end of turn penalty items.
+    """
+
+    base_multiplier: float = 1.75
+    min_end_of_turn_delay: float = 0.025
+    end_of_turn_adjustment_factor: float = 1.0
+    penalties: list[EndOfTurnPenaltyItem] = Field(
+        default_factory=lambda: [
+            EndOfTurnPenaltyItem(penalty=3.0, annotation=[AnnotationFlags.VERY_SLOW_SPEAKER]),
+            EndOfTurnPenaltyItem(penalty=2.0, annotation=[AnnotationFlags.SLOW_SPEAKER]),
+            EndOfTurnPenaltyItem(penalty=2.5, annotation=[AnnotationFlags.ENDS_WITH_DISFLUENCY]),
+            EndOfTurnPenaltyItem(penalty=0.25, annotation=[AnnotationFlags.HAS_DISFLUENCY]),
+            EndOfTurnPenaltyItem(
+                penalty=1.0,
+                annotation=[AnnotationFlags.ENDS_WITH_EOS],
+                is_not=True,
+            ),
+            EndOfTurnPenaltyItem(
+                penalty=-0.1,
+                annotation=[AnnotationFlags.ENDS_WITH_EOS, AnnotationFlags.ENDS_WITH_FINAL],
+            ),
+        ]
+    )
+
+
 class SmartTurnConfig(BaseModel):
     """Smart turn configuration for the Speechmatics Voice Agent.
 
@@ -361,10 +408,14 @@ class SmartTurnConfig(BaseModel):
         slice_margin: Margin to add to the audio buffer to ensure that the end of thought models have
             enough audio to work with. Defaults to 0.05 seconds.
 
+        positive_penalty: Positive penalty for smart turn. Defaults to -1.0.
+
+        negative_penalty: Negative penalty for smart turn. Defaults to 2.5.
+
     Examples:
         >>> config = SmartTurnConfig(
         ...     audio_buffer_length=0.5,
-        ...     smart_turn_threshold=0.75,
+        ...     smart_turn_threshold=0.5,
         ...     slice_margin=0.05
         ... )
     """
@@ -372,6 +423,8 @@ class SmartTurnConfig(BaseModel):
     audio_buffer_length: float = 0.0
     smart_turn_threshold: float = 0.5
     slice_margin: float = 0.05
+    positive_penalty: float = -1.0
+    negative_penalty: float = 2.5
 
 
 class VoiceAgentConfig(BaseModel):
@@ -466,7 +519,10 @@ class VoiceAgentConfig(BaseModel):
             and word timings), and `TIMING` (emit on changes to word timings, not recommended).
             Defaults to `TranscriptionUpdatePreset.COMPLETE`.
 
+        end_of_turn_config: End of turn configuration for the Speechmatics Voice Agent.
+
         smart_turn_config: Smart turn configuration for the Speechmatics Voice Agent.
+
         speech_segment_config: Speech segment configuration for the Speechmatics Voice Agent.
 
         advanced_engine_control: Internal use only.
@@ -528,7 +584,7 @@ class VoiceAgentConfig(BaseModel):
             ...     max_speakers=3,
             ...     end_of_utterance_mode=EndOfUtteranceMode.SMART_TURN,
             ...     smart_turn_config=SmartTurnConfig(
-            ...         smart_turn_threshold=0.55
+            ...         smart_turn_threshold=0.5
             ...     ),
             ...     additional_vocab=[
             ...         AdditionalVocabEntry(content="API"),
@@ -566,6 +622,7 @@ class VoiceAgentConfig(BaseModel):
     include_results: bool = False
     enable_preview_features: bool = False
     transcription_update_preset: TranscriptionUpdatePreset = TranscriptionUpdatePreset.COMPLETE
+    end_of_turn_config: EndOfTurnConfig = Field(default_factory=EndOfTurnConfig)
     smart_turn_config: SmartTurnConfig = Field(default_factory=SmartTurnConfig)
     speech_segment_config: SpeechSegmentConfig = Field(default_factory=SpeechSegmentConfig)
 
@@ -961,25 +1018,31 @@ class MessageTimeMetadata(BaseMessageModel):
     """Metadata for segment messages.
 
     Parameters:
+        time: The time of the event.
         start_time: The start time of the segment.
         end_time: The end time of the segment.
         processing_time: The processing time of the segment.
     """
 
+    time: Optional[float] = None
     start_time: Optional[float] = None
     end_time: Optional[float] = None
     processing_time: Optional[float] = None
 
 
-class TurnStartEndMessage(BaseMessage):
-    """Emitted when a turn starts or ends.
+class TurnStartEndResetMessage(BaseMessage):
+    """Emitted when a turn starts, ends or is reset.
 
     Parameters:
         turn_id: The ID of the turn.
         is_active: Whether the turn is active.
     """
 
-    message: Literal[AgentServerMessageType.START_OF_TURN, AgentServerMessageType.END_OF_TURN]
+    message: Literal[
+        AgentServerMessageType.START_OF_TURN,
+        AgentServerMessageType.END_OF_TURN,
+        AgentServerMessageType.END_OF_TURN_RESET,
+    ]
     turn_id: int
     metadata: MessageTimeMetadata
 
