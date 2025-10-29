@@ -21,7 +21,6 @@ from speechmatics.rt import SpeakerIdentifier
 
 from ._client import VoiceAgentClient
 from ._models import AdditionalVocabEntry
-from ._models import AgentClientMessageType
 from ._models import AgentServerMessageType
 from ._models import EndOfUtteranceMode
 from ._models import SegmentMessage
@@ -57,8 +56,6 @@ __all__ = [
     "SpeechSegmentEmitMode",
     "VoiceAgentConfig",
     "VoiceAgentConfigPreset",
-    # Client messages
-    "AgentClientMessageType",
     # Server messages
     "AgentServerMessageType",
     "SegmentMessage",

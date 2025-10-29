@@ -16,9 +16,9 @@ from utils import AudioPlayer
 from utils import select_audio_device
 from utils import select_audio_output_device
 
+from speechmatics.rt import ClientMessageType
 from speechmatics.rt import Microphone
 from speechmatics.voice import AdditionalVocabEntry
-from speechmatics.voice import AgentClientMessageType
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import SpeakerFocusConfig
@@ -143,7 +143,7 @@ async def main() -> None:
 
     # Request speaker IDs at the end of the session (if enrolling)
     if args.enrol:
-        await client.send_message({"message": AgentClientMessageType.GET_SPEAKERS, "final": True})
+        await client.send_message({"message": ClientMessageType.GET_SPEAKERS, "final": True})
 
     # Stream audio
     try:

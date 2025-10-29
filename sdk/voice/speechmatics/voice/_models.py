@@ -118,37 +118,6 @@ class SpeakerFocusMode(str, Enum):
     IGNORE = "ignore"
 
 
-class AgentClientMessageType(str, Enum):
-    """Message types that can be sent from client to server.
-
-    These enum values represent the different types of messages that the
-    client can send to the Speechmatics RT API during a transcription session.
-
-    Attributes:
-        ForceEndOfUtterance: Force the finalization of the STT engine.
-        EndOfStream: Signals that no more audio data will be sent.
-        GetSpeakers: Internal, Speechmatics only message. Allows the client to request speaker data.
-
-    Examples:
-        >>> # Finalizing the current turn
-        >>> finalize_turn_message = {
-        ...     "message": AgentClientMessageType.FORCE_END_OF_UTTERANCE
-        ... }
-        >>> await client.send_message(finalize_turn_message)
-        >>>
-        >>> # Ending the session
-        >>> end_message = {
-        ...     "message": AgentClientMessageType.END_OF_STREAM,
-        ...     "last_seq_no": sequence_number
-        ... }
-        >>> await client.send_message(end_message)
-    """
-
-    FORCE_END_OF_UTTERANCE = "ForceEndOfUtterance"
-    END_OF_STREAM = "EndOfStream"
-    GET_SPEAKERS = "GetSpeakers"
-
-
 class AgentServerMessageType(str, Enum):
     """Message types that can be received from the server / agent.
 

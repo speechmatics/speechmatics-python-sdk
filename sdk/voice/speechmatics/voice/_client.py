@@ -28,7 +28,6 @@ from speechmatics.rt._exceptions import TransportError
 from . import __version__
 from ._audio import AudioBuffer
 from ._logging import get_logger
-from ._models import AgentClientMessageType
 from ._models import AgentServerMessageType
 from ._models import AnnotationFlags
 from ._models import AnnotationResult
@@ -608,7 +607,7 @@ class VoiceAgentClient(AsyncClient):
                     )
 
                 # Emit the message
-                await self.send_message({"message": AgentClientMessageType.FORCE_END_OF_UTTERANCE})
+                await self.force_end_of_utterance()
 
             else:
                 """Standard emit segments and finalize."""

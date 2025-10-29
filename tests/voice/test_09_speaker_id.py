@@ -8,8 +8,8 @@ import pytest
 from _utils import get_client
 from _utils import send_audio_file
 
+from speechmatics.rt import ClientMessageType
 from speechmatics.voice import AdditionalVocabEntry
-from speechmatics.voice import AgentClientMessageType
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import SpeakerIdentifier
@@ -133,7 +133,7 @@ async def test_extract_speaker_ids():
     await send_audio_file(client, "./assets/audio_02_8kHz.wav", sample_rate=8000, progress_callback=log_bytes_sent)
 
     # Request the speakers result
-    await client.send_message({"message": AgentClientMessageType.GET_SPEAKERS})
+    await client.send_message({"message": ClientMessageType.GET_SPEAKERS})
 
     # Wait for the callback with timeout
     try:
