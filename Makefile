@@ -108,6 +108,9 @@ type-check-batch:
 type-check-flow:
 	cd sdk/flow/speechmatics && mypy .
 
+type-check-tts:
+	cd sdk/tts/speechmatics && mypy .
+
 # Installation targets
 install-dev:
 	python -m pip install --upgrade pip
@@ -148,3 +151,7 @@ clean-batch:
 clean-flow:
 	rm -rf sdk/flow/dist sdk/flow/build sdk/flow/*.egg-info
 	find sdk/flow -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+
+clean-tts:
+	rm -rf sdk/tts/dist sdk/tts/build sdk/tts/*.egg-info
+	find sdk/tts -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
