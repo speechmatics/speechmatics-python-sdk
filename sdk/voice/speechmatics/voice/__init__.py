@@ -25,13 +25,13 @@ from ._models import AgentClientMessageType
 from ._models import AgentServerMessageType
 from ._models import EndOfUtteranceMode
 from ._models import SegmentMessage
+from ._models import SessionMetricsMessage
 from ._models import SmartTurnConfig
 from ._models import SpeakerFocusConfig
 from ._models import SpeakerFocusMode
 from ._models import SpeakerMetricsMessage
 from ._models import SpeechSegmentConfig
 from ._models import SpeechSegmentEmitMode
-from ._models import TTFBMetricsMessage
 from ._models import TurnPredictionMessage
 from ._models import TurnStartEndMessage
 from ._models import VADStatusMessage
@@ -62,8 +62,8 @@ __all__ = [
     # Server messages
     "AgentServerMessageType",
     "SegmentMessage",
+    "SessionMetricsMessage",
     "SpeakerMetricsMessage",
-    "TTFBMetricsMessage",
     "TurnPredictionMessage",
     "TurnStartEndMessage",
     "VADStatusMessage",

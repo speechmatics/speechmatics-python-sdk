@@ -38,10 +38,10 @@ from ._models import EndOfUtteranceMode
 from ._models import ErrorMessage
 from ._models import LanguagePackInfo
 from ._models import MessageTimeMetadata
-from ._models import MetricsMessage
 from ._models import SegmentMessage
 from ._models import SegmentMessageSegment
 from ._models import SegmentMessageSegmentFragment
+from ._models import SessionMetricsMessage
 from ._models import SessionSpeaker
 from ._models import SpeakerFocusConfig
 from ._models import SpeakerFocusMode
@@ -51,7 +51,6 @@ from ._models import SpeakerSegmentView
 from ._models import SpeechFragment
 from ._models import SpeechSegmentEmitMode
 from ._models import TranscriptionUpdatePreset
-from ._models import TTFBMetricsMessage
 from ._models import TurnPredictionMessage
 from ._models import TurnPredictionMetadata
 from ._models import TurnStartEndMessage
@@ -185,8 +184,7 @@ class VoiceAgentClient(AsyncClient):
         self._total_time: float = 0
         self._total_bytes: int = 0
 
-        # TTFB metrics
-        self._last_ttfb_time: Optional[float] = None
+        # Latency metrics
         self._last_ttfb: float = 0
 
         # Time to disregard speech fragments before
@@ -245,7 +243,7 @@ class VoiceAgentClient(AsyncClient):
         self._dz_config = self._config.speaker_config
 
         # Metrics emitter task
-        self._metrics_emitter_interval: float = 10.0
+        self._metrics_emitter_interval: float = 5.0
         self._metrics_emitter_task: Optional[asyncio.Task] = None
 
         # Audio sampling info
@@ -741,26 +739,43 @@ class VoiceAgentClient(AsyncClient):
 
         # Task to send metrics
         async def emit_metrics() -> None:
+            # Tracker
+            last_emission_time = self._total_time
+
+            # Emit metrics
             while True:
-                # Interval between emitting metrics
-                await asyncio.sleep(self._metrics_emitter_interval)
+                # Calculate when the next emission should occur
+                next_emission_time = (
+                    last_emission_time // self._metrics_emitter_interval + 1
+                ) * self._metrics_emitter_interval
 
                 # Check if there are any listeners for AgentServerMessageType.METRICS
-                if not self.listeners(AgentServerMessageType.METRICS):
-                    break
+                if not self.listeners(AgentServerMessageType.SESSION_METRICS):
+                    await asyncio.sleep(self._metrics_emitter_interval)
+                    last_emission_time = self._total_time
+                    continue
+
+                # Wait until we've actually reached that time
+                while self._total_time < next_emission_time:
+                    time_to_wait = next_emission_time - self._total_time
+                    await asyncio.sleep(min(0.25, time_to_wait))
 
                 # Calculations
-                time_s = round(self._total_time, 3)
+                total_time = self._total_time
+                total_bytes = self._total_bytes
 
                 # Emit metrics
                 self._emit_message(
-                    MetricsMessage(
-                        total_time=time_s,
-                        total_time_str=time.strftime("%H:%M:%S", time.gmtime(time_s)),
-                        total_bytes=self._total_bytes,
-                        last_ttfb=int(self._last_ttfb),
+                    SessionMetricsMessage(
+                        total_time=round(total_time, 1),
+                        total_time_str=time.strftime("%H:%M:%S", time.gmtime(total_time)),
+                        total_bytes=total_bytes,
+                        processing_time=round(self._last_ttfb, 3),
                     )
                 )
+
+                # Update tracker
+                last_emission_time = total_time
 
         # Trigger the task
         self._metrics_emitter_task = asyncio.create_task(emit_metrics())
@@ -782,23 +797,8 @@ class VoiceAgentClient(AsyncClient):
             end_time: The end time of the payload from the STT engine.
         """
 
-        # Skip if not enabled
-        if not (self.listeners(AgentServerMessageType.TTFB_METRICS) or self.listeners(AgentServerMessageType.METRICS)):
-            return
-
-        # Skip if no fragments are words
-        if len(self._speech_fragments) == 0 or all(f.type_ != "word" for f in self._speech_fragments):
-            return
-
-        # Get start of the first fragment
-        fragments_start_time = self._speech_fragments[0].start_time
-
-        # Skip if no partial word or if we have already calculated the TTFB for this word
-        if self._last_ttfb_time and fragments_start_time <= self._last_ttfb_time:
-            return
-
         # Calculate the time difference (convert to ms)
-        ttfb = (self._total_time - end_time) * 1000.0
+        ttfb = self._total_time - end_time
 
         # Skip if zero or less
         if ttfb <= 0:
@@ -806,12 +806,6 @@ class VoiceAgentClient(AsyncClient):
 
         # Save TTFB and end time
         self._last_ttfb = ttfb
-        self._last_ttfb_time = end_time
-
-        # Emit the TTFB
-        self._emit_message(
-            TTFBMetricsMessage(ttfb=int(self._last_ttfb)),
-        )
 
     def calculate_speaker_metrics(self, final_segments: list[SpeakerSegment]) -> None:
         """Calculate the speaker metrics.
@@ -1342,7 +1336,7 @@ class VoiceAgentClient(AsyncClient):
         clamped_delay = min(delay, self._config.end_of_utterance_max_delay)
 
         # Adjust time and make sure no less than 25ms
-        finalize_delay = max(clamped_delay - (self._last_ttfb / 1000), 0.025)
+        finalize_delay = max(clamped_delay - self._last_ttfb, 0.025)
 
         # Emit prediction
         if self.listeners(AgentServerMessageType.END_OF_TURN_PREDICTION):

@@ -389,8 +389,7 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
 
         # Metrics
         if args.verbose >= 4:
-            client.on(AgentServerMessageType.METRICS, log_message)
-            client.on(AgentServerMessageType.TTFB_METRICS, log_message)
+            client.on(AgentServerMessageType.SESSION_METRICS, log_message)
 
         # Verbose STT events
         if args.verbose >= 5:

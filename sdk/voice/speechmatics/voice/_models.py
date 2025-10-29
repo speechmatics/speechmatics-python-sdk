@@ -225,8 +225,7 @@ class AgentServerMessageType(str, Enum):
     SPEAKERS_RESULT = "SpeakersResult"
 
     # Metrics
-    METRICS = "Metrics"
-    TTFB_METRICS = "TTFBMetrics"
+    SESSION_METRICS = "SessionMetrics"
     SPEAKER_METRICS = "SpeakerMetrics"
 
 
@@ -947,7 +946,7 @@ class ErrorMessage(BaseMessage):
     reason: str
 
 
-class MetricsMessage(BaseMessage):
+class SessionMetricsMessage(BaseMessage):
     """Emitted when metrics are calculated.
 
     Parameters:
@@ -955,30 +954,14 @@ class MetricsMessage(BaseMessage):
         total_time: The total time in seconds.
         total_time_str: The total time in HH:MM:SS format.
         total_bytes: The total bytes sent to the STT engine.
-        last_ttfb: The last time to first text in seconds.
+        processing_time: The latest processing time in seconds.
     """
 
-    message: AgentServerMessageType = AgentServerMessageType.METRICS
+    message: AgentServerMessageType = AgentServerMessageType.SESSION_METRICS
     total_time: float
     total_time_str: str
     total_bytes: int
-    last_ttfb: int
-
-
-class TTFBMetricsMessage(BaseMessage):
-    """Emitted when the time to first text is calculated.
-
-    TTFB is calculated as the time for the audio to be processed by the STT
-    engine and is calculated periodically during the session. This can be
-    used to measure the performance of the STT engine.
-
-    Parameters:
-        message: The message type.
-        ttfb: The time to first text in seconds.
-    """
-
-    message: AgentServerMessageType = AgentServerMessageType.TTFB_METRICS
-    ttfb: int
+    processing_time: float
 
 
 class VADStatusMessage(BaseMessage):
