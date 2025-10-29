@@ -10,4 +10,5 @@ from speechmatics.tts import AsyncClient
 async def test_async_http():
     async with AsyncClient() as client:
         response = await client.generate(text="Hello world")
-    assert response.status == 200
+        assert response.status == 200
+        assert await response.read()

@@ -237,8 +237,12 @@ class Transport:
                         form_data.add_field(key, value)
                 kwargs["data"] = form_data
 
-            async with self._session.request(method, url, **kwargs) as response:
+            response = await self._session.request(method, url, **kwargs)
+            try:
                 return await self._handle_response(response)
+            except Exception:
+                response.close()
+                raise
 
         except asyncio.TimeoutError:
             self._logger.error(
