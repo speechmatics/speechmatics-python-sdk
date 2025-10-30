@@ -77,6 +77,24 @@ class VoiceAgentConfigPreset:
         )
 
     @staticmethod
+    def SCRIBE(overlay: VoiceAgentConfig | None = None) -> VoiceAgentConfig:  # noqa: N802
+        """Best suited for note-taking and scribes.
+
+        This mode will emit partial and final segments as they become available. The end of
+        utterance is set to fixed. End of turn is not required for note-taking.
+        """
+        return VoiceAgentConfigPreset._merge_configs(
+            VoiceAgentConfig(
+                enable_diarization=True,
+                max_delay=1.2,
+                end_of_utterance_silence_trigger=1.0,
+                end_of_utterance_mode=EndOfUtteranceMode.FIXED,
+                speech_segment_config=SpeechSegmentConfig(emit_mode=SpeechSegmentEmitMode.ON_FINALIZED_SENTENCE),
+            ),
+            overlay,
+        )
+
+    @staticmethod
     def _merge_configs(base: VoiceAgentConfig, overlay: VoiceAgentConfig | None) -> VoiceAgentConfig:
         """Merge two VoiceAgentConfig objects.
 
