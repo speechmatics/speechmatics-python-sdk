@@ -267,8 +267,6 @@ async def test_presets():
     assert low_latency_one.max_delay == 12.34
     assert low_latency_one.enable_diarization is False
 
-    print(low_latency_one.model_dump_json())
-
     # Overlay #2
     low_latency_two: VoiceAgentConfig | None = VoiceAgentConfigPreset.LOW_LATENCY(
         VoiceAgentConfig(speech_segment_config=SpeechSegmentConfig(emit_mode=SpeechSegmentEmitMode.ON_SPEAKER_ENDED))
@@ -276,5 +274,3 @@ async def test_presets():
     assert low_latency_two is not None
     assert low_latency_two.enable_diarization is True
     assert low_latency_two.speech_segment_config.emit_mode == SpeechSegmentEmitMode.ON_SPEAKER_ENDED
-
-    print(low_latency_two.model_dump_json())

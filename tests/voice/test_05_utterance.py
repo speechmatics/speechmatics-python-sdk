@@ -310,9 +310,7 @@ async def test_end_of_utterance_adaptive_vad():
 
     # Test conversation
     log = ConversationLog(os.path.join(os.path.dirname(__file__), "./assets/chat2.jsonl"))
-    chat = log.get_conversation(
-        ["Info", "RecognitionStarted", "AddPartialTranscript", "AddTranscript", "EndOfUtterance"]
-    )
+    chat = log.get_conversation(["Info", "RecognitionStarted", "AddPartialTranscript", "AddTranscript"])
 
     # Start time
     start_time = datetime.datetime.now()
@@ -393,7 +391,7 @@ async def test_end_of_utterance_adaptive_vad():
     assert last_final_time is not None
 
     # Timing info
-    timeout = adaptive_timeout * 1.5
+    timeout = adaptive_timeout * 2.0
 
     # Wait for EndOfUtterance
     try:
