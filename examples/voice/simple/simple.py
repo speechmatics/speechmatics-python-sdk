@@ -73,7 +73,7 @@ async def main() -> None:
     # Stream audio from microphone
     async def stream_audio():
         while True:
-            audio_chunk = await mic.read(160)
+            audio_chunk = await mic.read(320)
             await client.send_audio(audio_chunk)
 
     # Run until interrupted
