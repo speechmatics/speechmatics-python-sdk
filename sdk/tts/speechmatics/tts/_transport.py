@@ -83,7 +83,7 @@ class Transport:
 
     async def __aenter__(self) -> Transport:
         """Async context manager entry."""
-        await self._ensure_session()
+        self._ensure_session()
         return self
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -141,7 +141,7 @@ class Transport:
         """
         return self._session is not None and not self._closed
 
-    async def _ensure_session(self) -> None:
+    def _ensure_session(self) -> None:
         """Ensure HTTP session is created."""
         if self._session is None and not self._closed:
             self._logger.debug(
@@ -183,7 +183,7 @@ class Transport:
             ConnectionError: If connection fails
             TransportError: For other transport errors
         """
-        await self._ensure_session()
+        self._ensure_session()
 
         if self._session is None:
             raise ConnectionError("Failed to create HTTP session")
