@@ -133,7 +133,7 @@ async def main() -> None:
 
     # Debug the config
     if args.verbose >= 1:
-        print(f"Configuration used:\n{config.model_dump_json(exclude_none=True)}\n")
+        print(f"Configuration used:\n{config.model_dump_json(exclude_none=True, exclude_unset=True)}\n")
 
     # Connect to the Voice Agent service
     try:

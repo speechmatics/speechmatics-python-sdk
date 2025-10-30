@@ -61,12 +61,6 @@ from ._smart_turn import SmartTurnPredictionResult
 from ._turn import TurnTaskProcessor
 from ._utils import FragmentUtils
 
-DEBUG_MORE = os.getenv("SPEECHMATICS_DEBUG_MORE", "0").lower() in ["1", "true"]
-
-
-if DEBUG_MORE:
-    import json
-
 
 class VoiceAgentClient(AsyncClient):
     """Voice Agent client.
@@ -656,8 +650,6 @@ class VoiceAgentClient(AsyncClient):
         # Recognition started event
         @self.once(ServerMessageType.RECOGNITION_STARTED)  # type: ignore[misc]
         def _evt_on_recognition_started(message: dict[str, Any]) -> None:
-            if DEBUG_MORE:
-                self._logger.debug(json.dumps(message))
             self._is_ready_for_audio = True
             self._client_session = ClientSessionInfo(
                 config=self._config,
@@ -669,15 +661,11 @@ class VoiceAgentClient(AsyncClient):
         # Partial transcript event
         @self.on(ServerMessageType.ADD_PARTIAL_TRANSCRIPT)  # type: ignore[misc]
         def _evt_on_partial_transcript(message: dict[str, Any]) -> None:
-            if DEBUG_MORE:
-                self._logger.debug(json.dumps(message))
             self._stt_message_queue.put_nowait(lambda: self._handle_transcript(message, is_final=False))
 
         # Final transcript event
         @self.on(ServerMessageType.ADD_TRANSCRIPT)  # type: ignore[misc]
         def _evt_on_final_transcript(message: dict[str, Any]) -> None:
-            if DEBUG_MORE:
-                self._logger.debug(json.dumps(message))
             self._stt_message_queue.put_nowait(lambda: self._handle_transcript(message, is_final=True))
 
     def _emit_message(self, message: BaseMessage) -> None:
@@ -902,7 +890,6 @@ class VoiceAgentClient(AsyncClient):
 
             # Metadata
             metadata = message.get("metadata", {})
-            payload_start_time = metadata.get("start_time", 0)
             payload_end_time = metadata.get("end_time", 0)
 
             # Iterate over the results in the payload
@@ -977,19 +964,6 @@ class VoiceAgentClient(AsyncClient):
             # Evaluate for VAD (only done on partials)
             if not is_final:
                 self._vad_evaluation(fragments)
-
-            # Debug the fragments
-            if DEBUG_MORE:
-                debug_payload = {
-                    "final": is_final,
-                    "start_time": payload_start_time,
-                    "end_time": payload_end_time,
-                    "keeping": [f.content for f in retained_fragments],
-                    "adding": [f.content for f in fragments],
-                    "transcript": metadata.get("transcript", ""),
-                    "full": [[f.content, f.start_time, f.end_time, f.is_final] for f in self._speech_fragments],
-                }
-                self._logger.debug(json.dumps(debug_payload))
 
             # Update TTFB (only if there are listeners)
             if not is_final:

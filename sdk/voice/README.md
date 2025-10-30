@@ -363,7 +363,6 @@ When using `EXTERNAL` mode, call `client.finalize()` to force the end of turn.
 
 - `SPEECHMATICS_API_KEY` - Your Speechmatics API key
 - `SPEECHMATICS_RT_URL` - Custom WebSocket endpoint (optional)
-- `SPEECHMATICS_DEBUG_MORE` - Enable verbose debugging (optional)
 - `SMART_TURN_MODEL_PATH` - Path for the SMART_TURN ONNX model (optional)
 - `SMART_TURN_HF_URL` - Override download URL for the SMART_TURN ONNX model (optional)
 
