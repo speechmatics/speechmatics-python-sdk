@@ -158,4 +158,4 @@ class TurnTaskProcessor:
         Returns:
             String representation of the processor state.
         """
-        return f"TurnTaskProcessor(name={self._name}, turn_id={self._handler_id}, tasks={self._tasks.keys()}, pending={self.has_pending_tasks})"
+        return f"TurnTaskProcessor(name={self._name}, handler_id={self._handler_id}, tasks={self._tasks.keys()}, pending={self.has_pending_tasks})"
