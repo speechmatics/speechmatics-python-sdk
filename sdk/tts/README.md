@@ -24,78 +24,21 @@ pip install speechmatics-tts
 ```python
 import asyncio
 from speechmatics.tts import AsyncClient
-import pydub
+
 
 async def main():
     # Create a client using environment variable SPEECHMATICS_API_KEY
+async def test_async_http():
     async with AsyncClient() as client:
-        # Simple transcription
-        response = await client.generate(text="Hello, this is the Speechmatics TTS API. We are excited to have you here!")
-        assert response.status == "success"
-        assert response.audio is not None
-        pydub.AudioSegment.from_file(response.audio).export("output.wav", format="wav")
-asyncio.run(main())
+        async with await client.generate(text="Hello world") as response:
+            start_length = response.content.total_raw_bytes
+            assert response.status == 200
+            async for chunk in response.content.iter_chunked(1024):
+                assert chunk
+            end_length = response.content.total_raw_bytes
+            # Assert that bytes are streamed async from the socket rather than awaited
+            assert start_length <= end_length
 
-
-```
-
-
-### Basic Job Workflow
-
-```python
-import asyncio
-from speechmatics.tts import AsyncClient, JobConfig, JobType, TranscriptionConfig
-
-async def main():
-    # Create client with explicit API key
-    async with AsyncClient(api_key="your-api-key") as client:
-
-        # Submit job
-        response = await client.generate(text="Hello, this is the Speechmatics TTS API. We are excited to have you here!")
-        assert response.status == "success"
-        assert response.audio is not None
-
-        # Wait for completion
-        response = await client.wait_for_completion(
-            response.job_id,
-            polling_interval=2.0,
-            timeout=300.0
-        )
-
-        # Access results
-        pydub.AudioSegment.from_file(response.audio).export("output.wav", format="wav")
-
-asyncio.run(main())
-```
-
-### Manual Job Management
-
-```python
-import asyncio
-from speechmatics.tts import AsyncClient, JobStatus
-
-async def main():
-    async with AsyncClient() as client:
-
-        # Submit job
-        response = await client.generate(text="Hello, this is the Speechmatics TTS API. We are excited to have you here!")
-
-        # Check job status
-        job_details = await client.get_job_info(response.job_id)
-        print(f"Status: {job_details.status}")
-
-        # Wait for completion manually
-        while job_details.status == JobStatus.RUNNING:
-            await asyncio.sleep(5)
-            job_details = await client.get_job_info(response.job_id)
-
-        if job_details.status == JobStatus.DONE:
-            # Get audio
-            pydub.AudioSegment.from_file(response.audio).export("output.wav", format="wav")
-        else:
-            print(f"Job failed with status: {job_details.status}")
-
-asyncio.run(main())
 ```
 
 ### Error Handling
@@ -113,8 +56,7 @@ from speechmatics.tts import (
 async def main():
     try:
         async with AsyncClient() as client:
-            result = await client.transcribe("audio.wav", timeout=120.0)
-            print(result.transcript_text)
+            response = await client.generate(text="Hello, this is the Speechmatics TTS API. We are excited to have you here!")
 
     except AuthenticationError:
         print("Invalid API key")
@@ -139,17 +81,15 @@ from speechmatics.tts import AsyncClient, ConnectionConfig
 async def main():
     # Custom connection settings
     config = ConnectionConfig(
-        url="https://asr.api.speechmatics.com/v2",
+        url="https://preview.tts.speechmatics.com",
         api_key="your-api-key",
         connect_timeout=30.0,
         operation_timeout=600.0
     )
 
     async with AsyncClient(conn_config=config) as client:
-        response = await client.generate("audio.wav")
-    assert response.status == "success"
-    assert response.audio is not None
-    pydub.AudioSegment.from_file(response.audio).export("output.wav", format="wav")
+        response = await client.generate(text="Hello World")
+   
 
 asyncio.run(main())
 ```
