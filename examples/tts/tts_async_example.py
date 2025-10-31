@@ -1,6 +1,6 @@
 import os
 import asyncio
-from termios import B0
+
 import wave 
 from pathlib import Path
 
@@ -11,7 +11,7 @@ from speechmatics.tts import AsyncClient, Voice, OutputFormat
 TEXT = "Welcome to the future of audio generation from text!"
 VOICE = Voice.SARAH
 OUTPUT_FORMAT = OutputFormat.RAW_PCM_16000
-OUTPUT_FILE = str(Path(__file__).parent / "output.wav")
+OUTPUT_FILE = "output.wav"
 
 #Set Format Parameters for WAV output file
 SAMPLE_RATE = 16000 #Hz
