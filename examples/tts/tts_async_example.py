@@ -7,13 +7,13 @@ from pathlib import Path
 from speechmatics.tts import AsyncClient, Voice, OutputFormat
 
     
-#Set configuration 
+# Set configuration 
 TEXT = "Welcome to the future of audio generation from text!"
 VOICE = Voice.SARAH
 OUTPUT_FORMAT = OutputFormat.RAW_PCM_16000
 OUTPUT_FILE = "output.wav"
 
-#Set Format Parameters for WAV output file
+# Set Format Parameters for WAV output file
 SAMPLE_RATE = 16000 #Hz
 SAMPLE_WIDTH = 2 # 16-bit audio
 CHANNELS = 1 # Mono audio
@@ -27,12 +27,8 @@ async def save_audio_to_wav(audio_data: bytes,
         wav_file.setframerate(SAMPLE_RATE)
         wav_file.writeframes(audio_data)
 
-#Generate speech from text and save to WAV file
+# Generate speech from text and save to WAV file
 async def main():
-    # Create a client using environment variable SPEECHMATICS_API_KEY
-    if not os.getenv("SPEECHMATICS_API_KEY"):
-        raise ValueError("SPEECHMATICS_API_KEY environment variable is not set")
-
     print(f"Generating speech from text: {TEXT}")
     
     try:
@@ -41,16 +37,10 @@ async def main():
                 text=TEXT,
                 voice=VOICE,
                 output_format=OUTPUT_FORMAT
-            ) as response:
-                if response.status != 200:
-                    error = await response.text()
-                    raise Exception(f"API request failed with status {response.status}: {error}")
-                
+            ) as response:           
                 # Process the response in chunks and save to WAV
                 audio_chunks = []
                 async for chunk in response.content.iter_chunked(1024):
-                    if not chunk:
-                        break
                     audio_chunks.append(chunk)
                 
                 # Combine chunks and save to WAV
