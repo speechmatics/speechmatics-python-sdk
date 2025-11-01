@@ -49,7 +49,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.x"
+          python-version: "3.13"
 
       - name: Update package version in sdk/voice/speechmatics/voice/__init__.py
         run: |
