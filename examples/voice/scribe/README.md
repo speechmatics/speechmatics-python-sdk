@@ -5,7 +5,8 @@ Real-time ambient transcription for note-taking and documentation. Designed for 
 ## Quick Start
 
 ```bash
-export SPEECHMATICS_API_KEY=your_api_key
+export SPEECHMATICS_API_KEY=your_api_key   # Required
+export SPEECHMATICS_RT_URL=endpoint_url    # Optional
 python scribe.py
 ```
 

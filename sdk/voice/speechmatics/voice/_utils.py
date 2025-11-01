@@ -23,7 +23,11 @@ class FragmentUtils:
 
     @staticmethod
     def format_segment_text(
-        session: ClientSessionInfo, segment: SpeakerSegment, format: str = "{text}", words_only: bool = False
+        session: ClientSessionInfo,
+        segment: SpeakerSegment,
+        format: str = "{text}",
+        words_only: bool = False,
+        include_partials: bool = True,
     ) -> str:
         """Format a segment's text based on the language pack info.
 
@@ -32,6 +36,7 @@ class FragmentUtils:
             segment: SpeakerSegment object.
             format: Format string.
             words_only: Whether to include only word fragments.
+            include_partials: Whether to include partial fragments.
 
         Returns:
             str: The formatted text.
@@ -45,6 +50,10 @@ class FragmentUtils:
             fragments = [frag for frag in segment.fragments if frag.type_ == "word"]
         else:
             fragments = segment.fragments
+
+        # Filter out partials if requested
+        if not include_partials:
+            fragments = [frag for frag in fragments if frag.is_final]
 
         # Assemble the text
         previous_frag: Optional[SpeechFragment] = None
@@ -131,7 +140,9 @@ class FragmentUtils:
                     annotate=annotate_segments,
                 )
                 if segment:
-                    segment.text = FragmentUtils.format_segment_text(session=session, segment=segment)
+                    segment.text = FragmentUtils.format_segment_text(
+                        session=session, segment=segment, include_partials=session.config.include_partials
+                    )
                     segments.append(segment)
 
         # Return the grouped SpeakerFragments objects
@@ -300,27 +311,34 @@ class FragmentUtils:
         # Result
         result = AnnotationResult()
 
+        # Flag to include partials
+        include_partials = session.config.include_partials
+
         # If we have a previous view, compare it
         if view2 and view2.segment_count > 0:
             # Compare full string
-            view1_full_str: str = view1.format_view_text()
-            view2_full_str: str = view2.format_view_text()
+            view1_full_str: str = view1.format_view_text(include_partials=include_partials)
+            view2_full_str: str = view2.format_view_text(include_partials=include_partials)
             if view1_full_str != view2_full_str:
                 result.add(AnnotationFlags.UPDATED_FULL)
             if view1_full_str.lower() != view2_full_str.lower():
                 result.add(AnnotationFlags.UPDATED_FULL_LCASE)
 
             # Stripped string (without punctuation)
-            view1_stripped_str: str = view1.format_view_text(words_only=True)
-            view2_stripped_str: str = view2.format_view_text(words_only=True)
+            view1_stripped_str: str = view1.format_view_text(include_partials=include_partials, words_only=True)
+            view2_stripped_str: str = view2.format_view_text(include_partials=include_partials, words_only=True)
             if view1_stripped_str != view2_stripped_str:
                 result.add(AnnotationFlags.UPDATED_STRIPPED)
             if view1_stripped_str.lower() != view2_stripped_str.lower():
                 result.add(AnnotationFlags.UPDATED_STRIPPED_LCASE)
 
             # Word timings
-            view1_timings_str: str = view1.format_view_text(format="|{start_time}-{end_time}|", words_only=True)
-            view2_timings_str: str = view2.format_view_text(format="|{start_time}-{end_time}|", words_only=True)
+            view1_timings_str: str = view1.format_view_text(
+                format="|{start_time}-{end_time}|", words_only=True, include_partials=include_partials
+            )
+            view2_timings_str: str = view2.format_view_text(
+                format="|{start_time}-{end_time}|", words_only=True, include_partials=include_partials
+            )
             if view1_timings_str != view2_timings_str:
                 result.add(AnnotationFlags.UPDATED_WORD_TIMINGS)
 

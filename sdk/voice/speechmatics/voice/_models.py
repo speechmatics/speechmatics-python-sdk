@@ -481,6 +481,13 @@ class VoiceAgentConfig(BaseModel):
             parameter can be used to adjust the sensitivity of diarization.
             Defaults to `False`.
 
+        include_partials: Include partial segment fragments (words) in the output of
+            AddPartialSegment messages. Partial fragments from the STT will always be used for
+            speaker activity detection. If `include_results` is enabled, then partials will
+            always be included in the segment fragment list. This setting is used only for
+            the formatted text output of individual segments.
+            Defaults to `True`.
+
         speaker_sensitivity: Diarization sensitivity. A higher value increases the sensitivity
             of diarization and helps when two or more speakers have similar voices.
             Defaults to `0.5`.
@@ -612,6 +619,7 @@ class VoiceAgentConfig(BaseModel):
 
     # Diarization
     enable_diarization: bool = False
+    include_partials: bool = True
     speaker_sensitivity: float = 0.5
     max_speakers: Optional[int] = None
     prefer_current_speaker: bool = False
@@ -896,6 +904,7 @@ class SpeakerSegmentView(BaseModel):
         format: str = "|{speaker_id}|{text}|",
         separator: str = "",
         words_only: bool = False,
+        include_partials: bool = True,
     ) -> str:
         """Format each segment into a single string.
 
@@ -903,6 +912,7 @@ class SpeakerSegmentView(BaseModel):
             format: Format string.
             separator: Separator string.
             words_only: Whether to include only word fragments.
+            include_partials: Whether to include partial fragments in the output.
 
         Returns:
             str: The formatted text.
@@ -916,6 +926,7 @@ class SpeakerSegmentView(BaseModel):
                 segment=segment,
                 format=format,
                 words_only=words_only,
+                include_partials=include_partials,
             )
             for segment in self.segments
         )

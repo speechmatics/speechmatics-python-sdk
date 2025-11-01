@@ -115,5 +115,8 @@ class VoiceAgentConfigPreset:
             return base
 
         # Merge overlay into base - use model_validate to properly reconstruct nested models
-        merged_dict = {**base.model_dump(), **overlay.model_dump(exclude_unset=True)}
+        merged_dict = {
+            **base.model_dump(exclude_unset=True, exclude_none=True),
+            **overlay.model_dump(exclude_unset=True, exclude_none=True),
+        }
         return VoiceAgentConfig.model_validate(merged_dict)  # type: ignore[no-any-return]

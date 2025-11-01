@@ -11,6 +11,7 @@ import json
 import os
 import wave
 from pathlib import Path
+from typing import Any
 
 from utils import AudioPlayer
 from utils import select_audio_device
@@ -329,22 +330,22 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
         start_time: Start time for timestamp calculation
     """
 
-    def console_print(message) -> None:
+    def console_print(ts: datetime.datetime, message: dict) -> None:
         """Print message to console with optional formatting."""
         if not args.pretty:
             print(json.dumps(message))
             return
 
         # Extract common data
-        ts = message["ts"]
+        ts_str = ts.strftime("%H:%M:%S") + f".{ts.microsecond // 1000:03d}"
         msg_type = message["message"]
         color = COLORS.get(msg_type, "")
-        payload = {k: v for k, v in message.items() if k not in ("ts", "message")}
+        payload = message
 
         # Handle segment messages
         if msg_type in ("AddPartialSegment", "AddSegment"):
             _segs = []
-            for segment in payload["segments"]:
+            for segment in message["segments"]:
                 suffix = "" if segment["is_active"] else " (background)"
                 if args.verbose >= 3:
                     _segs.append(f"@{segment['speaker_id']}{suffix}: `{segment['text']}` {segment['annotation']}")
@@ -353,17 +354,15 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
             payload = {"segments": _segs}
 
         # Print to console
-        print(f"{color}{ts:7.3f} {msg_type:<24} {json.dumps(payload)}\033[0m")
+        print(f"{color}{ts_str} {msg_type:<24} {json.dumps(payload)}\033[0m")
 
-    def log_message(message) -> None:
+    def log_message(message: dict[str, Any]) -> None:
         """Log message to console and optional JSONL file."""
-        ts = (datetime.datetime.now() - start_time).total_seconds()
-        message = {"ts": round(ts, 3), **message}
-        console_print(message)
-
+        now = datetime.datetime.now()
+        console_print(now, message)
         if args.output_file:
             with open(args.output_file, "a") as f:
-                f.write(json.dumps(message) + "\n")
+                f.write(json.dumps({"ts": now, **message}) + "\n")
 
     # Register standard handlers
     client.on(AgentServerMessageType.RECOGNITION_STARTED, log_message)
