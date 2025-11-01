@@ -1,6 +1,7 @@
-
 import asyncio
-from speechmatics.rt import AsyncClient, ServerMessageType
+
+from speechmatics.rt import AsyncClient
+from speechmatics.rt import ServerMessageType
 
 
 async def main():
@@ -12,8 +13,9 @@ async def main():
             print(f"Final: {msg['metadata']['transcript']}")
 
         # Transcribe audio file
-        with open("./examples/example.wav", "rb") as audio_file:
+        with open("./examples/example1.wav", "rb") as audio_file:
             await client.transcribe(audio_file)
+
 
 # Run the async function
 asyncio.run(main())

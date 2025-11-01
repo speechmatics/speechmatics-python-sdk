@@ -34,6 +34,14 @@ An async Python client for Speechmatics Flow API.
 pip install speechmatics-flow
 ```
 
+### (Beta) Voice Agent Client (`speechmatics-voice`)
+
+A Voice Agent Python client for Speechmatics Real-Time API.
+
+```bash
+pip install speechmatics-voice
+```
+
 ## Development
 
 ### Repository Structure
@@ -53,10 +61,15 @@ speechmatics-python-sdk/
 │   │   ├── pyproject.toml
 │   │   └── README.md
 │
+│   ├── voice/
+│   │   ├── pyproject.toml
+│   │   └── README.md
+│
 ├── tests/
 │   ├── batch/
 │   └── rt/
 │   └── flow/
+│   └── voice/
 │
 ├── examples/
 ├── Makefile
@@ -97,6 +110,7 @@ Each package can be installed separately:
 pip install speechmatics-rt
 pip install speechmatics-batch
 pip install speechmatics-flow
+pip install speechmatics-voice
 ```
 
 ## Docs
