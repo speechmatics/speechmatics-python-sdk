@@ -845,19 +845,27 @@ class VoiceAgentClient(AsyncClient):
         # Save TTFB and end time
         self._last_ttfb = ttfb
 
-    def _calculate_speaker_metrics(self, final_segments: list[SpeakerSegment]) -> None:
+    def _calculate_speaker_metrics(
+        self, partial_segments: list[SpeakerSegment], final_segments: list[SpeakerSegment]
+    ) -> None:
         """Calculate the speaker metrics.
 
-        Used to track the number of final words per speaker. Only valid speakers are
-        considered. Ignored speakers will be excluded.
+        Used to track the number of words per speaker. Only valid speakers are
+        considered. Ignored speakers will be excluded. Total is past finals +
+        new partials. The number _may_ go down if partials are removed or
+        re-attribute to a different speaker.
 
         Args:
+            partial_segments: The partial segments to calculate the speaker metrics for.
             final_segments: The final segments to calculate the speaker metrics for.
         """
 
         # Skip if not enabled
         if not self.listeners(AgentServerMessageType.SPEAKER_METRICS):
             return
+
+        # Changes detected
+        changes_detected = False
 
         # Finalized words
         final_words = [
@@ -877,10 +885,45 @@ class VoiceAgentClient(AsyncClient):
                     self._session_speakers[frag.speaker] = SessionSpeaker(speaker_id=frag.speaker)
 
                 # Update metrics
+                self._session_speakers[frag.speaker].final_word_count += 1
+                self._session_speakers[frag.speaker].last_heard = frag.end_time
+
+                # Update the total finals
+                self._session_speakers[frag.speaker].word_count = self._session_speakers[frag.speaker].final_word_count
+
+                # Changes detected
+                changes_detected = True
+
+        # Partial words
+        partial_words = [
+            f for seg in partial_segments for f in seg.fragments if f.type_ == "word" and f.speaker is not None
+        ]
+
+        # Rebase partials
+        for s in self._session_speakers.values():
+            s.word_count = s.final_word_count
+
+        # Only process if we have words
+        if partial_words:
+            # Update the metrics of the speakers in the session
+            for frag in partial_words:
+                # Check we have a speaker
+                if frag.speaker is None:
+                    continue
+
+                # Create new speaker
+                if frag.speaker not in self._session_speakers:
+                    self._session_speakers[frag.speaker] = SessionSpeaker(speaker_id=frag.speaker)
+
+                # Update metrics
                 self._session_speakers[frag.speaker].word_count += 1
                 self._session_speakers[frag.speaker].last_heard = frag.end_time
 
-            # Emit
+                # Changes detected
+                changes_detected = True
+
+        # Emit on changes
+        if changes_detected:
             self._emit_speaker_metrics()
 
     def _emit_speaker_metrics(self) -> None:
@@ -1227,7 +1270,7 @@ class VoiceAgentClient(AsyncClient):
 
                 # Send updated speaker metrics
                 if self._dz_enabled:
-                    self._calculate_speaker_metrics(final_segments)
+                    self._calculate_speaker_metrics(partial_segments, final_segments)
 
         # Emit END_OF_TURN
         if end_of_turn and self._previous_view:

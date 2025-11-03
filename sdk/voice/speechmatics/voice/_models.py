@@ -693,6 +693,17 @@ class SessionSpeaker(BaseModel):
     speaker_id: str
     word_count: int = 0
     last_heard: float = 0
+    final_word_count: int = Field(default=0, exclude=True)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SessionSpeaker):
+            return False
+        return (
+            self.speaker_id == other.speaker_id
+            and self.word_count == other.word_count
+            and self.last_heard == other.last_heard
+            and self.final_word_count == other.final_word_count
+        )
 
 
 class AnnotationResult(list):
