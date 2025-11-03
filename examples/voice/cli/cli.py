@@ -115,6 +115,12 @@ async def main() -> None:
             include_results=args.results,
         )
 
+    # Display instructions
+    if audio_source["type"] == "file":
+        print("\nStreaming audio file... (Press CTRL+C to stop)\n")
+    else:
+        print("\nMicrophone ready - speak now... (Press CTRL+C to stop)\n")
+
     # Set common items
     config.enable_diarization = True
     config.sample_rate = audio_source["sample_rate"]
@@ -125,16 +131,6 @@ async def main() -> None:
     # Setup event handlers
     start_time = datetime.datetime.now()
     register_event_handlers(client, args, start_time)
-
-    # Display instructions
-    if audio_source["type"] == "file":
-        print("\nStreaming audio file... (Press CTRL+C to stop)\n")
-    else:
-        print("\nMicrophone ready - speak now... (Press CTRL+C to stop)\n")
-
-    # Debug the config
-    if args.verbose >= 1:
-        print(f"Configuration used:\n{config.model_dump_json(exclude_none=True, exclude_unset=True)}\n")
 
     # Connect to the Voice Agent service
     try:
@@ -361,8 +357,9 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
         now = datetime.datetime.now()
         console_print(now, message)
         if args.output_file:
+            ts_str = now.strftime("%Y-%m-%d %H:%M:%S") + f".{now.microsecond // 1000:03d}"
             with open(args.output_file, "a") as f:
-                f.write(json.dumps({"ts": now, **message}) + "\n")
+                f.write(json.dumps({"ts": ts_str, **message}) + "\n")
 
     # Register standard handlers
     client.on(AgentServerMessageType.RECOGNITION_STARTED, log_message)
@@ -403,6 +400,10 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
         client.on(AgentServerMessageType.END_OF_UTTERANCE, log_message)
         client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, log_message)
         client.on(AgentServerMessageType.ADD_TRANSCRIPT, log_message)
+
+    # Log the config
+    if args.verbose >= 1:
+        log_message({"message": "VoiceAgentClientConfig", "config": client._config.model_dump(exclude_none=True, exclude_unset=True)})
 
 
 # ==============================================================================

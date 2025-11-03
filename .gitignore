@@ -166,3 +166,4 @@ tmp/
 .cache/
 *.onnx
 *.pkf
+.claude
