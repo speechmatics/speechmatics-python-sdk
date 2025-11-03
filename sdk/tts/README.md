@@ -23,23 +23,34 @@ pip install speechmatics-tts
 
 ```python
 import asyncio
-from speechmatics.tts import AsyncClient
 
+import wave 
+from pathlib import Path
 
+from speechmatics.tts import AsyncClient, Voice, OutputFormat
+
+async def save_audio(audio_data: bytes, filename: str) -> None:
+    with wave.open(filename, "wb") as wav:
+        wav.setnchannels(1)           # Mono
+        wav.setsampwidth(2)           # 16-bit
+        wav.setframerate(16000)       # 16kHz
+        wav.writeframes(audio_data)
+
+# Generate speech data from text and save to WAV file
 async def main():
-    # Create a client using environment variable SPEECHMATICS_API_KEY
-async def test_async_http():
     async with AsyncClient() as client:
-        async with await client.generate(text="Hello world") as response:
-            start_length = response.content.total_raw_bytes
-            assert response.status == 200
-            async for chunk in response.content.iter_chunked(1024):
-                assert chunk
-            end_length = response.content.total_raw_bytes
-            # Assert that bytes are streamed async from the socket rather than awaited
-            assert start_length <= end_length
+        async with await client.generate(
+            text="Welcome to the future of audio generation from text!",
+            voice=Voice.SARAH,
+            output_format=OutputFormat.RAW_PCM_16000
+        ) as response:
+            audio = b''.join([chunk async for chunk in response.content.iter_chunked(1024)])
+            await save_audio(audio, "output.wav")
 
-```
+
+# Run the async main function
+if __name__ == "__main__":
+    asyncio.run(main())
 
 ### Error Handling
 
@@ -47,9 +58,7 @@ async def test_async_http():
 import asyncio
 from speechmatics.tts import (
     AsyncClient,
-    ttsError,
     AuthenticationError,
-    JobError,
     TimeoutError
 )
 
@@ -60,8 +69,6 @@ async def main():
 
     except AuthenticationError:
         print("Invalid API key")
-    except ttsError as e:
-        print(f"Job submission failed: {e}")
     except JobError as e:
         print(f"Job processing failed: {e}")
     except TimeoutError as e:
