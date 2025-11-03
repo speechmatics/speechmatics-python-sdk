@@ -22,6 +22,7 @@ pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping lang
 
 # Constants
 API_KEY = os.getenv("SPEECHMATICS_API_KEY")
+URL: Optional[str] = "wss://eu2.rt.speechmatics.com/v2"
 
 
 @dataclass
@@ -111,6 +112,7 @@ async def test_transcribe_languages(sample: AudioSample):
     # Client
     client = await get_client(
         api_key=API_KEY,
+        url=URL,
         connect=False,
         config=VoiceAgentConfig(
             max_delay=1.2,

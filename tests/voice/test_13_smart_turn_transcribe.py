@@ -24,7 +24,6 @@ pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping smar
 
 # Constants
 API_KEY = os.getenv("SPEECHMATICS_API_KEY")
-URL: Optional[str] = os.getenv("SPEECHMATICS_RT_URL", "wss://jamesw.lab.speechmatics.io/v2")
 SHOW_LOG = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
 
 
@@ -94,7 +93,6 @@ async def test_prediction(sample: TranscriptionTest):
     # Client
     client = await get_client(
         api_key=api_key,
-        url=URL,
         connect=False,
         config=VoiceAgentConfig(
             max_delay=0.7,
@@ -162,10 +160,9 @@ async def test_prediction(sample: TranscriptionTest):
     await client.disconnect()
     assert not client._is_connected
 
-    print(eot_count)
-
-    return
+    # Debug count
+    # print(eot_count)
 
     # Validate (if we have expected results)
-    if sample.eot_count:
-        assert eot_count == sample.eot_count
+    # if sample.eot_count:
+    #     assert eot_count == sample.eot_count

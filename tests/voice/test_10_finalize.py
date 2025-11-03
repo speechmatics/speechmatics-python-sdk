@@ -18,7 +18,6 @@ pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping fina
 
 # Constants
 API_KEY = os.getenv("SPEECHMATICS_API_KEY")
-URL: Optional[str] = "wss://jamesw.lab.speechmatics.io/v2"
 SHOW_LOG = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
 AUDIO_FILE = "./assets/audio_03_16kHz.wav"
 
@@ -41,7 +40,6 @@ async def test_finalize():
     # Client
     client = await get_client(
         api_key=api_key,
-        url=URL,
         connect=False,
         config=VoiceAgentConfig(
             end_of_utterance_silence_trigger=0.7,
@@ -141,9 +139,6 @@ async def test_finalize():
         print(f"--- latency {finalize_latency:.2f} ms")
         print()
         print()
-
-    # Debug result
-    print(f"{finalize_latency:.2f}ms")
 
     # Make sure latency is within bounds
     assert finalize_latency < 500
