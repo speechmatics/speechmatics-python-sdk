@@ -122,11 +122,11 @@ class JWTAuth(AuthBase):
             import aiohttp
         except ImportError:
             raise ImportError(
-                "aiohttp is required for JWT authentication. Please install it with `pip install 'speechmatics-batch[jwt]'`"
+                "aiohttp is required for JWT authentication. Please install it with `pip install 'speechmatics-tts[jwt]'`"
             )
 
         endpoint = f"{self._mp_url}/v1/api_keys"
-        params = {"type": "batch"}
+        params = {"type": "tts"}
         payload = {"ttl": self._ttl, "region": str(self._region)}
 
         if self._client_ref:
