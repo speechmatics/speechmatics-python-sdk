@@ -326,6 +326,9 @@ class VoiceAgentClient(AsyncClient):
             enable_partials=True,
             max_delay=config.max_delay,
             ctrl=config.advanced_engine_control,
+            audio_filtering_config={
+                "volume_threshold": 0.0,
+            },
         )
 
         # Additional vocab
@@ -864,65 +867,55 @@ class VoiceAgentClient(AsyncClient):
         if not self.listeners(AgentServerMessageType.SPEAKER_METRICS):
             return
 
-        # Changes detected
         changes_detected = False
 
-        # Finalized words
-        final_words = [
-            f for seg in final_segments for f in seg.fragments if f.type_ == "word" and f.speaker is not None
-        ]
+        # Process finalized words
+        for seg in final_segments:
+            for frag in seg.fragments:
+                if frag.type_ == "word" and frag.speaker is not None:
+                    # Initialize speaker if not exists
+                    if frag.speaker not in self._session_speakers:
+                        self._session_speakers[frag.speaker] = SessionSpeaker(speaker_id=frag.speaker)
 
-        # Only process if we have words
-        if final_words:
-            # Update the metrics of the speakers in the session
-            for frag in final_words:
-                # Check we have a speaker
-                if frag.speaker is None:
-                    continue
+                    speaker = self._session_speakers[frag.speaker]
 
-                # Create new speaker
-                if frag.speaker not in self._session_speakers:
-                    self._session_speakers[frag.speaker] = SessionSpeaker(speaker_id=frag.speaker)
+                    # Update final word count
+                    speaker.final_word_count += 1
+                    speaker.last_heard = frag.end_time
 
-                # Update metrics
-                self._session_speakers[frag.speaker].final_word_count += 1
-                self._session_speakers[frag.speaker].last_heard = frag.end_time
+                    # Update volume
+                    if frag.volume is not None:
+                        speaker.update_volume(frag.volume)
 
-                # Update the total finals
-                self._session_speakers[frag.speaker].word_count = self._session_speakers[frag.speaker].final_word_count
+                    changes_detected = True
 
-                # Changes detected
-                changes_detected = True
+        # Reset word count to final count for all speakers before reprocessing partials
+        for speaker in self._session_speakers.values():
+            speaker.word_count = speaker.final_word_count
 
-        # Partial words
-        partial_words = [
-            f for seg in partial_segments for f in seg.fragments if f.type_ == "word" and f.speaker is not None
-        ]
+        # Process partial words (adds to the base final count)
+        for seg in partial_segments:
+            for frag in seg.fragments:
+                if frag.type_ == "word" and frag.speaker is not None:
+                    # Initialize speaker if not exists
+                    if frag.speaker not in self._session_speakers:
+                        self._session_speakers[frag.speaker] = SessionSpeaker(speaker_id=frag.speaker)
+                        # Set baseline for new speaker from partials
+                        self._session_speakers[frag.speaker].word_count = 0
 
-        # Rebase partials
-        for s in self._session_speakers.values():
-            s.word_count = s.final_word_count
+                    speaker = self._session_speakers[frag.speaker]
 
-        # Only process if we have words
-        if partial_words:
-            # Update the metrics of the speakers in the session
-            for frag in partial_words:
-                # Check we have a speaker
-                if frag.speaker is None:
-                    continue
+                    # Increment total word count
+                    speaker.word_count += 1
+                    speaker.last_heard = frag.end_time
 
-                # Create new speaker
-                if frag.speaker not in self._session_speakers:
-                    self._session_speakers[frag.speaker] = SessionSpeaker(speaker_id=frag.speaker)
+                    # Update volume
+                    if frag.volume is not None:
+                        speaker.update_volume(frag.volume)
 
-                # Update metrics
-                self._session_speakers[frag.speaker].word_count += 1
-                self._session_speakers[frag.speaker].last_heard = frag.end_time
+                    changes_detected = True
 
-                # Changes detected
-                changes_detected = True
-
-        # Emit on changes
+        # Emit metrics if any changes occurred
         if changes_detected:
             self._emit_speaker_metrics()
 
@@ -1009,6 +1002,7 @@ class VoiceAgentClient(AsyncClient):
                         content=alt.get("content", ""),
                         speaker=alt.get("speaker", None),
                         confidence=alt.get("confidence", 1.0),
+                        volume=result.get("volume", None),
                         result={"final": is_final, **result},
                     )
 

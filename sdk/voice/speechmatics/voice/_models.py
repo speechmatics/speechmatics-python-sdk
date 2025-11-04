@@ -688,12 +688,29 @@ class SessionSpeaker(BaseModel):
         speaker_id (str): The speaker ID.
         word_count (int): The word count for the speaker.
         last_heard (float): The last time the speaker was heard.
+        volume (Optional[float]): The average volume of the speaker (mean of last 50 values).
     """
 
     speaker_id: str
     word_count: int = 0
     last_heard: float = 0
+    volume: Optional[float] = None
     final_word_count: int = Field(default=0, exclude=True)
+    volume_history: list[float] = Field(default_factory=list, exclude=True)
+
+    def update_volume(self, new_volume: float) -> None:
+        """Update volume with average from last 50 values.
+
+        Args:
+            new_volume: The new volume value to add.
+        """
+        # Track volume history (last 50 values)
+        self.volume_history.append(new_volume)
+        while len(self.volume_history) > 50:
+            self.volume_history.pop(0)
+
+        # Calculate average from history
+        self.volume = round(sum(self.volume_history) / len(self.volume_history), 1)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SessionSpeaker):
@@ -702,7 +719,7 @@ class SessionSpeaker(BaseModel):
             self.speaker_id == other.speaker_id
             and self.word_count == other.word_count
             and self.last_heard == other.last_heard
-            and self.final_word_count == other.final_word_count
+            and self.volume == other.volume
         )
 
 
@@ -769,6 +786,7 @@ class SpeechFragment(BaseModel):
         content: Content of the fragment. Defaults to empty string.
         speaker: Speaker of the fragment (if diarization is enabled). Defaults to `None`.
         confidence: Confidence of the fragment (0.0 to 1.0). Defaults to `1.0`.
+        volume: Volume of the fragment (0.0 to 100.0). Defaults to `None`.
         result: Raw result of the fragment from the TTS.
         annotation: Annotation for the fragment.
     """
@@ -787,6 +805,7 @@ class SpeechFragment(BaseModel):
     content: str = ""
     speaker: Optional[str] = None
     confidence: float = 1.0
+    volume: Optional[float] = None
     result: Optional[Any] = None
     annotation: Optional[AnnotationResult] = None
 
