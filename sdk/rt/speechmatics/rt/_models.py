@@ -67,7 +67,7 @@ class ClientMessageType(str, Enum):
             headers, audio is sent as binary data).
         EndOfChannel: Signals that no more audio data will be sent.
         ForceEndOfUtterance: Signals that the end of an utterance has been reached.
-    
+
     Examples:
         >>> # Starting a recognition session
         >>> message = {
@@ -91,6 +91,7 @@ class ClientMessageType(str, Enum):
     ADD_CHANNEL_AUDIO = "AddChannelAudio"
     END_OF_CHANNEL = "EndOfChannel"
     FORCE_END_OF_UTTERANCE = "ForceEndOfUtterance"
+
 
 class ServerMessageType(str, Enum):
     """
