@@ -63,7 +63,11 @@ class ClientMessageType(str, Enum):
         SetRecognitionConfig: Updates transcription configuration during
             an active session (advanced use).
         GetSpeakers: Allows the client to request speaker data.
-
+        AddChannelAudio: Indicates that audio data follows (not used in message
+            headers, audio is sent as binary data).
+        EndOfChannel: Signals that no more audio data will be sent.
+        ForceEndOfUtterance: Signals that the end of an utterance has been reached.
+    
     Examples:
         >>> # Starting a recognition session
         >>> message = {
@@ -86,7 +90,7 @@ class ClientMessageType(str, Enum):
     GET_SPEAKERS = "GetSpeakers"
     ADD_CHANNEL_AUDIO = "AddChannelAudio"
     END_OF_CHANNEL = "EndOfChannel"
-
+    FORCE_END_OF_UTTERANCE = "ForceEndOfUtterance"
 
 class ServerMessageType(str, Enum):
     """
