@@ -33,7 +33,6 @@ from ._models import SpeakerFocusConfig
 from ._models import SpeakerFocusMode
 from ._models import SpeakerMetricsMessage
 from ._models import SpeechSegmentConfig
-from ._models import SpeechSegmentEmitMode
 from ._models import TurnPredictionMessage
 from ._models import TurnStartEndResetMessage
 from ._models import VADStatusMessage
@@ -58,7 +57,6 @@ __all__ = [
     "SpeakerIdentifier",
     "SmartTurnConfig",
     "SpeechSegmentConfig",
-    "SpeechSegmentEmitMode",
     "VoiceAgentConfig",
     "VoiceAgentConfigPreset",
     # Client messages

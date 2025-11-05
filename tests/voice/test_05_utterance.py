@@ -11,7 +11,6 @@ from _utils import get_client
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import SpeechSegmentConfig
-from speechmatics.voice import SpeechSegmentEmitMode
 from speechmatics.voice import VoiceAgentConfig
 
 SHOW_LOG = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
@@ -333,7 +332,7 @@ async def test_end_of_utterance_adaptive_vad():
         config=VoiceAgentConfig(
             end_of_utterance_silence_trigger=adaptive_timeout,
             end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
-            speech_segment_config=SpeechSegmentConfig(emit_mode=SpeechSegmentEmitMode.ON_END_OF_TURN),
+            speech_segment_config=SpeechSegmentConfig(emit_sentences=False),
         ),
     )
     assert client is not None

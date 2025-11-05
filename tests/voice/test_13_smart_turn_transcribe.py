@@ -2,7 +2,6 @@ import datetime
 import json
 import os
 import shutil
-from typing import Optional
 
 import pytest
 from _utils import get_client
@@ -14,7 +13,6 @@ from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import SpeechSegmentConfig
-from speechmatics.voice import SpeechSegmentEmitMode
 from speechmatics.voice import VoiceAgentConfig
 from speechmatics.voice._smart_turn import SmartTurnDetector
 
@@ -102,7 +100,7 @@ async def test_prediction(sample: TranscriptionTest):
             sample_rate=sample.sample_rate,
             additional_vocab=sample.additional_vocab,
             enable_preview_features=True,
-            speech_segment_config=SpeechSegmentConfig(emit_mode=SpeechSegmentEmitMode.ON_END_OF_TURN),
+            speech_segment_config=SpeechSegmentConfig(emit_sentences=False),
         ),
     )
 
@@ -142,7 +140,7 @@ async def test_prediction(sample: TranscriptionTest):
     try:
         await client.connect()
     except Exception:
-        pytest.skip(f"Failed to connect to server: {URL}")
+        pytest.skip("Failed to connect to server")
 
     # Check we are connected
     assert client._is_connected

@@ -48,7 +48,6 @@ from ._models import SpeakerMetricsMessage
 from ._models import SpeakerSegment
 from ._models import SpeakerSegmentView
 from ._models import SpeechFragment
-from ._models import SpeechSegmentEmitMode
 from ._models import TranscriptionUpdatePreset
 from ._models import TurnPredictionMessage
 from ._models import TurnPredictionMetadata
@@ -1158,7 +1157,7 @@ class VoiceAgentClient(AsyncClient):
             partial_segments: list[SpeakerSegment] = []
 
             # Keep until end of turn (`ON_END_OF_TURN`)
-            if self._config.speech_segment_config.emit_mode == SpeechSegmentEmitMode.ON_END_OF_TURN and not end_of_turn:
+            if not self._config.speech_segment_config.emit_sentences and not end_of_turn:
                 partial_segments = self._current_view.segments if self._current_view else []
 
             # Force finalize

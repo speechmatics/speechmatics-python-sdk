@@ -12,7 +12,6 @@ from speechmatics.voice._models import SpeakerIdentifier
 from speechmatics.voice._models import SpeakerSegment
 from speechmatics.voice._models import SpeechFragment
 from speechmatics.voice._models import SpeechSegmentConfig
-from speechmatics.voice._models import SpeechSegmentEmitMode
 from speechmatics.voice._presets import VoiceAgentConfigPreset
 
 
@@ -257,7 +256,7 @@ async def test_presets():
     # Create a preset
     low_latency: VoiceAgentConfig | None = VoiceAgentConfigPreset.LOW_LATENCY()
     assert low_latency is not None
-    assert low_latency.speech_segment_config.emit_mode == SpeechSegmentEmitMode.ON_FINALIZED_SENTENCE
+    assert low_latency.speech_segment_config.emit_sentences is True
 
     # Overlay #1
     low_latency_one: VoiceAgentConfig | None = VoiceAgentConfigPreset.LOW_LATENCY(
@@ -269,8 +268,8 @@ async def test_presets():
 
     # Overlay #2
     low_latency_two: VoiceAgentConfig | None = VoiceAgentConfigPreset.LOW_LATENCY(
-        VoiceAgentConfig(speech_segment_config=SpeechSegmentConfig(emit_mode=SpeechSegmentEmitMode.ON_END_OF_TURN))
+        VoiceAgentConfig(speech_segment_config=SpeechSegmentConfig(emit_sentences=False))
     )
     assert low_latency_two is not None
     assert low_latency_two.enable_diarization is True
-    assert low_latency_two.speech_segment_config.emit_mode == SpeechSegmentEmitMode.ON_END_OF_TURN
+    assert low_latency_two.speech_segment_config.emit_sentences is False

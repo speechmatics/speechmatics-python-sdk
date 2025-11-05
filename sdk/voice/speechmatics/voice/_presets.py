@@ -6,7 +6,6 @@ from __future__ import annotations
 
 from ._models import EndOfUtteranceMode
 from ._models import SpeechSegmentConfig
-from ._models import SpeechSegmentEmitMode
 from ._models import VoiceAgentConfig
 
 
@@ -27,7 +26,7 @@ class VoiceAgentConfigPreset:
                 max_delay=0.7,
                 end_of_utterance_silence_trigger=0.2,
                 end_of_utterance_mode=EndOfUtteranceMode.FIXED,
-                speech_segment_config=SpeechSegmentConfig(emit_mode=SpeechSegmentEmitMode.ON_FINALIZED_SENTENCE),
+                speech_segment_config=SpeechSegmentConfig(emit_sentences=True),
             ),
             overlay,
         )
@@ -47,6 +46,7 @@ class VoiceAgentConfigPreset:
                 max_delay=0.7,
                 end_of_utterance_silence_trigger=0.5,
                 end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
+                speech_segment_config=SpeechSegmentConfig(emit_sentences=False),
             ),
             overlay,
         )
@@ -72,6 +72,7 @@ class VoiceAgentConfigPreset:
                 max_delay=0.85,
                 end_of_utterance_silence_trigger=0.5,
                 end_of_utterance_mode=EndOfUtteranceMode.SMART_TURN,
+                speech_segment_config=SpeechSegmentConfig(emit_sentences=False),
             ),
             overlay,
         )
@@ -89,7 +90,7 @@ class VoiceAgentConfigPreset:
                 max_delay=1.2,
                 end_of_utterance_silence_trigger=1.0,
                 end_of_utterance_mode=EndOfUtteranceMode.FIXED,
-                speech_segment_config=SpeechSegmentConfig(emit_mode=SpeechSegmentEmitMode.ON_FINALIZED_SENTENCE),
+                speech_segment_config=SpeechSegmentConfig(emit_sentences=True),
             ),
             overlay,
         )

@@ -2,7 +2,6 @@ import asyncio
 import datetime
 import json
 import os
-from typing import Optional
 
 import pytest
 from _utils import get_client
@@ -100,7 +99,7 @@ async def test_finalize():
     try:
         await client.connect()
     except Exception:
-        pytest.skip(f"Failed to connect to server: {URL}")
+        pytest.skip("Failed to connect to server")
 
     # Check we are connected
     assert client._is_connected

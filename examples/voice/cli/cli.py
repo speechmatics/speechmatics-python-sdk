@@ -26,7 +26,6 @@ from speechmatics.voice import SpeakerFocusConfig
 from speechmatics.voice import SpeakerFocusMode
 from speechmatics.voice import SpeakerIdentifier
 from speechmatics.voice import SpeechSegmentConfig
-from speechmatics.voice import SpeechSegmentEmitMode
 from speechmatics.voice import VoiceAgentClient
 from speechmatics.voice import VoiceAgentConfig
 from speechmatics.voice._models import TranscriptionUpdatePreset
@@ -108,7 +107,7 @@ async def main() -> None:
             ],
             known_speakers=known_speakers,
             speech_segment_config=SpeechSegmentConfig(
-                emit_mode=args.emit_mode.lower() if args.emit_mode else SpeechSegmentEmitMode.ON_FINALIZED_SENTENCE
+                emit_sentences=args.emit_sentences,
             ),
             transcription_update_preset=TranscriptionUpdatePreset.COMPLETE_PLUS_TIMING,
             include_results=args.results,
@@ -677,10 +676,9 @@ def parse_args():
     )
     parser.add_argument(
         "-e",
-        "--emit-mode",
-        type=lambda s: s.upper(),
-        choices=["ON_FINALIZED_SENTENCE", "ON_END_OF_TURN"],
-        help="End of segment emit mode (default: ON_FINALIZED_SENTENCE)",
+        "--emit-sentences",
+        action="store_true",
+        help="Emit sentences (default: False)",
     )
 
     # ==============================================================================
