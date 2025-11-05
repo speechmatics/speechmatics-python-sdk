@@ -108,7 +108,7 @@ async def main() -> None:
             ],
             known_speakers=known_speakers,
             speech_segment_config=SpeechSegmentConfig(
-                emit_mode=args.emit_mode.lower() if args.emit_mode else SpeechSegmentEmitMode.ON_END_OF_TURN
+                emit_mode=args.emit_mode.lower() if args.emit_mode else SpeechSegmentEmitMode.ON_FINALIZED_SENTENCE
             ),
             transcription_update_preset=TranscriptionUpdatePreset.COMPLETE_PLUS_TIMING,
             include_results=args.results,
@@ -680,7 +680,7 @@ def parse_args():
         "--emit-mode",
         type=lambda s: s.upper(),
         choices=["ON_FINALIZED_SENTENCE", "ON_END_OF_TURN"],
-        help="End of segment emit mode (default: ON_END_OF_TURN)",
+        help="End of segment emit mode (default: ON_FINALIZED_SENTENCE)",
     )
 
     # ==============================================================================

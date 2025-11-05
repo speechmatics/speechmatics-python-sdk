@@ -334,11 +334,11 @@ class SpeechSegmentConfig(BaseModel):
         add_trailing_eos: Add trailing end of sentence to segments. When enabled, segments are
             emitted with missing trailing end of sentence added. Defaults to False.
 
-        emit_mode: How to emit segments. Defaults to `SpeechSegmentEmitMode.ON_END_OF_TURN`.
+        emit_mode: How to emit segments. Defaults to `SpeechSegmentEmitMode.ON_FINALIZED_SENTENCE`.
     """
 
     add_trailing_eos: bool = False
-    emit_mode: SpeechSegmentEmitMode = SpeechSegmentEmitMode.ON_END_OF_TURN
+    emit_mode: SpeechSegmentEmitMode = SpeechSegmentEmitMode.ON_FINALIZED_SENTENCE
 
 
 class EndOfTurnPenaltyItem(BaseModel):
@@ -365,7 +365,7 @@ class EndOfTurnConfig(BaseModel):
         penalties: List of end of turn penalty items.
     """
 
-    base_multiplier: float = 1.75
+    base_multiplier: float = 1.15
     min_end_of_turn_delay: float = 0.025
     end_of_turn_adjustment_factor: float = 1.0
     penalties: list[EndOfTurnPenaltyItem] = Field(
@@ -373,16 +373,12 @@ class EndOfTurnConfig(BaseModel):
             EndOfTurnPenaltyItem(penalty=3.0, annotation=[AnnotationFlags.VERY_SLOW_SPEAKER]),
             EndOfTurnPenaltyItem(penalty=2.0, annotation=[AnnotationFlags.SLOW_SPEAKER]),
             EndOfTurnPenaltyItem(penalty=2.5, annotation=[AnnotationFlags.ENDS_WITH_DISFLUENCY]),
-            EndOfTurnPenaltyItem(penalty=0.25, annotation=[AnnotationFlags.HAS_DISFLUENCY]),
-            # EndOfTurnPenaltyItem(
-            #     penalty=1.0,
-            #     annotation=[AnnotationFlags.ENDS_WITH_EOS],
-            #     is_not=True,
-            # ),
-            # EndOfTurnPenaltyItem(
-            #     penalty=-0.5,
-            #     annotation=[AnnotationFlags.ENDS_WITH_EOS, AnnotationFlags.ENDS_WITH_FINAL],
-            # ),
+            EndOfTurnPenaltyItem(penalty=1.25, annotation=[AnnotationFlags.HAS_DISFLUENCY]),
+            EndOfTurnPenaltyItem(
+                penalty=2.0,
+                annotation=[AnnotationFlags.ENDS_WITH_EOS],
+                is_not=True,
+            ),
         ]
     )
 

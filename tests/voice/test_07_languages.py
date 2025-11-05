@@ -22,7 +22,7 @@ pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping lang
 
 # Constants
 API_KEY = os.getenv("SPEECHMATICS_API_KEY")
-URL: Optional[str] = "wss://eu2.rt.speechmatics.com/v2"
+URL = "wss://eu2.rt.speechmatics.com/v2"
 
 
 @dataclass

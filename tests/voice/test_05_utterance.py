@@ -14,6 +14,8 @@ from speechmatics.voice import SpeechSegmentConfig
 from speechmatics.voice import SpeechSegmentEmitMode
 from speechmatics.voice import VoiceAgentConfig
 
+SHOW_LOG = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
+
 
 @pytest.mark.asyncio
 async def test_speech_fragments():
@@ -145,15 +147,21 @@ async def test_end_of_utterance_fixed():
     start_time = datetime.datetime.now()
 
     # Create a client
-    client = await get_client(api_key="NONE", connect=False)
+    client = await get_client(
+        api_key="NONE",
+        connect=False,
+        config=VoiceAgentConfig(end_of_utterance_silence_trigger=0.5, end_of_utterance_mode=EndOfUtteranceMode.FIXED),
+    )
     assert client is not None
 
     # Debug
-    # client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, lambda message: print(message))
-    # client.on(AgentServerMessageType.ADD_SEGMENT, lambda message: print(message))
-    # client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, lambda message: print(message))
-    # client.on(AgentServerMessageType.END_OF_TURN, lambda message: print(message))
-    # client.on(AgentServerMessageType.END_OF_UTTERANCE, lambda message: print(message))
+    if SHOW_LOG:
+        client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, lambda message: print(message))
+        client.on(AgentServerMessageType.ADD_SEGMENT, lambda message: print(message))
+        client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, lambda message: print(message))
+        client.on(AgentServerMessageType.START_OF_TURN, lambda message: print(message))
+        client.on(AgentServerMessageType.END_OF_TURN, lambda message: print(message))
+        client.on(AgentServerMessageType.END_OF_UTTERANCE, lambda message: print(message))
 
     # Start the queue
     client._start_stt_queue()
@@ -186,7 +194,7 @@ async def test_end_of_utterance_fixed():
             client.emit(message["payload"]["message"], message["payload"])
 
     # Add listener for first interim segment
-    client.once(AgentServerMessageType.END_OF_TURN, message_rx)
+    client.once(AgentServerMessageType.ADD_SEGMENT, message_rx)
 
     # Inject conversation
     await send_message(0, count=14, use_ttl=False)
@@ -196,10 +204,10 @@ async def test_end_of_utterance_fixed():
         await asyncio.wait_for(event_rx.wait(), timeout=5.0)
         assert last_message is not None
     except asyncio.TimeoutError:
-        pytest.fail("END_OF_TURN event was not received within 5 seconds")
+        pytest.fail("ADD_SEGMENT event was not received within 5 seconds")
 
     # Check the right message was received
-    assert last_message.get("message") == AgentServerMessageType.END_OF_TURN
+    assert last_message.get("message") == AgentServerMessageType.ADD_SEGMENT
 
 
 @pytest.mark.asyncio
@@ -379,10 +387,12 @@ async def test_end_of_utterance_adaptive_vad():
     client.once(AgentServerMessageType.END_OF_TURN, eot_rx)
 
     # Debug
-    # client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, lambda message: print(message))
-    # client.on(AgentServerMessageType.ADD_SEGMENT, lambda message: print(message))
-    # client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, lambda message: print(message))
-    # client.on(AgentServerMessageType.END_OF_TURN, lambda message: print(message))
+    if SHOW_LOG:
+        client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, lambda message: print(message))
+        client.on(AgentServerMessageType.ADD_SEGMENT, lambda message: print(message))
+        client.on(AgentServerMessageType.START_OF_TURN, lambda message: print(message))
+        client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, lambda message: print(message))
+        client.on(AgentServerMessageType.END_OF_TURN, lambda message: print(message))
 
     # Inject conversation up to the penultimate final from the STT
     await send_message(0, count=12, use_ttl=True)
