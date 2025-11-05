@@ -208,7 +208,7 @@ class VoiceAgentClient(AsyncClient):
         # Handlers
         self._eou_handler: TurnTaskProcessor = TurnTaskProcessor(name="eou_handler", done_callback=self.finalize)
         self._eot_handler: TurnTaskProcessor = TurnTaskProcessor(name="eot_handler", done_callback=self.end_of_turn)
-        self._turn_detector: Optional[SmartTurnDetector] = None
+        self._smart_turn_detector: Optional[SmartTurnDetector] = None
 
         # Current turn
         self._turn_id: int = 0
@@ -225,7 +225,7 @@ class VoiceAgentClient(AsyncClient):
                     threshold=self._config.smart_turn_config.smart_turn_threshold,
                 )
                 if detector.model_exists():
-                    self._turn_detector = detector
+                    self._smart_turn_detector = detector
                     self._config.smart_turn_config.audio_buffer_length = 10.0
                     eou_mode_ok = True
             if not eou_mode_ok:
@@ -325,11 +325,15 @@ class VoiceAgentClient(AsyncClient):
             diarization="speaker" if config.enable_diarization else None,
             enable_partials=True,
             max_delay=config.max_delay,
-            ctrl=config.advanced_engine_control,
             audio_filtering_config={
                 "volume_threshold": 0.0,
             },
         )
+
+        # Merge in overrides
+        if config.advanced_engine_control:
+            for key, value in config.advanced_engine_control.items():
+                setattr(transcription_config, key, value)
 
         # Additional vocab
         if config.additional_vocab:
@@ -487,6 +491,9 @@ class VoiceAgentClient(AsyncClient):
         if not self._is_connected:
             return
 
+        # Emit final segments
+        await self._emit_segments(finalize=True, end_of_turn=True)
+
         # Emit final metrics
         self._emit_speaker_metrics()
         self._emit_metrics()
@@ -635,21 +642,29 @@ class VoiceAgentClient(AsyncClient):
                 >>> client.finalize(ttl=0.5)
         """
 
+        # Current turn
+        _turn_id = self._turn_id
+
         # Emit the finalize or use EndOfTurn on demand preview
         async def emit() -> None:
             # Yield for the delay
             if ttl is not None and ttl > 0:
                 await asyncio.sleep(ttl)
 
-            # Emit segments or finalize STT message (only for ADAPTIVE and SMART_TURN)
-            if self._uses_forced_eou and not end_of_turn:
-                """Uses the forced end of utterance message to emit segments and finalize."""
-                # Emit the message
-                await self.force_end_of_utterance()
+            # Check if the turn has changed
+            if self._turn_id != _turn_id:
+                return
 
-            else:
-                """Standard emit segments and finalize."""
-                await self._emit_segments(finalize=True, end_of_turn=end_of_turn)
+            # Emit segments or finalize STT message (only for ADAPTIVE and SMART_TURN)
+            if self._uses_forced_eou and end_of_turn:
+                await self._await_forced_eou()
+
+            # Check if the turn has changed
+            if self._turn_id != _turn_id:
+                return
+
+            # Emit the segments
+            await self._emit_segments(finalize=True, end_of_turn=end_of_turn)
 
             # Cancel any pending tasks for end of utterance (as end of turn will emit segments)
             self._eou_handler.complete_handler()
@@ -657,27 +672,20 @@ class VoiceAgentClient(AsyncClient):
         # Add to queue
         self._stt_message_queue.put_nowait(emit)
 
-    def end_of_turn(self, ttl: Optional[float] = None) -> None:
+    def end_of_turn(self) -> None:
         """Trigger end of turn.
 
         This function will force an end of turn and finalize segments, if required. Use
         as a helper function for finalize() with end_of_turn=True.
 
-        Args:
-            ttl: Optional delay before finalizing partial segments.
-
         Examples:
             Immediate end of turn:
                 >>> # Force end of turn of current segments
-                >>> client.end_of_turn(ttl=0)
-
-            Delayed end of turn:
-                >>> # Wait 0.5 seconds before end of turn
-                >>> client.end_of_turn(ttl=0.5)
+                >>> client.end_of_turn()
         """
 
         # Emit the finalize or use EndOfTurn on demand preview
-        self.finalize(ttl=ttl, end_of_turn=True)
+        self.finalize(end_of_turn=True)
 
     # ============================================================================
     # EVENT REGISTRATION & HANDLERS
@@ -1123,6 +1131,10 @@ class VoiceAgentClient(AsyncClient):
         # Emit the segments
         await self._emit_segments()
 
+        # For ADAPTIVE and SMART_TURN only
+        if self._uses_eot_prediction:
+            self._eot_prediction()
+
     async def _emit_segments(self, finalize: bool = False, end_of_turn: bool = False) -> None:
         """Emit segments to listeners.
 
@@ -1136,156 +1148,167 @@ class VoiceAgentClient(AsyncClient):
         """
 
         # Lock the speech fragments
-        if self._current_view and self._current_view.segment_count > 0:
-            async with self._speech_fragments_lock:
-                # Keep until end of turn (`ON_END_OF_TURN`)
-                if (
-                    self._config.speech_segment_config.emit_mode == SpeechSegmentEmitMode.ON_END_OF_TURN
-                    and not end_of_turn
-                ):
-                    final_segments = []
-                    partial_segments = self._current_view.segments
+        if self._current_view and self._current_view.segment_count == 0:
+            return
 
-                # Force finalize
-                elif finalize:
-                    final_segments = self._current_view.segments
-                    partial_segments = []
+        # Lock the speech fragments
+        async with self._speech_fragments_lock:
+            # Segments to emit
+            final_segments: list[SpeakerSegment] = []
+            partial_segments: list[SpeakerSegment] = []
 
-                # Split between finals and interim segments (`ON_FINALIZED_SENTENCE` or `ON_SPEAKER_ENDED`)
-                else:
-                    final_segments = [
-                        s
-                        for s in self._current_view.segments
-                        if s.annotation.has(AnnotationFlags.ENDS_WITH_FINAL, AnnotationFlags.ENDS_WITH_EOS)
-                    ]
-                    partial_segments = [s for s in self._current_view.segments if s not in final_segments]
+            # Keep until end of turn (`ON_END_OF_TURN`)
+            if self._config.speech_segment_config.emit_mode == SpeechSegmentEmitMode.ON_END_OF_TURN and not end_of_turn:
+                partial_segments = self._current_view.segments if self._current_view else []
 
-                # Remove partial segments that have no final fragments
-                if not self._config.include_partials:
-                    partial_segments = [s for s in partial_segments if s.annotation.has(AnnotationFlags.HAS_FINAL)]
+            # Force finalize
+            elif finalize:
+                final_segments = self._current_view.segments if self._current_view else []
 
-                # Emit finals first
-                if final_segments:
-                    """Final segments are checked for end of sentence."""
+            # Split between finals and interim segments (`ON_FINALIZED_SENTENCE`)
+            else:
+                final_segments = [
+                    s
+                    for s in (self._current_view.segments if self._current_view else [])
+                    if s.annotation.has(AnnotationFlags.ENDS_WITH_FINAL, AnnotationFlags.ENDS_WITH_EOS)
+                ]
+                partial_segments = [
+                    s for s in (self._current_view.segments if self._current_view else []) if s not in final_segments
+                ]
 
-                    # Metadata for final segments uses actual start/end times of the segments being emitted
-                    final_metadata = MessageTimeMetadata(
-                        start_time=final_segments[0].start_time,
-                        end_time=final_segments[-1].end_time,
-                        processing_time=self._last_ttfb,
-                    )
+            # Remove partial segments that have no final fragments
+            if not self._config.include_partials:
+                partial_segments = [s for s in partial_segments if s.annotation.has(AnnotationFlags.HAS_FINAL)]
 
-                    # Ensure final segment ends with EOS
-                    if self._config.speech_segment_config.add_trailing_eos:
-                        last_segment = final_segments[-1]
-                        last_fragment = last_segment.fragments[-1]
-                        if not last_fragment.is_eos:
-                            last_segment.fragments.append(
-                                SpeechFragment(
-                                    idx=self._next_fragment_id(),
-                                    start_time=last_fragment.end_time,
-                                    end_time=last_fragment.end_time,
-                                    content=".",
-                                    is_eos=True,
-                                )
+            # Emit finals first
+            if final_segments:
+                """Final segments are checked for end of sentence."""
+
+                # Metadata for final segments uses actual start/end times of the segments being emitted
+                final_metadata = MessageTimeMetadata(
+                    start_time=final_segments[0].start_time,
+                    end_time=final_segments[-1].end_time,
+                    processing_time=self._last_ttfb,
+                )
+
+                # Ensure final segment ends with EOS
+                if self._config.speech_segment_config.add_trailing_eos:
+                    last_segment = final_segments[-1]
+                    last_fragment = last_segment.fragments[-1]
+                    if not last_fragment.is_eos:
+                        last_segment.fragments.append(
+                            SpeechFragment(
+                                idx=self._next_fragment_id(),
+                                start_time=last_fragment.end_time,
+                                end_time=last_fragment.end_time,
+                                content=".",
+                                is_eos=True,
                             )
+                        )
 
-                    # Emit segments
-                    self._emit_message(
-                        SegmentMessage(
-                            message=AgentServerMessageType.ADD_SEGMENT,
-                            segments=[
-                                SegmentMessageSegment(
-                                    speaker_id=s.speaker_id,
-                                    is_active=s.is_active,
-                                    timestamp=s.timestamp,
-                                    language=s.language,
-                                    text=s.text,
-                                    annotation=s.annotation,
-                                    fragments=(
-                                        [SegmentMessageSegmentFragment(**f.__dict__) for f in s.fragments]
-                                        if self._config.include_results
-                                        else None
-                                    ),
-                                    metadata=MessageTimeMetadata(start_time=s.start_time, end_time=s.end_time),
-                                )
-                                for s in final_segments
-                            ],
-                            metadata=final_metadata,
-                        ),
-                    )
-                    self._trim_before_time = final_segments[-1].end_time
-                    self._speech_fragments = [
-                        f for f in self._speech_fragments if f.start_time >= self._trim_before_time
-                    ]
+                # Emit segments
+                self._emit_message(
+                    SegmentMessage(
+                        message=AgentServerMessageType.ADD_SEGMENT,
+                        segments=[
+                            SegmentMessageSegment(
+                                speaker_id=s.speaker_id,
+                                is_active=s.is_active,
+                                timestamp=s.timestamp,
+                                language=s.language,
+                                text=s.text,
+                                annotation=s.annotation,
+                                fragments=(
+                                    [SegmentMessageSegmentFragment(**f.__dict__) for f in s.fragments]
+                                    if self._config.include_results
+                                    else None
+                                ),
+                                metadata=MessageTimeMetadata(start_time=s.start_time, end_time=s.end_time),
+                            )
+                            for s in final_segments
+                        ],
+                        metadata=final_metadata,
+                    ),
+                )
+                self._trim_before_time = final_segments[-1].end_time
+                self._speech_fragments = [f for f in self._speech_fragments if f.start_time >= self._trim_before_time]
 
-                # Emit interim segments
-                if partial_segments:
-                    """Partial segments are emitted as is."""
+            # Emit interim segments
+            if partial_segments:
+                """Partial segments are emitted as is."""
 
-                    # Metadata for partial segments uses actual start/end times of the segments being emitted
-                    partial_metadata = MessageTimeMetadata(
-                        start_time=partial_segments[0].start_time,
-                        end_time=partial_segments[-1].end_time,
-                        processing_time=self._last_ttfb,
-                    )
+                # Metadata for partial segments uses actual start/end times of the segments being emitted
+                partial_metadata = MessageTimeMetadata(
+                    start_time=partial_segments[0].start_time,
+                    end_time=partial_segments[-1].end_time,
+                    processing_time=self._last_ttfb,
+                )
 
-                    # Emit segments
-                    self._emit_message(
-                        SegmentMessage(
-                            message=AgentServerMessageType.ADD_PARTIAL_SEGMENT,
-                            segments=[
-                                SegmentMessageSegment(
-                                    speaker_id=s.speaker_id,
-                                    is_active=s.is_active,
-                                    timestamp=s.timestamp,
-                                    language=s.language,
-                                    text=s.text,
-                                    annotation=s.annotation,
-                                    fragments=(
-                                        [SegmentMessageSegmentFragment(**f.__dict__) for f in s.fragments]
-                                        if self._config.include_results
-                                        else None
-                                    ),
-                                    metadata=MessageTimeMetadata(start_time=s.start_time, end_time=s.end_time),
-                                )
-                                for s in partial_segments
-                            ],
-                            metadata=partial_metadata,
-                        ),
-                    )
+                # Emit segments
+                self._emit_message(
+                    SegmentMessage(
+                        message=AgentServerMessageType.ADD_PARTIAL_SEGMENT,
+                        segments=[
+                            SegmentMessageSegment(
+                                speaker_id=s.speaker_id,
+                                is_active=s.is_active,
+                                timestamp=s.timestamp,
+                                language=s.language,
+                                text=s.text,
+                                annotation=s.annotation,
+                                fragments=(
+                                    [SegmentMessageSegmentFragment(**f.__dict__) for f in s.fragments]
+                                    if self._config.include_results
+                                    else None
+                                ),
+                                metadata=MessageTimeMetadata(start_time=s.start_time, end_time=s.end_time),
+                            )
+                            for s in partial_segments
+                        ],
+                        metadata=partial_metadata,
+                    ),
+                )
 
-                # Update the current view
-                self._update_current_view()
+            # Update the current view
+            self._update_current_view()
 
-                # Reset the turn start time
-                if not self._turn_start_time:
-                    self._turn_start_time = self._current_view.start_time
+            # Reset the turn start time
+            if not self._turn_start_time and self._current_view:
+                self._turn_start_time = self._current_view.start_time
 
-                # Send updated speaker metrics
-                if self._dz_enabled:
-                    self._calculate_speaker_metrics(partial_segments, final_segments)
+            # Send updated speaker metrics
+            if self._dz_enabled:
+                self._calculate_speaker_metrics(partial_segments, final_segments)
 
-        # Emit END_OF_TURN
-        if end_of_turn and self._previous_view:
-            # Metadata (for LAST view)
-            metadata = MessageTimeMetadata(start_time=self._turn_start_time, end_time=self._previous_view.end_time)
+        # Emit end of turn
+        if end_of_turn:
+            await self._emit_end_of_turn()
 
-            # Emit
-            self._emit_message(
-                TurnStartEndResetMessage(
-                    message=AgentServerMessageType.END_OF_TURN,
-                    turn_id=self._turn_id,
-                    metadata=metadata,
-                ),
-            )
+    async def _emit_end_of_turn(self) -> None:
+        """Emit the end of turn message."""
 
-            # Stop the EOT handler
-            self._eot_handler.complete_handler()
+        # Check if we have a previous view
+        if not self._previous_view:
+            return
 
-            # Reset the previous view
-            self._previous_view = None
-            self._turn_start_time = None
+        # Metadata (for LAST view)
+        metadata = MessageTimeMetadata(start_time=self._turn_start_time, end_time=self._previous_view.end_time)
+
+        # Emit
+        self._emit_message(
+            TurnStartEndResetMessage(
+                message=AgentServerMessageType.END_OF_TURN,
+                turn_id=self._turn_id,
+                metadata=metadata,
+            ),
+        )
+
+        # Stop the EOT handler
+        self._eot_handler.complete_handler()
+
+        # Reset the previous view
+        self._previous_view = None
+        self._turn_start_time = None
 
     # ============================================================================
     # TURN DETECTION & FINALIZATION
@@ -1298,7 +1321,8 @@ class VoiceAgentClient(AsyncClient):
         """Calculate the delay before finalizing / end of turn.
 
         Process the most recent segment and view to determine how long to delay before finalizing
-        the segments to the client.
+        the segments to the client. Checks for disfluencies, speech speed, end of sentence markers,
+        and smart turn predictions to calculate appropriate delay.
 
         Args:
             smart_turn_prediction: The smart turn prediction result to use for evaluation.
@@ -1307,90 +1331,99 @@ class VoiceAgentClient(AsyncClient):
             Optional[float]: The delay before finalizing / end of turn.
         """
 
-        # Get the current view -or- previous view
+        # Get the current view or previous view with active segments
         view = (
             self._current_view
             if self._current_view and self._current_view.last_active_segment_index > -1
             else self._previous_view
         )
 
-        # Exit if none
         if not view:
             return None
 
-        # Last active segment
+        # Get last active segment
         last_active_segment_index = view.last_active_segment_index
         last_active_segment = view.segments[last_active_segment_index] if last_active_segment_index > -1 else None
 
-        # Calculations
-        clamped_delay: float = self._config.end_of_utterance_max_delay
-        finalize_delay: Optional[float] = None
-
-        # Reasons for the calculation
+        # Track penalty multipliers and reasons
         reasons: list[tuple[float, str]] = []
 
-        # Add multiplier
-        def add_multipler_reason(multiplier: float, reason: str) -> None:
-            reasons.append((multiplier, reason))
-
-        # If the last segment is for an active speaker
+        # Apply penalties based on last active segment annotations
         if last_active_segment:
-            """Check the contents of the last segment."
+            for p in self._config.end_of_turn_config.penalties:
+                description = "__".join(p.annotation)
+                has_annotation = last_active_segment.annotation.has(*p.annotation)
 
-            Check for:
-                - has any disfluencies
-                - ends with a disfluency
-                - speed of speech
-                - ends with finalizes end of sentence
-            """
+                if (not p.is_not and has_annotation) or (p.is_not and not has_annotation):
+                    reason = f"not__{description}" if p.is_not else description
+                    reasons.append((p.penalty, reason))
 
-            # Iterate over the penalties
-            for penalty in self._config.end_of_turn_config.penalties:
-                description = "__".join(penalty.annotation)
-                if not penalty.is_not:
-                    if last_active_segment.annotation.has(*penalty.annotation):
-                        add_multipler_reason(penalty.penalty, description)
-                else:
-                    if not last_active_segment.annotation.has(*penalty.annotation):
-                        add_multipler_reason(penalty.penalty, f"not__{description}")
-
-        # Smart turn prediction
+        # Apply smart turn prediction penalty
         if smart_turn_prediction:
             if smart_turn_prediction.prediction:
-                add_multipler_reason(self._config.smart_turn_config.positive_penalty, "smart_turn_true")
+                reasons.append((self._config.smart_turn_config.positive_penalty, "smart_turn_true"))
             else:
-                add_multipler_reason(self._config.smart_turn_config.negative_penalty, "smart_turn_false")
+                reasons.append((self._config.smart_turn_config.negative_penalty, "smart_turn_false"))
 
-        # Calculate multiplier
+        # Calculate final multiplier (compound multiplication)
         multiplier = (
             self._config.end_of_turn_config.base_multiplier
-            + sum(m for m, _ in reasons) * self._config.end_of_turn_config.end_of_turn_adjustment_factor
+            * self._config.end_of_turn_config.end_of_turn_adjustment_factor
         )
+        for penalty, _ in reasons:
+            multiplier *= penalty
 
-        # Minimum delay (50ms as a minimum)
-        delay = round(max(self._config.end_of_utterance_silence_trigger, 0.05) * multiplier, 2)
+        # Calculate delay with minimum of 25ms
+        delay = round(max(self._config.end_of_utterance_silence_trigger, 0.025) * multiplier, 3)
 
-        # Clamp to max delay
+        # Clamp to max delay and adjust for TTFB
         clamped_delay = min(delay, self._config.end_of_utterance_max_delay)
-
-        # Adjust time and make sure no less than 25ms
         finalize_delay = max(clamped_delay - self._last_ttfb, self._config.end_of_turn_config.min_end_of_turn_delay)
 
-        # Emit prediction
+        # Emit prediction message
         self._emit_message(
             TurnPredictionMessage(
                 turn_id=self._turn_id,
                 metadata=TurnPredictionMetadata(
                     ttl=round(finalize_delay, 2),
-                    reasons=[_reason for _, _reason in reasons],
+                    reasons=[reason for _, reason in reasons],
                 ),
             ),
         )
 
-        # Return the time
         return finalize_delay
 
-    async def _predict_smart_turn(self, end_time: float, language: str) -> SmartTurnPredictionResult:
+    def _eot_prediction(self, base_time: Optional[float] = None) -> None:
+        """Handle end of turn prediction."""
+
+        # Reset handler
+        self._eot_handler.reset()
+
+        # Callback
+        async def do_eot_detection(end_time: Optional[float], language: str) -> None:
+            try:
+                # Wait for Smart Turn result
+                if self._eou_mode == EndOfUtteranceMode.SMART_TURN and end_time is not None:
+                    result = await self._smart_turn_prediction(end_time, language)
+                else:
+                    result = None
+
+                # Create a new task to evaluate the finalize delay
+                delay = await self._calculate_finalize_delay(smart_turn_prediction=result)
+
+                # Set the finalize timer (go now if no delay)
+                self._eot_handler.update_timer(delay or 0.005)
+
+            except asyncio.CancelledError:
+                pass
+
+        # Add task
+        self._eot_handler.add_task(
+            asyncio.create_task(do_eot_detection(base_time, self._config.language)),
+            self._eou_mode.value,
+        )
+
+    async def _smart_turn_prediction(self, end_time: float, language: str) -> SmartTurnPredictionResult:
         """Predict when to emit the end of turn.
 
         This will give an acoustic prediction of when the turn has completed using
@@ -1405,7 +1438,7 @@ class VoiceAgentClient(AsyncClient):
         """
 
         # Check we have smart turn enabled
-        if not self._turn_detector:
+        if not self._smart_turn_detector:
             return SmartTurnPredictionResult(error="Smart turn is not enabled")
 
         # Get audio slice (add small margin of 100ms to the end of the audio)
@@ -1415,7 +1448,7 @@ class VoiceAgentClient(AsyncClient):
         )
 
         # Evaluate
-        prediction = await self._turn_detector.predict(
+        prediction = await self._smart_turn_detector.predict(
             segment_audio,
             language=language,
             sample_rate=self._audio_sample_rate,
@@ -1424,6 +1457,27 @@ class VoiceAgentClient(AsyncClient):
 
         # Return the prediction
         return prediction
+
+    async def _await_forced_eou(self, timeout: float = 2.0) -> bool:
+        """Await the forced end of utterance."""
+
+        # Received EOU
+        eou_received: asyncio.Event = asyncio.Event()
+
+        # Add listener
+        self.once(AgentServerMessageType.END_OF_UTTERANCE, lambda message: eou_received.set())
+
+        # Trigger EOU message
+        await self.force_end_of_utterance()
+
+        # Wait for EOU
+        try:
+            await asyncio.wait_for(eou_received.wait(), timeout=timeout)
+        except asyncio.TimeoutError:
+            return False
+
+        # Return True after EOU is received
+        return True
 
     # ============================================================================
     # VAD (VOICE ACTIVITY DETECTION) / SPEAKER DETECTION
@@ -1520,15 +1574,6 @@ class VoiceAgentClient(AsyncClient):
             # Emit end of turn prediction was wrong (turn continues)
             if self._uses_eot_prediction and self._eot_handler.handler_active and self._is_speaking:
                 self._eot_handler.reset()
-                self._emit_message(
-                    TurnStartEndResetMessage(
-                        message=AgentServerMessageType.END_OF_TURN_RESET,
-                        turn_id=self._turn_id,
-                        metadata=MessageTimeMetadata(
-                            time=event_time,
-                        ),
-                    ),
-                )
 
             # New turn started
             elif self._is_speaking and not self._eot_handler.handler_active:
@@ -1587,33 +1632,9 @@ class VoiceAgentClient(AsyncClient):
         elif self._uses_fixed_eou:
             self._eou_handler.update_timer(self._config.end_of_utterance_silence_trigger * 2)
 
-        # For ADAPTIVE and SMART_TURN only
-        if self._uses_eot_prediction:
-            """EOT detection / prediction."""
-
-            # Callback
-            async def do_eot_detection(end_time: float, language: str) -> None:
-                try:
-                    # Wait for Smart Turn result
-                    if self._eou_mode == EndOfUtteranceMode.SMART_TURN:
-                        result = await self._predict_smart_turn(end_time, language)
-                    else:
-                        result = None
-
-                    # Create a new task to evaluate the finalize delay
-                    delay = await self._calculate_finalize_delay(smart_turn_prediction=result)
-
-                    # Set the finalize timer (go now if no delay)
-                    self._eot_handler.update_timer(delay or 0.01)
-
-                except asyncio.CancelledError:
-                    pass
-
-            # Add task
-            self._eot_handler.add_task(
-                asyncio.create_task(do_eot_detection(speaker_end_time, self._config.language)),
-                self._eou_mode.value,
-            )
+        # # For ADAPTIVE and SMART_TURN only
+        # if self._uses_eot_prediction:
+        #     self._eot_prediction(speaker_end_time)
 
     # ============================================================================
     # HELPER METHODS

@@ -188,7 +188,6 @@ class AgentServerMessageType(str, Enum):
     # End of turn messages
     START_OF_TURN = "StartOfTurn"
     END_OF_TURN_PREDICTION = "EndOfTurnPrediction"
-    END_OF_TURN_RESET = "EndOfTurnReset"
     END_OF_TURN = "EndOfTurn"
 
     # Speaker messages
@@ -312,13 +311,10 @@ class SpeakerFocusConfig(BaseModel):
 
 
 class SpeechSegmentEmitMode(str, Enum):
-    """EMode for when to emit finalized segments.
+    """Mode for when to emit finalized segments.
 
     As transcription is processed, segments are emitted based on the selected emit mode. This gives
     the client more control in how to process incomplete and complete segments of speech.
-
-    - `ON_SPEAKER_ENDED`: Emit segments when a speaker has ended. If a speaker change is detected
-        during a turn, then multiple finalized segments may be emitted in sequence.
 
     - `ON_FINALIZED_SENTENCE`: Emit segments when a sentence has ended. A finalized segment is emitted
         as soon as a finalized end of sentence is detected. If a speaker continues to speak during
@@ -327,7 +323,6 @@ class SpeechSegmentEmitMode(str, Enum):
     - `ON_END_OF_TURN`: No finalized segments will be emitted until the turn has been completed.
     """
 
-    ON_SPEAKER_ENDED = "on_speaker_ended"
     ON_FINALIZED_SENTENCE = "on_finalized_sentence"
     ON_END_OF_TURN = "on_end_of_turn"
 
@@ -339,11 +334,11 @@ class SpeechSegmentConfig(BaseModel):
         add_trailing_eos: Add trailing end of sentence to segments. When enabled, segments are
             emitted with missing trailing end of sentence added. Defaults to False.
 
-        emit_mode: How to emit segments. Defaults to `SpeechSegmentEmitMode.ON_SPEAKER_ENDED`.
+        emit_mode: How to emit segments. Defaults to `SpeechSegmentEmitMode.ON_END_OF_TURN`.
     """
 
     add_trailing_eos: bool = False
-    emit_mode: SpeechSegmentEmitMode = SpeechSegmentEmitMode.ON_SPEAKER_ENDED
+    emit_mode: SpeechSegmentEmitMode = SpeechSegmentEmitMode.ON_END_OF_TURN
 
 
 class EndOfTurnPenaltyItem(BaseModel):
@@ -379,15 +374,15 @@ class EndOfTurnConfig(BaseModel):
             EndOfTurnPenaltyItem(penalty=2.0, annotation=[AnnotationFlags.SLOW_SPEAKER]),
             EndOfTurnPenaltyItem(penalty=2.5, annotation=[AnnotationFlags.ENDS_WITH_DISFLUENCY]),
             EndOfTurnPenaltyItem(penalty=0.25, annotation=[AnnotationFlags.HAS_DISFLUENCY]),
-            EndOfTurnPenaltyItem(
-                penalty=1.0,
-                annotation=[AnnotationFlags.ENDS_WITH_EOS],
-                is_not=True,
-            ),
-            EndOfTurnPenaltyItem(
-                penalty=-0.1,
-                annotation=[AnnotationFlags.ENDS_WITH_EOS, AnnotationFlags.ENDS_WITH_FINAL],
-            ),
+            # EndOfTurnPenaltyItem(
+            #     penalty=1.0,
+            #     annotation=[AnnotationFlags.ENDS_WITH_EOS],
+            #     is_not=True,
+            # ),
+            # EndOfTurnPenaltyItem(
+            #     penalty=-0.5,
+            #     annotation=[AnnotationFlags.ENDS_WITH_EOS, AnnotationFlags.ENDS_WITH_FINAL],
+            # ),
         ]
     )
 
@@ -699,14 +694,14 @@ class SessionSpeaker(BaseModel):
     volume_history: list[float] = Field(default_factory=list, exclude=True)
 
     def update_volume(self, new_volume: float) -> None:
-        """Update volume with average from last 50 values.
+        """Update volume with average from last N values.
 
         Args:
             new_volume: The new volume value to add.
         """
-        # Track volume history (last 50 values)
+        # Track volume history (last N values)
         self.volume_history.append(new_volume)
-        while len(self.volume_history) > 50:
+        while len(self.volume_history) > 10:
             self.volume_history.pop(0)
 
         # Calculate average from history
@@ -929,6 +924,9 @@ class SpeakerSegmentView(BaseModel):
             return -1
         return len(self.segments) - idx - 1
 
+    def has_no_active_segments_remaining(self) -> bool:
+        return self.last_active_segment_index == -1
+
     def format_view_text(
         self,
         format: str = "|{speaker_id}|{text}|",
@@ -1082,7 +1080,6 @@ class TurnStartEndResetMessage(BaseMessage):
     message: Literal[
         AgentServerMessageType.START_OF_TURN,
         AgentServerMessageType.END_OF_TURN,
-        AgentServerMessageType.END_OF_TURN_RESET,
     ]
     turn_id: int
     metadata: MessageTimeMetadata

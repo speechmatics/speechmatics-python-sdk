@@ -47,7 +47,6 @@ COLORS = {
     # End of turn
     "StartOfTurn": "\033[91m",
     "EndOfTurnPrediction": "\033[95m",
-    "EndOfTurnReset": "\033[95m",
     "EndOfTurn": "\033[1;91m",
     # Transcript events
     "AddPartialTranscript": "\033[90m",
@@ -109,7 +108,7 @@ async def main() -> None:
             ],
             known_speakers=known_speakers,
             speech_segment_config=SpeechSegmentConfig(
-                emit_mode=args.emit_mode.lower() if args.emit_mode else SpeechSegmentEmitMode.ON_SPEAKER_ENDED
+                emit_mode=args.emit_mode.lower() if args.emit_mode else SpeechSegmentEmitMode.ON_END_OF_TURN
             ),
             transcription_update_preset=TranscriptionUpdatePreset.COMPLETE_PLUS_TIMING,
             include_results=args.results,
@@ -378,16 +377,15 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
         if args.verbose >= 1:
             client.on(AgentServerMessageType.SPEAKER_STARTED, log_message)
             client.on(AgentServerMessageType.SPEAKER_ENDED, log_message)
-            client.on(AgentServerMessageType.SPEAKER_METRICS, log_message)
 
         # Verbose turn prediction
         if args.verbose >= 2:
             client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, log_message)
-            client.on(AgentServerMessageType.END_OF_TURN_RESET, log_message)
 
         # Metrics
         if args.verbose >= 4:
             client.on(AgentServerMessageType.SESSION_METRICS, log_message)
+            client.on(AgentServerMessageType.SPEAKER_METRICS, log_message)
 
         # Verbose STT events
         if args.verbose >= 5:
@@ -403,7 +401,12 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
 
     # Log the config
     if args.verbose >= 1:
-        log_message({"message": "VoiceAgentClientConfig", "config": client._config.model_dump(exclude_none=True, exclude_unset=True)})
+        log_message(
+            {
+                "message": "VoiceAgentClientConfig",
+                "config": client._config.model_dump(exclude_none=True, exclude_unset=True),
+            }
+        )
 
 
 # ==============================================================================
@@ -676,8 +679,8 @@ def parse_args():
         "-e",
         "--emit-mode",
         type=lambda s: s.upper(),
-        choices=["ON_SPEAKER_ENDED", "ON_FINALIZED_SENTENCE", "ON_END_OF_TURN"],
-        help="End of segment emit mode (default: ON_SPEAKER_ENDED)",
+        choices=["ON_FINALIZED_SENTENCE", "ON_END_OF_TURN"],
+        help="End of segment emit mode (default: ON_END_OF_TURN)",
     )
 
     # ==============================================================================
