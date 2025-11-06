@@ -167,3 +167,6 @@ tmp/
 *.onnx
 *.pkf
 .claude
+
+# Examples
+**/output.wav
