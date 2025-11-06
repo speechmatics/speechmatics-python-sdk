@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from ._models import EndOfUtteranceMode
+from ._models import OperatingPoint
 from ._models import SpeechSegmentConfig
 from ._models import VoiceAgentConfig
 
@@ -22,8 +23,9 @@ class VoiceAgentConfigPreset:
         """
         return VoiceAgentConfigPreset._merge_configs(
             VoiceAgentConfig(
-                enable_diarization=True,
-                max_delay=0.7,
+                model=OperatingPoint.STANDARD,
+                enable_diarization=False,
+                max_delay=0.8,
                 end_of_utterance_silence_trigger=0.2,
                 end_of_utterance_mode=EndOfUtteranceMode.FIXED,
                 speech_segment_config=SpeechSegmentConfig(emit_sentences=True),
@@ -42,9 +44,10 @@ class VoiceAgentConfigPreset:
         """
         return VoiceAgentConfigPreset._merge_configs(
             VoiceAgentConfig(
+                model=OperatingPoint.ENHANCED,
                 enable_diarization=True,
-                max_delay=0.7,
-                end_of_utterance_silence_trigger=0.5,
+                max_delay=1.25,
+                end_of_utterance_silence_trigger=0.8,
                 end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
                 speech_segment_config=SpeechSegmentConfig(emit_sentences=False),
             ),
@@ -68,9 +71,10 @@ class VoiceAgentConfigPreset:
         """
         return VoiceAgentConfigPreset._merge_configs(
             VoiceAgentConfig(
+                model=OperatingPoint.ENHANCED,
                 enable_diarization=True,
-                max_delay=0.85,
-                end_of_utterance_silence_trigger=0.5,
+                max_delay=1.25,
+                end_of_utterance_silence_trigger=0.8,
                 end_of_utterance_mode=EndOfUtteranceMode.SMART_TURN,
                 speech_segment_config=SpeechSegmentConfig(emit_sentences=False),
             ),
@@ -86,8 +90,9 @@ class VoiceAgentConfigPreset:
         """
         return VoiceAgentConfigPreset._merge_configs(
             VoiceAgentConfig(
+                model=OperatingPoint.ENHANCED,
                 enable_diarization=True,
-                max_delay=1.2,
+                max_delay=1.4,
                 end_of_utterance_silence_trigger=1.0,
                 end_of_utterance_mode=EndOfUtteranceMode.FIXED,
                 speech_segment_config=SpeechSegmentConfig(emit_sentences=True),

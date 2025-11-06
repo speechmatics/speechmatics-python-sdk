@@ -238,7 +238,7 @@ class VoiceAgentClient(AsyncClient):
         self._uses_fixed_eou: bool = self._eou_mode == EndOfUtteranceMode.FIXED
 
         # Uses ForceEndOfUtterance message
-        self._uses_forced_eou: bool = self._config.enable_preview_features and self._eou_mode in [
+        self._uses_forced_eou: bool = self._config.use_forced_eou and self._eou_mode in [
             EndOfUtteranceMode.ADAPTIVE,
             EndOfUtteranceMode.SMART_TURN,
         ]
@@ -263,7 +263,6 @@ class VoiceAgentClient(AsyncClient):
         self._session_speakers: dict[str, SessionSpeaker] = {}
         self._is_speaking: bool = False
         self._current_speaker: Optional[str] = None
-
         self._dz_enabled: bool = self._config.enable_diarization
         self._dz_config = self._config.speaker_config
 
@@ -683,6 +682,8 @@ class VoiceAgentClient(AsyncClient):
                 >>> client.end_of_turn()
         """
 
+        print("*** EOT called ***")
+
         # Emit the finalize or use EndOfTurn on demand preview
         self.finalize(end_of_turn=True)
 
@@ -740,6 +741,12 @@ class VoiceAgentClient(AsyncClient):
 
         # Forward to the emit() method
         self.emit(message.message, message.model_dump())
+
+    def _emit_info_message(self, message: str | dict[str, Any]) -> None:
+        """Emit an info message to the client."""
+        if isinstance(message, str):
+            message = {"msg": message}
+        self.emit(AgentServerMessageType.INFO, {"message": AgentServerMessageType.INFO.value, **message})
 
     # ============================================================================
     # QUEUE PROCESSING
@@ -1195,14 +1202,22 @@ class VoiceAgentClient(AsyncClient):
                     last_segment = final_segments[-1]
                     last_fragment = last_segment.fragments[-1]
                     if not last_fragment.is_eos:
+                        # Add new fragment
                         last_segment.fragments.append(
                             SpeechFragment(
                                 idx=self._next_fragment_id(),
                                 start_time=last_fragment.end_time,
                                 end_time=last_fragment.end_time,
                                 content=".",
+                                attaches_to="previous",
                                 is_eos=True,
                             )
+                        )
+                        # Update text
+                        last_segment.text = FragmentUtils.format_segment_text(
+                            session=self._client_session,
+                            segment=last_segment,
+                            include_partials=True,
                         )
 
                 # Emit segments
@@ -1280,7 +1295,7 @@ class VoiceAgentClient(AsyncClient):
                 self._calculate_speaker_metrics(partial_segments, final_segments)
 
         # Emit end of turn
-        if end_of_turn:
+        if self._uses_turn_start_end and end_of_turn:
             await self._emit_end_of_turn()
 
     async def _emit_end_of_turn(self) -> None:
@@ -1373,7 +1388,7 @@ class VoiceAgentClient(AsyncClient):
             multiplier *= penalty
 
         # Calculate delay with minimum of 25ms
-        delay = round(max(self._config.end_of_utterance_silence_trigger, 0.025) * multiplier, 3)
+        delay = round(self._config.end_of_utterance_silence_trigger * multiplier, 3)
 
         # Clamp to max delay and adjust for TTFB
         clamped_delay = min(delay, self._config.end_of_utterance_max_delay)
@@ -1392,7 +1407,7 @@ class VoiceAgentClient(AsyncClient):
 
         return finalize_delay
 
-    def _eot_prediction(self, base_time: Optional[float] = None) -> None:
+    def _eot_prediction(self, end_time: Optional[float] = None) -> None:
         """Handle end of turn prediction."""
 
         # Reset handler
@@ -1418,7 +1433,7 @@ class VoiceAgentClient(AsyncClient):
 
         # Add task
         self._eot_handler.add_task(
-            asyncio.create_task(do_eot_detection(base_time, self._config.language)),
+            asyncio.create_task(do_eot_detection(end_time, self._config.language)),
             self._eou_mode.value,
         )
 
@@ -1467,6 +1482,7 @@ class VoiceAgentClient(AsyncClient):
         self.once(AgentServerMessageType.END_OF_UTTERANCE, lambda message: eou_received.set())
 
         # Trigger EOU message
+        self._emit_info_message("ForceEndOfUtterance sent")
         await self.force_end_of_utterance()
 
         # Wait for EOU
@@ -1631,9 +1647,9 @@ class VoiceAgentClient(AsyncClient):
         elif self._uses_fixed_eou:
             self._eou_handler.update_timer(self._config.end_of_utterance_silence_trigger * 2)
 
-        # # For ADAPTIVE and SMART_TURN only
-        # if self._uses_eot_prediction:
-        #     self._eot_prediction(speaker_end_time)
+        # For ADAPTIVE and SMART_TURN only
+        if self._uses_eot_prediction:
+            self._eot_prediction(speaker_end_time)
 
     # ============================================================================
     # HELPER METHODS

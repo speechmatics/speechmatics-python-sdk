@@ -399,7 +399,7 @@ class SmartTurnConfig(BaseModel):
     audio_buffer_length: float = 0.0
     smart_turn_threshold: float = 0.5
     slice_margin: float = 0.05
-    positive_penalty: float = -1.0
+    positive_penalty: float = 0.2
     negative_penalty: float = 2.5
 
 
@@ -492,8 +492,8 @@ class VoiceAgentConfig(BaseModel):
         include_results: Include word data in the response. This is useful for debugging and
             understanding the STT engine's behavior. Defaults to False.
 
-        enable_preview_features: Enable preview features using a preview endpoint provided by
-            Speechmatics. Defaults to False.
+        use_forced_eou: Use forced end of utterance. This will force the STT engine to emit
+            end of utterance messages. Defaults to False.
 
         transcription_update_preset: Emit segments when the text content or word timings change.
             Options are: `COMPLETE` (emit on changes to text content), `COMPLETE_PLUS_TIMING`
@@ -604,7 +604,7 @@ class VoiceAgentConfig(BaseModel):
 
     # Advanced features
     include_results: bool = False
-    enable_preview_features: bool = False
+    use_forced_eou: bool = False
     transcription_update_preset: TranscriptionUpdatePreset = TranscriptionUpdatePreset.COMPLETE
     end_of_turn_config: EndOfTurnConfig = Field(default_factory=EndOfTurnConfig)
     smart_turn_config: SmartTurnConfig = Field(default_factory=SmartTurnConfig)

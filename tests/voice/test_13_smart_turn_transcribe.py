@@ -99,7 +99,7 @@ async def test_prediction(sample: TranscriptionTest):
             enable_diarization=True,
             sample_rate=sample.sample_rate,
             additional_vocab=sample.additional_vocab,
-            enable_preview_features=True,
+            use_forced_eou=True,
             speech_segment_config=SpeechSegmentConfig(emit_sentences=False),
         ),
     )

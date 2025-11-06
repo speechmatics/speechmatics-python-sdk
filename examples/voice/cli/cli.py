@@ -101,7 +101,7 @@ async def main() -> None:
                 args.end_of_utterance_mode.lower() if args.end_of_utterance_mode else EndOfUtteranceMode.ADAPTIVE
             ),
             speaker_config=speaker_config,
-            enable_preview_features=args.preview,
+            use_forced_eou=args.forced_eou,
             additional_vocab=[
                 AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"]),
             ],
@@ -360,6 +360,7 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
                 f.write(json.dumps({"ts": ts_str, **message}) + "\n")
 
     # Register standard handlers
+    client.on(AgentServerMessageType.INFO, log_message)
     client.on(AgentServerMessageType.RECOGNITION_STARTED, log_message)
     client.on(AgentServerMessageType.END_OF_TRANSCRIPT, log_message)
 
@@ -389,6 +390,7 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
         # Verbose STT events
         if args.verbose >= 5:
             client.on(AgentServerMessageType.END_OF_UTTERANCE, log_message)
+            client.on("ForcedEndOfUtterance", log_message)
             client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, log_message)
             client.on(AgentServerMessageType.ADD_TRANSCRIPT, log_message)
 
@@ -721,9 +723,9 @@ def parse_args():
         help="Known speakers as JSON string or path to JSON file (default: None)",
     )
     parser.add_argument(
-        "--preview",
+        "--forced-eou",
         action="store_true",
-        help="Use preview features (default: False)",
+        help="Use forced end of utterance (default: False)",
     )
 
     # ==============================================================================
@@ -733,7 +735,7 @@ def parse_args():
     args = parser.parse_args()
 
     mutually_excludive = [
-        "emit-mode",
+        "emit-sentences",
         "end-of-utterance-mode",
         "end-of-utterance-silence-trigger",
         "focus-speakers",

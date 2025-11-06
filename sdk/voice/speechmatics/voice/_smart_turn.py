@@ -214,6 +214,8 @@ class SmartTurnDetector:
         # Record end time
         end_time = datetime.datetime.now()
 
+        print(prediction)
+
         # Return the result
         return SmartTurnPredictionResult(
             prediction=prediction,
