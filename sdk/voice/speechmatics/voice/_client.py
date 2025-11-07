@@ -323,6 +323,7 @@ class VoiceAgentClient(AsyncClient):
             diarization="speaker" if config.enable_diarization else None,
             enable_partials=True,
             max_delay=config.max_delay,
+            max_delay_mode="fixed",
             audio_filtering_config={
                 "volume_threshold": 0.0,
             },
@@ -653,8 +654,12 @@ class VoiceAgentClient(AsyncClient):
             if self._turn_id != _turn_id:
                 return
 
+            # Guard against EOT being called when no segments are in the buffer
+            if end_of_turn and self._current_view and self._current_view.has_no_active_segments_remaining():
+                return
+
             # Emit segments or finalize STT message (only for ADAPTIVE and SMART_TURN)
-            if self._uses_forced_eou and end_of_turn:
+            if end_of_turn and self._uses_forced_eou:
                 await self._await_forced_eou()
 
             # Check if the turn has changed
@@ -681,8 +686,6 @@ class VoiceAgentClient(AsyncClient):
                 >>> # Force end of turn of current segments
                 >>> client.end_of_turn()
         """
-
-        print("*** EOT called ***")
 
         # Emit the finalize or use EndOfTurn on demand preview
         self.finalize(end_of_turn=True)
@@ -1657,7 +1660,7 @@ class VoiceAgentClient(AsyncClient):
 
     def _next_fragment_id(self) -> int:
         """Return the next fragment ID."""
-        self._fragment_idx += 1
+        self._fragment_idx += 10
         return self._fragment_idx
 
     def _get_endpoint_url(self, url: str, app: Optional[str] = None) -> str:
