@@ -174,3 +174,4 @@ cython_debug/
 
 # Examples
 **/output.wav
+**/output_stream.wav
