@@ -8,7 +8,6 @@ from speechmatics.tts import AsyncClient, Voice, OutputFormat
 TEXT= "Welcome to the future of audio generation from text! This audio is a demo of the async streaming Speechmatics Text-to-Speech (T-T-S) API."
 VOICE= Voice.SARAH
 OUTPUT_FORMAT= OutputFormat.RAW_PCM_16000
-os.makedirs("output", exist_ok=True)
 
 # Audio Parameters
 SAMPLE_RATE = 16000 #Hz
