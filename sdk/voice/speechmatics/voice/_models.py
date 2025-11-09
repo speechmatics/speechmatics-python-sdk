@@ -185,10 +185,11 @@ class AgentServerMessageType(str, Enum):
     ADD_PARTIAL_SEGMENT = "AddPartialSegment"
     ADD_SEGMENT = "AddSegment"
 
-    # End of turn messages
+    # Turn messages
     START_OF_TURN = "StartOfTurn"
     END_OF_TURN_PREDICTION = "EndOfTurnPrediction"
     END_OF_TURN = "EndOfTurn"
+    SMART_TURN_AUDIO = "SmartTurnAudio"
 
     # Speaker messages
     SPEAKERS_RESULT = "SpeakersResult"
@@ -320,10 +321,16 @@ class SpeechSegmentConfig(BaseModel):
         emit_sentences: Emit segments when a sentence has ended. A finalized segment is emitted
             as soon as a finalized end of sentence is detected. If a speaker continues to speak during
             a turn, then multiple finalized segments may be emitted during the turn.
+
+        pause_mark: Add pause mark to segments. When set, a pause fragment will be added to the segment
+            when a pause is detected using the string provided. For example, `...` would add this text
+            into the formatted output for a segment as `Hello ... how are you?`.
+            Defaults to None.
     """
 
     add_trailing_eos: bool = False
     emit_sentences: bool = True
+    pause_mark: Optional[str] = None
 
 
 class EndOfTurnPenaltyItem(BaseModel):
@@ -492,7 +499,7 @@ class VoiceAgentConfig(BaseModel):
         include_results: Include word data in the response. This is useful for debugging and
             understanding the STT engine's behavior. Defaults to False.
 
-        use_forced_eou: Use forced end of utterance. This will force the STT engine to emit
+        use_forced_eou_message: Use forced end of utterance message. This will force the STT engine to emit
             end of utterance messages. Defaults to False.
 
         transcription_update_preset: Emit segments when the text content or word timings change.
@@ -604,7 +611,7 @@ class VoiceAgentConfig(BaseModel):
 
     # Advanced features
     include_results: bool = False
-    use_forced_eou: bool = False
+    use_forced_eou_message: bool = False
     transcription_update_preset: TranscriptionUpdatePreset = TranscriptionUpdatePreset.COMPLETE
     end_of_turn_config: EndOfTurnConfig = Field(default_factory=EndOfTurnConfig)
     smart_turn_config: SmartTurnConfig = Field(default_factory=SmartTurnConfig)

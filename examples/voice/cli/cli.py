@@ -101,7 +101,7 @@ async def main() -> None:
                 args.end_of_utterance_mode.lower() if args.end_of_utterance_mode else EndOfUtteranceMode.ADAPTIVE
             ),
             speaker_config=speaker_config,
-            use_forced_eou=args.forced_eou,
+            use_forced_eou_message=args.forced_eou,
             additional_vocab=[
                 AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"]),
             ],

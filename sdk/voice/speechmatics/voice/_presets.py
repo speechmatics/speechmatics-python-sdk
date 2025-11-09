@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 from ._models import EndOfUtteranceMode
 from ._models import OperatingPoint
 from ._models import SpeechSegmentConfig
@@ -14,7 +16,7 @@ class VoiceAgentConfigPreset:
     """Set of preset configurations for the Voice Agent SDK."""
 
     @staticmethod
-    def LOW_LATENCY(overlay: VoiceAgentConfig | None = None) -> VoiceAgentConfig:  # noqa: N802
+    def LOW_LATENCY(overlay: Optional[VoiceAgentConfig] = None) -> VoiceAgentConfig:  # noqa: N802
         """Best suited for low latency situations.
 
         This configuration will emit the end of turn as soon as possible, with minimal
@@ -23,8 +25,8 @@ class VoiceAgentConfigPreset:
         """
         return VoiceAgentConfigPreset._merge_configs(
             VoiceAgentConfig(
-                model=OperatingPoint.STANDARD,
-                enable_diarization=False,
+                operating_point=OperatingPoint.STANDARD,
+                enable_diarization=True,
                 max_delay=0.8,
                 end_of_utterance_silence_trigger=0.2,
                 end_of_utterance_mode=EndOfUtteranceMode.FIXED,
@@ -34,7 +36,7 @@ class VoiceAgentConfigPreset:
         )
 
     @staticmethod
-    def CONVERSATION_ADAPTIVE(overlay: VoiceAgentConfig | None = None) -> VoiceAgentConfig:  # noqa: N802
+    def CONVERSATION_ADAPTIVE(overlay: Optional[VoiceAgentConfig] = None) -> VoiceAgentConfig:  # noqa: N802
         """Best suited for general conversational use cases.
 
         For conversation, there is a balance between accuracy, speed and the rate at
@@ -44,7 +46,7 @@ class VoiceAgentConfigPreset:
         """
         return VoiceAgentConfigPreset._merge_configs(
             VoiceAgentConfig(
-                model=OperatingPoint.ENHANCED,
+                operating_point=OperatingPoint.ENHANCED,
                 enable_diarization=True,
                 max_delay=1.25,
                 end_of_utterance_silence_trigger=0.8,
@@ -55,7 +57,7 @@ class VoiceAgentConfigPreset:
         )
 
     @staticmethod
-    def CONVERSATION_SMART_TURN(overlay: VoiceAgentConfig | None = None) -> VoiceAgentConfig:  # noqa: N802
+    def CONVERSATION_SMART_TURN(overlay: Optional[VoiceAgentConfig] = None) -> VoiceAgentConfig:  # noqa: N802
         """Best suited for complex conversational use cases.
 
         For conversation, there is a balance between accuracy, speed and the rate at
@@ -71,7 +73,7 @@ class VoiceAgentConfigPreset:
         """
         return VoiceAgentConfigPreset._merge_configs(
             VoiceAgentConfig(
-                model=OperatingPoint.ENHANCED,
+                operating_point=OperatingPoint.ENHANCED,
                 enable_diarization=True,
                 max_delay=1.25,
                 end_of_utterance_silence_trigger=0.8,
@@ -82,7 +84,7 @@ class VoiceAgentConfigPreset:
         )
 
     @staticmethod
-    def SCRIBE(overlay: VoiceAgentConfig | None = None) -> VoiceAgentConfig:  # noqa: N802
+    def SCRIBE(overlay: Optional[VoiceAgentConfig] = None) -> VoiceAgentConfig:  # noqa: N802
         """Best suited for note-taking and scribes.
 
         This mode will emit partial and final segments as they become available. The end of
@@ -90,7 +92,7 @@ class VoiceAgentConfigPreset:
         """
         return VoiceAgentConfigPreset._merge_configs(
             VoiceAgentConfig(
-                model=OperatingPoint.ENHANCED,
+                operating_point=OperatingPoint.ENHANCED,
                 enable_diarization=True,
                 max_delay=1.4,
                 end_of_utterance_silence_trigger=1.0,
@@ -101,7 +103,7 @@ class VoiceAgentConfigPreset:
         )
 
     @staticmethod
-    def _merge_configs(base: VoiceAgentConfig, overlay: VoiceAgentConfig | None) -> VoiceAgentConfig:
+    def _merge_configs(base: VoiceAgentConfig, overlay: Optional[VoiceAgentConfig]) -> VoiceAgentConfig:
         """Merge two VoiceAgentConfig objects.
 
         Simply merge any overrides from the overlay into the base config. This makes creating

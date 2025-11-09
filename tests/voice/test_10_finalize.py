@@ -44,7 +44,7 @@ async def test_finalize():
             end_of_utterance_silence_trigger=0.7,
             max_delay=1.2,
             end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL,
-            use_forced_eou=True,
+            use_forced_eou_message=True,
         ),
     )
 
@@ -81,7 +81,9 @@ async def test_finalize():
     client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, log_message)
     client.on(AgentServerMessageType.ADD_SEGMENT, log_message)
     client.on(AgentServerMessageType.END_OF_UTTERANCE, log_message)
+    client.on(AgentServerMessageType.START_OF_TURN, log_message)
     client.on(AgentServerMessageType.END_OF_TURN, log_message)
+    client.on(AgentServerMessageType.END_OF_TRANSCRIPT, log_message)
 
     # End of Turn
     client.once(AgentServerMessageType.END_OF_TURN, eot_received_callback)
@@ -124,7 +126,7 @@ async def test_finalize():
 
     # Request the speakers result
     finalize_trigger_time = datetime.datetime.now()
-    client.end_of_turn()
+    client.finalize()
 
     # Wait for the callback with timeout
     try:

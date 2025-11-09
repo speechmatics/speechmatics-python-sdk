@@ -125,7 +125,7 @@ class TurnTaskProcessor:
                 pass
 
         # Complete the task
-        self.complete_handler()
+        # self.complete_handler()
 
     def cancel_tasks(self) -> None:
         """Cancel any pending tasks."""

@@ -99,7 +99,7 @@ async def test_multiple_speakers(sample: SpeakerTest):
     config = sample.config or VoiceAgentConfig(
         end_of_utterance_silence_trigger=1.0,
         max_delay=2.0,
-        end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
+        end_of_utterance_mode=EndOfUtteranceMode.FIXED,
         additional_vocab=[
             AdditionalVocabEntry(content="GeoRouter"),
         ],
