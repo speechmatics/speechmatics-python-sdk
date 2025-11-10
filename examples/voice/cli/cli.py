@@ -133,8 +133,8 @@ async def main() -> None:
     # Connect to the Voice Agent service
     try:
         await client.connect()
-    except Exception as e:
-        print(f"Error connecting to Voice Agent service: {e}")
+    except Exception:
+        print("Error connecting to Voice Agent service")
         return
 
     # Request speaker IDs at the end of the session (if enrolling)
@@ -743,6 +743,8 @@ def parse_args():
         "ignore-speakers",
         "language",
         "max-delay",
+        "forced-eou",
+        "speakers",
     ]
 
     if args.config is not None:

@@ -139,6 +139,7 @@ class VoiceAgentClient(AsyncClient):
         # Connection status
         self._is_connected: bool = False
         self._is_ready_for_audio: bool = False
+        self._closing_session: bool = False
 
         # Session info (updated on session created)
         self._client_session: ClientSessionInfo = ClientSessionInfo(
@@ -414,6 +415,9 @@ class VoiceAgentClient(AsyncClient):
             )
             return
 
+        # Update the closing session flag
+        self._closing_session = False
+
         # Start the processor task
         self._stt_queue_task = asyncio.create_task(self._run_stt_queue())
 
@@ -477,6 +481,9 @@ class VoiceAgentClient(AsyncClient):
         # Check if we are already connected
         if not self._is_connected:
             return
+
+        # Update the closing session flag
+        self._closing_session = True
 
         # Emit final segments
         await self._emit_segments(finalize=True)
@@ -665,11 +672,15 @@ class VoiceAgentClient(AsyncClient):
         # Partial transcript event
         @self.on(ServerMessageType.ADD_PARTIAL_TRANSCRIPT)  # type: ignore[misc]
         def _evt_on_partial_transcript(message: dict[str, Any]) -> None:
+            if self._closing_session:
+                return
             self._stt_message_queue.put_nowait(lambda: self._handle_transcript(message, is_final=False))
 
         # Final transcript event
         @self.on(ServerMessageType.ADD_TRANSCRIPT)  # type: ignore[misc]
         def _evt_on_final_transcript(message: dict[str, Any]) -> None:
+            if self._closing_session:
+                return
             self._stt_message_queue.put_nowait(lambda: self._handle_transcript(message, is_final=True))
 
         # End of Utterance (FIXED mode only)
@@ -677,6 +688,9 @@ class VoiceAgentClient(AsyncClient):
 
             @self.on(ServerMessageType.END_OF_UTTERANCE)  # type: ignore[misc]
             def _evt_on_end_of_utterance(message: dict[str, Any]) -> None:
+                if self._closing_session:
+                    return
+
                 async def _trigger_end_of_turn() -> None:
                     self.finalize()
 
