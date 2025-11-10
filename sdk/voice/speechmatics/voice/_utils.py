@@ -139,13 +139,23 @@ class FragmentUtils:
                     annotate=annotate_segments,
                 )
                 if segment:
-                    segment.text = FragmentUtils.format_segment_text(
-                        session=session, segment=segment, include_partials=session.config.include_partials
-                    )
+                    FragmentUtils.update_segment_text(session=session, segment=segment)
                     segments.append(segment)
 
         # Return the grouped SpeakerFragments objects
         return segments
+
+    @staticmethod
+    def update_segment_text(session: ClientSessionInfo, segment: SpeakerSegment) -> None:
+        """Update the text of a segment based on the language pack info.
+
+        Args:
+            session: ClientSessionInfo object.
+            segment: SpeakerSegment object.
+        """
+        segment.text = FragmentUtils.format_segment_text(
+            session=session, segment=segment, include_partials=session.config.include_partials
+        )
 
     @staticmethod
     def segment_from_fragments(
@@ -363,6 +373,39 @@ class FragmentUtils:
 
         # Return the result
         return result
+
+    @staticmethod
+    def find_segment_pauses(session: ClientSessionInfo, view: SpeakerSegmentView) -> None:
+        """Find gaps in the segments."""
+
+        # Find gaps in the view
+        for segment in view.segments:
+            # Strip out existing pauses
+            words = [f for f in segment.fragments if f.type_ != "pause"]
+
+            # Find gaps between the end of one word and the start of the next
+            for i in range(len(words) - 1):
+                word = words[i]
+                next_word = words[i + 1]
+                gap_start = word.end_time
+                gap_end = next_word.start_time
+                if gap_end - gap_start > 0.1:
+                    segment.fragments.append(
+                        SpeechFragment(
+                            idx=word.idx + 1,
+                            type_="pause",
+                            start_time=gap_start,
+                            end_time=gap_end,
+                            if_final=word.is_final,
+                            content=session.config.speech_segment_config.pause_mark or "...",
+                        )
+                    )
+
+            # Resort the fragments
+            segment.fragments.sort(key=lambda f: f.idx)
+
+            # Re-process the text
+            FragmentUtils.update_segment_text(session, segment)
 
 
 class TextUtils:

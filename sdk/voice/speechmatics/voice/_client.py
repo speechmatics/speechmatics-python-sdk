@@ -1101,6 +1101,9 @@ class VoiceAgentClient(AsyncClient):
         if change_filter and not changes.any(*change_filter):
             return
 
+        # Check for gaps
+        # FragmentUtils.find_segment_pauses(self._client_session, self._current_view)
+
         # Emit the segments
         await self._emit_segments()
 
@@ -1183,10 +1186,9 @@ class VoiceAgentClient(AsyncClient):
                             )
                         )
                         # Update text
-                        last_segment.text = FragmentUtils.format_segment_text(
+                        FragmentUtils.update_segment_text(
                             session=self._client_session,
                             segment=last_segment,
-                            include_partials=True,
                         )
 
                 # Emit segments
