@@ -357,11 +357,12 @@ class EndOfTurnConfig(BaseModel):
         penalties: List of end of turn penalty items.
     """
 
-    base_multiplier: float = 1.15
-    min_end_of_turn_delay: float = 0.025
+    base_multiplier: float = 1.0
+    min_end_of_turn_delay: float = 0.015
     end_of_turn_adjustment_factor: float = 1.0
     penalties: list[EndOfTurnPenaltyItem] = Field(
         default_factory=lambda: [
+            # Increase delay
             EndOfTurnPenaltyItem(penalty=3.0, annotation=[AnnotationFlags.VERY_SLOW_SPEAKER]),
             EndOfTurnPenaltyItem(penalty=2.0, annotation=[AnnotationFlags.SLOW_SPEAKER]),
             EndOfTurnPenaltyItem(penalty=2.5, annotation=[AnnotationFlags.ENDS_WITH_DISFLUENCY]),
@@ -370,6 +371,10 @@ class EndOfTurnConfig(BaseModel):
                 penalty=2.0,
                 annotation=[AnnotationFlags.ENDS_WITH_EOS],
                 is_not=True,
+            ),
+            # Decrease delay
+            EndOfTurnPenaltyItem(
+                penalty=0.25, annotation=[AnnotationFlags.ENDS_WITH_FINAL, AnnotationFlags.ENDS_WITH_EOS]
             ),
         ]
     )

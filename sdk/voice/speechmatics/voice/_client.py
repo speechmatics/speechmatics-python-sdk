@@ -1103,6 +1103,12 @@ class VoiceAgentClient(AsyncClient):
         if change_filter and not changes.any(*change_filter):
             return
 
+        # Turn prediction
+        if self._uses_forced_eou:
+            ttl = await self._calculate_finalize_delay()
+            if ttl:
+                self._turn_handler.update_timer(ttl)
+
         # Check for gaps
         # FragmentUtils.find_segment_pauses(self._client_session, self._current_view)
 
@@ -1340,6 +1346,7 @@ class VoiceAgentClient(AsyncClient):
             else self._previous_view
         )
 
+        # Skip if view doesn't exist
         if not view:
             return None
 
