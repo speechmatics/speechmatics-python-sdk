@@ -251,7 +251,7 @@ class AnnotationFlags(str, Enum):
 class BaseConfigModel(BaseModel):
     """Base configuration model."""
 
-    model_config = ConfigDict(strict=True, extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
 
 class AdditionalVocabEntry(BaseConfigModel):

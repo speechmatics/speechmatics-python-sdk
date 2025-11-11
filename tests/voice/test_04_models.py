@@ -6,13 +6,12 @@ from speechmatics.voice import VoiceAgentConfig
 from speechmatics.voice._models import AdditionalVocabEntry
 from speechmatics.voice._models import AnnotationFlags
 from speechmatics.voice._models import AnnotationResult
+from speechmatics.voice._models import OperatingPoint
 from speechmatics.voice._models import SpeakerFocusConfig
 from speechmatics.voice._models import SpeakerFocusMode
 from speechmatics.voice._models import SpeakerIdentifier
 from speechmatics.voice._models import SpeakerSegment
 from speechmatics.voice._models import SpeechFragment
-from speechmatics.voice._models import SpeechSegmentConfig
-from speechmatics.voice._presets import VoiceAgentConfigPreset
 
 
 @pytest.mark.asyncio
@@ -49,6 +48,10 @@ async def test_voice_agent_config():
     assert config_from_json.additional_vocab[0].content == "Speechmatics"
     assert len(config_from_json.known_speakers) == 1
     assert config_from_json.known_speakers[0].label == "John"
+
+    # From JSON
+    preset: VoiceAgentConfig = VoiceAgentConfig.from_json('{"operating_point": "enhanced"}')
+    assert preset.operating_point == OperatingPoint.ENHANCED
 
 
 @pytest.mark.asyncio
@@ -247,41 +250,3 @@ async def test_speaker_segment():
     assert "results" in dict_data_results
     assert "fragments" not in dict_data_results
     assert len(dict_data_results["results"]) == 2
-
-
-@pytest.mark.asyncio
-async def test_presets():
-    """Test VoiceAgentConfigPreset presets."""
-
-    # Create a preset
-    low_latency: VoiceAgentConfig = VoiceAgentConfigPreset.LOW_LATENCY()
-    assert low_latency is not None
-    assert low_latency.speech_segment_config.emit_sentences is True
-
-    # Overlay #1
-    low_latency_one: VoiceAgentConfig = VoiceAgentConfigPreset.LOW_LATENCY(
-        VoiceAgentConfig(max_delay=12.34, enable_diarization=False)
-    )
-    assert low_latency_one is not None
-    assert low_latency_one.max_delay == 12.34
-    assert low_latency_one.enable_diarization is False
-
-    # Overlay #2
-    low_latency_two: VoiceAgentConfig = VoiceAgentConfigPreset.LOW_LATENCY(
-        VoiceAgentConfig(speech_segment_config=SpeechSegmentConfig(emit_sentences=False))
-    )
-    assert low_latency_two is not None
-    assert low_latency_two.enable_diarization is True
-    assert low_latency_two.speech_segment_config.emit_sentences is False
-
-    # Preset names
-    presets = VoiceAgentConfigPreset.list_presets()
-    assert "low_latency" in presets
-
-    # Get a preset by a name
-    low_latency: VoiceAgentConfig = VoiceAgentConfigPreset.get("low_latency")
-    assert low_latency is not None
-
-    # Check using incorrect preset name
-    with pytest.raises(ValueError):
-        VoiceAgentConfigPreset.get("invalid_preset")

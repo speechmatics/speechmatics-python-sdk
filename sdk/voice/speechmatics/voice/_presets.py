@@ -121,7 +121,8 @@ class VoiceAgentConfigPreset:
         try:
             config: VoiceAgentConfig = getattr(VoiceAgentConfigPreset, preset.upper())()
             if overlay_json is not None:
-                config = VoiceAgentConfig.model_validate_json(overlay_json)
+                overlay = VoiceAgentConfig.model_validate_json(overlay_json)
+                config = VoiceAgentConfigPreset._merge_configs(config, overlay)
             return config
         except ValueError:
             raise ValueError(f"Invalid overlay JSON: {overlay_json}")
