@@ -1,6 +1,6 @@
 # Speechmatics Voice SDK
 
-[![PyPI](https://img.shields.io/pypi/v/speechmatics-tts)](https://pypi.org/project/speechmatics-tts/)
+[![PyPI](https://img.shields.io/pypi/v/speechmatics-voice)](https://pypi.org/project/speechmatics-voice/)
 ![PythonSupport](https://img.shields.io/badge/Python-3.9%2B-green)
 
 Python SDK for building voice-enabled applications with the Speechmatics Real-Time API. Optimized for conversational AI, voice agents, transcription services, and real-time captioning.
