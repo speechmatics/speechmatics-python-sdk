@@ -1,5 +1,5 @@
 """
-Utility functions for the Speechmatics Batch SDK.
+Utility functions for the Speechmatics TTS SDK.
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ async def prepare_audio_file(
 
 def get_version() -> str:
     try:
-        return importlib.metadata.version("speechmatics-batch")
+        return importlib.metadata.version("speechmatics-tts")
     except importlib.metadata.PackageNotFoundError:
         try:
             from . import __version__
