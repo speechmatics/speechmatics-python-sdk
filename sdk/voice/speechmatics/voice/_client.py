@@ -19,6 +19,7 @@ from urllib.parse import urlencode
 from speechmatics.rt import AsyncClient
 from speechmatics.rt import AudioEncoding
 from speechmatics.rt import AudioFormat
+from speechmatics.rt import AuthBase
 from speechmatics.rt import ConversationConfig
 from speechmatics.rt import ServerMessageType
 from speechmatics.rt import SpeakerDiarizationConfig
@@ -78,6 +79,7 @@ class VoiceAgentClient(AsyncClient):
 
     def __init__(
         self,
+        auth: Optional[AuthBase] = None,
         api_key: Optional[str] = None,
         url: Optional[str] = None,
         app: Optional[str] = None,
@@ -87,6 +89,8 @@ class VoiceAgentClient(AsyncClient):
         """Initialize the Voice Agent client.
 
         Args:
+            auth: Authentication instance. If not provided, uses StaticKeyAuth
+                with api_key parameter or SPEECHMATICS_API_KEY environment variable.
             api_key: Speechmatics API key. If None, uses SPEECHMATICS_API_KEY env var.
             url: REST API endpoint URL. If None, uses SPEECHMATICS_RT_URL env var
                  or defaults to production endpoint.
@@ -144,7 +148,7 @@ class VoiceAgentClient(AsyncClient):
             url = os.getenv("SPEECHMATICS_RT_URL") or "wss://eu2.rt.speechmatics.com/v2"
 
         # Initialize the client
-        super().__init__(api_key=api_key, url=self._get_endpoint_url(url, app))
+        super().__init__(auth=auth, api_key=api_key, url=self._get_endpoint_url(url, app))
 
         # Logger
         self._logger = get_logger(__name__)
