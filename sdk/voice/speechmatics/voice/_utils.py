@@ -286,16 +286,17 @@ class FragmentUtils:
 
         # Rate of speech
         if len(words) > 1:
-            # Calculate the approximate words-per-minute (for last 5 words)
-            last_5_words = words[-5:]
-            wpm = len(last_5_words) / ((last_5_words[-1].end_time - last_5_words[0].start_time) / 60.0)
+            # Calculate the approximate words-per-minute (for last few words)
+            recent_words = words[-10:]
+            word_time_span = recent_words[-1].end_time - recent_words[0].start_time
+            wpm = (len(recent_words) / word_time_span) * 60
 
             # Categorize the speaker
-            if wpm < 30:
+            if wpm < 80:
                 result.add(AnnotationFlags.VERY_SLOW_SPEAKER)
-            elif wpm < 80:
+            elif wpm < 120:
                 result.add(AnnotationFlags.SLOW_SPEAKER)
-            elif wpm > 350:
+            elif wpm > 250:
                 result.add(AnnotationFlags.FAST_SPEAKER)
 
         # Return the annotation result
@@ -376,7 +377,16 @@ class FragmentUtils:
 
     @staticmethod
     def find_segment_pauses(session: ClientSessionInfo, view: SpeakerSegmentView) -> None:
-        """Find gaps in the segments."""
+        """Find gaps in the segments.
+
+        LLMs may find knowledge of when someone pauses between words of use when constructing
+        their reply. This utility adds in pause markers to the segments which can then be used
+        during the text formatting of the segment.
+
+        Args:
+            session: ClientSessionInfo object.
+            view: The SpeakerSegmentView object to process.
+        """
 
         # Find gaps in the view
         for segment in view.segments:
@@ -396,7 +406,7 @@ class FragmentUtils:
                             type_="pause",
                             start_time=gap_start,
                             end_time=gap_end,
-                            if_final=word.is_final,
+                            is_final=word.is_final,
                             content=session.config.speech_segment_config.pause_mark or "...",
                         )
                     )

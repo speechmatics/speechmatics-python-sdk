@@ -6,7 +6,6 @@ import os
 import pytest
 from _utils import get_client
 from _utils import send_audio_file
-from _utils import send_silence
 
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
@@ -18,7 +17,7 @@ pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping fina
 # Constants
 API_KEY = os.getenv("SPEECHMATICS_API_KEY")
 SHOW_LOG = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
-AUDIO_FILE = "./assets/audio_03_16kHz.wav"
+AUDIO_FILE = "./assets/audio_05_16kHz.wav"
 
 
 @pytest.mark.asyncio
@@ -78,6 +77,7 @@ async def test_finalize():
 
     # Add listeners
     client.once(AgentServerMessageType.RECOGNITION_STARTED, log_message)
+    client.on(AgentServerMessageType.INFO, log_message)
     client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, log_message)
     client.on(AgentServerMessageType.ADD_SEGMENT, log_message)
     client.on(AgentServerMessageType.END_OF_UTTERANCE, log_message)
@@ -109,20 +109,10 @@ async def test_finalize():
     # Set chunk size
     chunk_size = 160
 
-    # Send words twice with silence in-between
-    await send_audio_file(client, AUDIO_FILE, chunk_size=chunk_size, progress_callback=log_bytes_sent)
-    await send_silence(client, 0.5, chunk_size=chunk_size, progress_callback=log_bytes_sent)
-    await send_audio_file(client, AUDIO_FILE, chunk_size=chunk_size, progress_callback=log_bytes_sent)
-
-    # Send silence in a thread
-    asyncio.create_task(
-        send_silence(
-            client, 10.0, chunk_size=chunk_size, progress_callback=log_bytes_sent, terminate_event=eot_received
-        )
-    )
+    asyncio.create_task(send_audio_file(client, AUDIO_FILE, chunk_size=chunk_size, progress_callback=log_bytes_sent))
 
     # Wait for 0.25 seconds
-    await asyncio.sleep(0.25)
+    await asyncio.sleep(2)
 
     # Request the speakers result
     finalize_trigger_time = datetime.datetime.now()

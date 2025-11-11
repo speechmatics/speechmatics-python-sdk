@@ -631,10 +631,12 @@ class VoiceAgentClient(AsyncClient):
         async def emit() -> None:
             """Wait for EndOfUtterance if needed, then emit segments."""
 
-            # Forced end of utterance message
-            if (self._config.use_forced_eou_message and self._current_view) and not (
-                self._current_view.fragments[-1].is_eos and self._current_view.fragments[-1].is_final
-            ):
+            # Forced end of utterance message (only when no speaker is detected)
+            if (
+                self._config.use_forced_eou_message
+                and self._current_view
+                and (self._eou_mode == EndOfUtteranceMode.EXTERNAL or not self._is_speaking)
+            ) and not (self._current_view.fragments[-1].is_eos and self._current_view.fragments[-1].is_final):
                 await self._await_forced_eou()
 
             # Check if the turn has changed
@@ -1124,11 +1126,6 @@ class VoiceAgentClient(AsyncClient):
                 await self._emit_end_of_turn()
             return
 
-        # For ADAPTIVE and SMART_TURN only
-        if not finalize and self._uses_forced_eou and not self._forced_eou_active:
-            ttl = await self._eot_prediction()
-            self._turn_handler.update_timer(ttl)
-
         # Lock the speech fragments
         async with self._speech_fragments_lock:
             # Segments to emit
@@ -1491,29 +1488,47 @@ class VoiceAgentClient(AsyncClient):
 
         # Find the valid list of partial words
         if self._dz_enabled and self._dz_config.focus_speakers:
-            partial_words = [
+            new_partials = [
                 frag
                 for frag in fragments
                 if frag.speaker in self._dz_config.focus_speakers and frag.type_ == "word" and not frag.is_final
             ]
+            pre_partials = [
+                frag
+                for frag in self._speech_fragments
+                if frag.speaker in self._dz_config.focus_speakers and frag.type_ == "word" and not frag.is_final
+            ]
         else:
-            partial_words = [frag for frag in fragments if frag.type_ == "word" and not frag.is_final]
+            new_partials = [frag for frag in fragments if frag.type_ == "word" and not frag.is_final]
+            pre_partials = [frag for frag in self._speech_fragments if frag.type_ == "word" and not frag.is_final]
+
+        # Check if last new partial matches the last pre partial
+        if len(pre_partials) > 0 and len(new_partials) > 0:
+            has_valid_partial = not all(
+                [
+                    pre_partials[-1].speaker == new_partials[-1].speaker,
+                    pre_partials[-1].start_time == new_partials[-1].start_time,
+                    pre_partials[-1].end_time == new_partials[-1].end_time,
+                    pre_partials[-1].content == new_partials[-1].content,
+                ]
+            )
 
         # Evaluate if any valid partial words exist
-        has_valid_partial = len(partial_words) > 0
+        else:
+            has_valid_partial = len(new_partials) > 0
 
         # Current states
         current_is_speaking = self._is_speaking
         current_speaker = self._current_speaker
 
         # Establish the speaker from latest partials
-        latest_speaker = partial_words[-1].speaker if has_valid_partial else current_speaker
+        latest_speaker = new_partials[-1].speaker if has_valid_partial else current_speaker
 
         # Determine if the speaker has changed (and we have a speaker)
         speaker_changed = latest_speaker != current_speaker and current_speaker is not None
 
         # Start / end times (earliest and latest)
-        speaker_start_time = partial_words[0].start_time if has_valid_partial else None
+        speaker_start_time = new_partials[0].start_time if has_valid_partial else None
         speaker_end_time = self._last_fragment_end_time
 
         # If diarization is enabled, indicate speaker switching
@@ -1577,6 +1592,10 @@ class VoiceAgentClient(AsyncClient):
         if self._is_speaking and not self._turn_active:
             await self._emit_start_of_turn(event_time)
 
+        # Update the turn handler
+        if self._uses_forced_eou:
+            self._turn_handler.reset()
+
         # Emit the event
         self._emit_message(
             VADStatusMessage(
@@ -1592,6 +1611,11 @@ class VoiceAgentClient(AsyncClient):
 
     async def _handle_speaker_stopped(self, speaker: Optional[str], event_time: float) -> None:
         """Reset the current speaker and do smart turn detection (if enabled)."""
+
+        # Turn prediction
+        if self._uses_forced_eou:
+            ttl = await self._eot_prediction(event_time)
+            self._turn_handler.update_timer(ttl)
 
         # Emit the event
         self._emit_message(
