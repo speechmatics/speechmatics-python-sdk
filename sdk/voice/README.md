@@ -1,6 +1,7 @@
 # Speechmatics Voice SDK
 
-[![License](https://img.shields.io/badge/license-MIT-yellow.svg)](https://github.com/speechmatics/speechmatics-python-voice/blob/master/LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/speechmatics-tts)](https://pypi.org/project/speechmatics-tts/)
+![PythonSupport](https://img.shields.io/badge/Python-3.9%2B-green)
 
 Python SDK for building voice-enabled applications with the Speechmatics Real-Time API. Optimized for conversational AI, voice agents, transcription services, and real-time captioning.
 
@@ -110,14 +111,6 @@ client = VoiceAgentClient(api_key=api_key, preset="conversation_smart_turn")
 client = VoiceAgentClient(api_key=api_key, preset="captions")
 ```
 
-**Available Presets:**
-
-- **`low_latency`** - FIXED mode, 0.7s max delay. Fast responses with minimal delay.
-- **`conversation_adaptive`** - ADAPTIVE mode, 0.7s max delay. Natural conversation with intelligent turn detection.
-- **`conversation_smart_turn`** - SMART_TURN mode, 0.7s max delay. Complex conversation with ML-based turn detection.
-- **`scribe`** - FIXED mode, 1.0s max delay. Optimized for note-taking and meeting transcription.
-- **`captions`** - FIXED mode, 0.9s max delay. Live captioning with final segments only.
-
 ### Custom Configuration
 
 ```python
@@ -138,16 +131,19 @@ client = VoiceAgentClient(api_key=api_key, config=config)
 ### Basic Parameters
 
 **`language`** (str, default: `"en"`)
-Language code for transcription (e.g., `"en"`, `"es"`, `"fr"`).
+Language code for transcription (e.g., `"en"`, `"es"`, `"fr"`). See [supported languages](https://docs.speechmatics.com/speech-to-text/languages).
+
+**`operating_point`** (OperatingPoint, default: `ENHANCED`)
+Balance accuracy vs latency. Options: `STANDARD` or `ENHANCED`.
+
+**`domain`** (str, default: `None`)
+Domain-specific model (e.g., `"finance"`, `"medical"`). See [supported languages and domains](https://docs.speechmatics.com/speech-to-text/languages).
+
+**`output_locale`** (str, default: `None`)
+Output locale for formatting (e.g., `"en-GB"`, `"en-US"`). See [supported languages and locales](https://docs.speechmatics.com/speech-to-text/languages).
 
 **`enable_diarization`** (bool, default: `False`)
 Enable speaker diarization to identify and label different speakers.
-
-**`sample_rate`** (int, default: `16000`)
-Audio sample rate in Hz.
-
-**`audio_encoding`** (AudioEncoding, default: `PCM_S16LE`)
-Audio encoding format.
 
 ### Turn Detection Parameters
 
@@ -221,9 +217,6 @@ config = VoiceAgentConfig(
 
 ### Language & Vocabulary
 
-**`output_locale`** (str, default: `None`)
-Output locale for formatting (e.g., `"en-GB"`, `"en-US"`).
-
 **`additional_vocab`** (list[AdditionalVocabEntry], default: `[]`)
 Custom vocabulary for domain-specific terms.
 
@@ -245,13 +238,15 @@ config = VoiceAgentConfig(
 **`punctuation_overrides`** (dict, default: `None`)
 Custom punctuation rules.
 
+### Audio Parameters
+
+**`sample_rate`** (int, default: `16000`)
+Audio sample rate in Hz.
+
+**`audio_encoding`** (AudioEncoding, default: `PCM_S16LE`)
+Audio encoding format.
+
 ### Advanced Parameters
-
-**`operating_point`** (OperatingPoint, default: `ENHANCED`)
-Balance accuracy vs latency. Options: `STANDARD` or `ENHANCED`.
-
-**`domain`** (str, default: `None`)
-Domain-specific model (e.g., `"finance"`, `"medical"`).
 
 **`transcription_update_preset`** (TranscriptionUpdatePreset, default: `COMPLETE`)
 Controls when to emit updates: `COMPLETE`, `COMPLETE_PLUS_TIMING`, `WORDS`, `WORDS_PLUS_TIMING`, or `TIMING`.
@@ -268,9 +263,6 @@ Include word-level timing data in segments.
 **`include_partials`** (bool, default: `True`)
 Emit partial segments. Set to `False` for final-only output.
 
-**`enable_preview_features`** (bool, default: `False`)
-Enable experimental features.
-
 ### Configuration with Overlays
 
 Use presets as a starting point and customize with overlays:
@@ -285,6 +277,27 @@ config = VoiceAgentConfigPreset.SCRIBE(
         max_delay=0.8
     )
 )
+
+# Available presets
+presets = VoiceAgentConfigPreset.list_presets()
+# ['low_latency', 'conversation_adaptive', 'conversation_smart_turn', 'scribe', 'captions']
+```
+
+### Configuration Serialization
+
+Export and import configurations as JSON:
+
+```python
+from speechmatics.voice import VoiceAgentConfigPreset, VoiceAgentConfig
+
+# Export preset to JSON
+config_json = VoiceAgentConfigPreset.SCRIBE().to_json()
+
+# Load from JSON
+config = VoiceAgentConfig.from_json(config_json)
+
+# Or create from JSON string
+config = VoiceAgentConfig.from_json('{"language": "en", "enable_diarization": true}')
 ```
 
 ## Event Messages
@@ -666,48 +679,93 @@ See the `examples/voice/` directory for complete working examples:
 class VoiceAgentClient:
     def __init__(
         self,
-        api_key: str,
+        auth: Optional[AuthBase] = None,
+        api_key: Optional[str] = None,
         url: Optional[str] = None,
+        app: Optional[str] = None,
         config: Optional[VoiceAgentConfig] = None,
         preset: Optional[str] = None
     ):
         """Create Voice Agent client.
 
         Args:
-            api_key: Speechmatics API key
-            url: Custom WebSocket URL (optional)
+            auth: Authentication instance (optional)
+            api_key: Speechmatics API key (defaults to SPEECHMATICS_API_KEY env var)
+            url: Custom WebSocket URL (defaults to SPEECHMATICS_RT_URL env var)
+            app: Optional application name for endpoint URL
             config: Voice Agent configuration (optional)
             preset: Preset name ("scribe", "low_latency", etc.) (optional)
         """
 
     async def connect(self) -> None:
-        """Connect to Speechmatics service."""
+        """Connect to Speechmatics service.
+
+        Establishes WebSocket connection and starts transcription session.
+        Must be called before sending audio.
+        """
 
     async def disconnect(self) -> None:
-        """Disconnect from service."""
+        """Disconnect from service.
 
-    async def send_audio(self, audio_data: bytes) -> None:
-        """Send audio data for transcription."""
+        Closes WebSocket connection and cleans up resources.
+        """
 
-    async def finalize(self) -> None:
-        """Manually trigger end of turn (EXTERNAL mode only)."""
+    async def send_audio(self, payload: bytes) -> None:
+        """Send audio data for transcription.
+
+        Args:
+            payload: Audio data as bytes
+        """
+
+    def update_diarization_config(self, config: SpeakerFocusConfig) -> None:
+        """Update diarization configuration during session.
+
+        Args:
+            config: New speaker focus configuration
+        """
+
+    def finalize(self, end_of_turn: bool = False) -> None:
+        """Finalize segments and optionally trigger end of turn.
+
+        Args:
+            end_of_turn: Whether to emit end of turn message (default: False)
+        """
 
     async def send_message(self, message: dict) -> None:
-        """Send control message to service."""
+        """Send control message to service.
+
+        Args:
+            message: Control message dictionary
+        """
 
     def on(self, event: AgentServerMessageType, callback: Callable) -> None:
-        """Register event handler."""
+        """Register event handler.
+
+        Args:
+            event: Event type to listen for
+            callback: Function to call when event occurs
+        """
 
     def once(self, event: AgentServerMessageType, callback: Callable) -> None:
-        """Register one-time event handler."""
+        """Register one-time event handler.
+
+        Args:
+            event: Event type to listen for
+            callback: Function to call once when event occurs
+        """
 
     def off(self, event: AgentServerMessageType, callback: Callable) -> None:
-        """Unregister event handler."""
+        """Unregister event handler.
+
+        Args:
+            event: Event type
+            callback: Function to remove
+        """
 ```
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.9+
 - Speechmatics API key ([Get one here](https://portal.speechmatics.com/))
 
 ## Documentation
