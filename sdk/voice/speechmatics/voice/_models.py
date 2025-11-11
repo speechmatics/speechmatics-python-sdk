@@ -248,7 +248,13 @@ class AnnotationFlags(str, Enum):
 # ==============================================================================
 
 
-class AdditionalVocabEntry(BaseModel):
+class BaseConfigModel(BaseModel):
+    """Base configuration model."""
+
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+
+class AdditionalVocabEntry(BaseConfigModel):
     """Additional vocabulary entry.
 
     Parameters:
@@ -277,7 +283,7 @@ class AdditionalVocabEntry(BaseModel):
     sounds_like: list[str] = Field(default_factory=list)
 
 
-class SpeakerFocusConfig(BaseModel):
+class SpeakerFocusConfig(BaseConfigModel):
     """Speaker Focus Config.
 
     List of speakers to focus on, ignore and how to deal with speakers that are not
@@ -311,7 +317,7 @@ class SpeakerFocusConfig(BaseModel):
     focus_mode: SpeakerFocusMode = SpeakerFocusMode.RETAIN
 
 
-class SpeechSegmentConfig(BaseModel):
+class SpeechSegmentConfig(BaseConfigModel):
     """Configuration on how segments are emitted.
 
     Parameters:
@@ -333,7 +339,7 @@ class SpeechSegmentConfig(BaseModel):
     pause_mark: Optional[str] = None
 
 
-class EndOfTurnPenaltyItem(BaseModel):
+class EndOfTurnPenaltyItem(BaseConfigModel):
     """End of turn penalty item.
 
     Parameters:
@@ -347,7 +353,7 @@ class EndOfTurnPenaltyItem(BaseModel):
     is_not: bool = False
 
 
-class EndOfTurnConfig(BaseModel):
+class EndOfTurnConfig(BaseConfigModel):
     """Configuration for end of turn.
 
     Parameters:
@@ -380,7 +386,7 @@ class EndOfTurnConfig(BaseModel):
     )
 
 
-class SmartTurnConfig(BaseModel):
+class SmartTurnConfig(BaseConfigModel):
     """Smart turn configuration for the Speechmatics Voice Agent.
 
     This configuration is used to determine when a turn has completed. It is used to
@@ -415,7 +421,7 @@ class SmartTurnConfig(BaseModel):
     negative_penalty: float = 2.5
 
 
-class VoiceAgentConfig(BaseModel):
+class VoiceAgentConfig(BaseConfigModel):
     """Voice Agent configuration.
 
     A framework-independent configuration object for the Speechmatics Voice Agent. This uses
@@ -628,6 +634,12 @@ class VoiceAgentConfig(BaseModel):
     # Audio
     sample_rate: int = 16000
     audio_encoding: AudioEncoding = AudioEncoding.PCM_S16LE
+
+    # Parse JSON
+    @classmethod
+    def from_json(cls, json_data: str) -> VoiceAgentConfig:
+        cfg: VoiceAgentConfig = cls.model_validate_json(json_data)
+        return cfg
 
 
 # ==============================================================================
