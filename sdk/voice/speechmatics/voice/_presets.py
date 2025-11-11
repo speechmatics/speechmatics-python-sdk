@@ -27,8 +27,8 @@ class VoiceAgentConfigPreset:
             VoiceAgentConfig(
                 operating_point=OperatingPoint.STANDARD,
                 enable_diarization=True,
-                max_delay=0.8,
-                end_of_utterance_silence_trigger=0.2,
+                max_delay=0.7,
+                end_of_utterance_silence_trigger=0.5,
                 end_of_utterance_mode=EndOfUtteranceMode.FIXED,
                 speech_segment_config=SpeechSegmentConfig(emit_sentences=True),
             ),
@@ -94,10 +94,31 @@ class VoiceAgentConfigPreset:
             VoiceAgentConfig(
                 operating_point=OperatingPoint.ENHANCED,
                 enable_diarization=True,
-                max_delay=1.4,
-                end_of_utterance_silence_trigger=1.0,
+                max_delay=1.0,
+                end_of_utterance_silence_trigger=1.2,
                 end_of_utterance_mode=EndOfUtteranceMode.FIXED,
                 speech_segment_config=SpeechSegmentConfig(emit_sentences=True),
+            ),
+            overlay,
+        )
+
+    @staticmethod
+    def CAPTIONS(overlay: Optional[VoiceAgentConfig] = None) -> VoiceAgentConfig:  # noqa: N802
+        """Best suited for captions.
+
+        This mode will emit partial and final segments as they become available. The end of
+        utterance is set to fixed. End of turn is not required for captions. The segments
+        will only include finalized words.
+        """
+        return VoiceAgentConfigPreset._merge_configs(
+            VoiceAgentConfig(
+                operating_point=OperatingPoint.ENHANCED,
+                enable_diarization=True,
+                max_delay=0.9,
+                end_of_utterance_silence_trigger=1.2,
+                end_of_utterance_mode=EndOfUtteranceMode.FIXED,
+                speech_segment_config=SpeechSegmentConfig(emit_sentences=True),
+                include_partials=False,
             ),
             overlay,
         )
@@ -108,7 +129,7 @@ class VoiceAgentConfigPreset:
         return [attr.lower() for attr in dir(VoiceAgentConfigPreset) if not attr.startswith("_") and attr.isupper()]
 
     @staticmethod
-    def get(preset: str, overlay_json: Optional[str] = None) -> VoiceAgentConfig:
+    def load(preset: str, overlay_json: Optional[str] = None) -> VoiceAgentConfig:
         """Get a preset configuration.
 
         Args:

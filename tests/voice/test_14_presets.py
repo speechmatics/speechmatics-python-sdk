@@ -36,7 +36,7 @@ async def test_presets():
     assert "low_latency" in presets
 
     # Get a preset by a name
-    preset: VoiceAgentConfig = VoiceAgentConfigPreset.get("low_latency")
+    preset: VoiceAgentConfig = VoiceAgentConfigPreset.load("low_latency")
     assert preset is not None
 
 
@@ -45,14 +45,14 @@ async def test_json_presets():
     """Test VoiceAgentConfigPreset JSON presets."""
 
     # With a JSON string overlay
-    preset: VoiceAgentConfig = VoiceAgentConfigPreset.get("low_latency", '{"operating_point": "enhanced"}')
+    preset: VoiceAgentConfig = VoiceAgentConfigPreset.load("low_latency", '{"operating_point": "enhanced"}')
     assert preset is not None
     assert preset.operating_point == OperatingPoint.ENHANCED
 
     # Check using incorrect preset name
     with pytest.raises(ValueError):
-        VoiceAgentConfigPreset.get("invalid_preset")
+        VoiceAgentConfigPreset.load("invalid_preset")
 
     # Check with invalid overlay
     with pytest.raises(ValueError):
-        VoiceAgentConfigPreset.get("low_latency", '{"invalid": "value"}')
+        VoiceAgentConfigPreset.load("low_latency", '{"invalid": "value"}')
