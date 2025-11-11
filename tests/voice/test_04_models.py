@@ -254,12 +254,12 @@ async def test_presets():
     """Test VoiceAgentConfigPreset presets."""
 
     # Create a preset
-    low_latency: VoiceAgentConfig | None = VoiceAgentConfigPreset.LOW_LATENCY()
+    low_latency: VoiceAgentConfig = VoiceAgentConfigPreset.LOW_LATENCY()
     assert low_latency is not None
     assert low_latency.speech_segment_config.emit_sentences is True
 
     # Overlay #1
-    low_latency_one: VoiceAgentConfig | None = VoiceAgentConfigPreset.LOW_LATENCY(
+    low_latency_one: VoiceAgentConfig = VoiceAgentConfigPreset.LOW_LATENCY(
         VoiceAgentConfig(max_delay=12.34, enable_diarization=False)
     )
     assert low_latency_one is not None
@@ -267,9 +267,21 @@ async def test_presets():
     assert low_latency_one.enable_diarization is False
 
     # Overlay #2
-    low_latency_two: VoiceAgentConfig | None = VoiceAgentConfigPreset.LOW_LATENCY(
+    low_latency_two: VoiceAgentConfig = VoiceAgentConfigPreset.LOW_LATENCY(
         VoiceAgentConfig(speech_segment_config=SpeechSegmentConfig(emit_sentences=False))
     )
     assert low_latency_two is not None
     assert low_latency_two.enable_diarization is True
     assert low_latency_two.speech_segment_config.emit_sentences is False
+
+    # Preset names
+    presets = VoiceAgentConfigPreset.list_presets()
+    assert "low_latency" in presets
+
+    # Get a preset by a name
+    low_latency: VoiceAgentConfig = VoiceAgentConfigPreset.get("low_latency")
+    assert low_latency is not None
+
+    # Check using incorrect preset name
+    with pytest.raises(ValueError):
+        VoiceAgentConfigPreset.get("invalid_preset")

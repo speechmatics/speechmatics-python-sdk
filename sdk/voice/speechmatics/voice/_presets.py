@@ -48,8 +48,8 @@ class VoiceAgentConfigPreset:
             VoiceAgentConfig(
                 operating_point=OperatingPoint.ENHANCED,
                 enable_diarization=True,
-                max_delay=1.25,
-                end_of_utterance_silence_trigger=0.8,
+                max_delay=0.7,
+                end_of_utterance_silence_trigger=1.0,
                 end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
                 speech_segment_config=SpeechSegmentConfig(emit_sentences=False),
             ),
@@ -75,8 +75,8 @@ class VoiceAgentConfigPreset:
             VoiceAgentConfig(
                 operating_point=OperatingPoint.ENHANCED,
                 enable_diarization=True,
-                max_delay=1.25,
-                end_of_utterance_silence_trigger=0.8,
+                max_delay=0.7,
+                end_of_utterance_silence_trigger=1.0,
                 end_of_utterance_mode=EndOfUtteranceMode.SMART_TURN,
                 speech_segment_config=SpeechSegmentConfig(emit_sentences=False),
             ),
@@ -101,6 +101,32 @@ class VoiceAgentConfigPreset:
             ),
             overlay,
         )
+
+    @staticmethod
+    def list_presets() -> list[str]:
+        """List available presets."""
+        return [attr.lower() for attr in dir(VoiceAgentConfigPreset) if not attr.startswith("_") and attr.isupper()]
+
+    @staticmethod
+    def get(preset: str, overlay_json: Optional[str] = None) -> VoiceAgentConfig:
+        """Get a preset configuration.
+
+        Args:
+            preset: Preset to use.
+            overlay_json: Optional overlay JSON to apply to the preset.
+
+        Returns:
+            VoiceAgentConfig: Preset configuration.
+        """
+        try:
+            config: VoiceAgentConfig = getattr(VoiceAgentConfigPreset, preset.upper())()
+            if overlay_json is not None:
+                config = VoiceAgentConfig.model_validate_json(overlay_json)
+            return config
+        except ValueError:
+            raise ValueError(f"Invalid overlay JSON: {overlay_json}")
+        except AttributeError:
+            raise ValueError(f"Invalid preset: {preset}")
 
     @staticmethod
     def _merge_configs(base: VoiceAgentConfig, overlay: Optional[VoiceAgentConfig]) -> VoiceAgentConfig:
