@@ -372,7 +372,7 @@ class EndOfTurnConfig(BaseConfigModel):
             EndOfTurnPenaltyItem(penalty=3.0, annotation=[AnnotationFlags.VERY_SLOW_SPEAKER]),
             EndOfTurnPenaltyItem(penalty=2.0, annotation=[AnnotationFlags.SLOW_SPEAKER]),
             EndOfTurnPenaltyItem(penalty=2.5, annotation=[AnnotationFlags.ENDS_WITH_DISFLUENCY]),
-            EndOfTurnPenaltyItem(penalty=1.25, annotation=[AnnotationFlags.HAS_DISFLUENCY]),
+            EndOfTurnPenaltyItem(penalty=1.2, annotation=[AnnotationFlags.HAS_DISFLUENCY]),
             EndOfTurnPenaltyItem(
                 penalty=2.0,
                 annotation=[AnnotationFlags.ENDS_WITH_EOS],

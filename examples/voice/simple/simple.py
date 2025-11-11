@@ -11,7 +11,6 @@ import os
 from speechmatics.rt import Microphone
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import VoiceAgentClient
-from speechmatics.voice import VoiceAgentConfig
 
 
 async def main() -> None:
@@ -29,40 +28,27 @@ async def main() -> None:
         print("Error: PyAudio not available - install with: pip install pyaudio")
         return
 
-    # Configure Voice Agent with adaptive turn detection
-    config = VoiceAgentConfig(
-        language="en",
-        enable_diarization=True,
-        end_of_utterance_mode="adaptive",
-    )
-
     # Create client
-    client = VoiceAgentClient(api_key=api_key, config=config)
+    client = VoiceAgentClient(api_key=api_key, preset="scribe")
 
     # Handle partial segments (interim results)
+    @client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT)
     def on_partial_segment(message):
         segments = message.get("segments", [])
         for segment in segments:
-            speaker = segment["speaker_id"]
-            text = segment["text"]
-            print(f"[PARTIAL] {speaker}: {text}")
+            print(f"[PARTIAL] {segment['speaker_id']}: {segment['text']}")
 
     # Handle final segments
+    @client.on(AgentServerMessageType.ADD_SEGMENT)
     def on_segment(message):
         segments = message.get("segments", [])
         for segment in segments:
-            speaker = segment["speaker_id"]
-            text = segment["text"]
-            print(f"[FINAL] {speaker}: {text}")
+            print(f"[FINAL] {segment['speaker_id']}: {segment['text']}")
 
     # Handle end of turn
+    @client.on(AgentServerMessageType.END_OF_TURN)
     def on_end_of_turn(message):
         print("[END OF TURN]")
-
-    # Register event handlers
-    client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, on_partial_segment)
-    client.on(AgentServerMessageType.ADD_SEGMENT, on_segment)
-    client.on(AgentServerMessageType.END_OF_TURN, on_end_of_turn)
 
     # Instructions
     print("\nMicrophone ready - speak now... (Press CTRL+C to stop)\n")
