@@ -89,3 +89,23 @@ jobs:
         run: make test-voice
       - name: Build Voice Agent SDK
         run: make build-voice
+
+  test-tts:
+    name: Test TTS SDK
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: make install-dev
+      - name: Lint TTS SDK
+        run: make lint-tts
+      - name: Test TTS SDK
+        run: make test-tts
+      - name: Build TTS SDK
+        run: make build-tts
