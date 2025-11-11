@@ -1,13 +1,12 @@
 import asyncio
 import sounddevice as sd
 import numpy as np
-import os
 from speechmatics.tts import AsyncClient, Voice, OutputFormat
 
 # Configuration
-TEXT= "Welcome to the future of audio generation from text! This audio is a demo of the async streaming Speechmatics Text-to-Speech (T-T-S) API."
-VOICE= Voice.SARAH
-OUTPUT_FORMAT= OutputFormat.RAW_PCM_16000
+TEXT = "Welcome to the future of audio generation from text! This audio is a demo of the async streaming Speechmatics Text-to-Speech (T-T-S) API."
+VOICE = Voice.SARAH
+OUTPUT_FORMAT = OutputFormat.RAW_PCM_16000
 
 # Audio Parameters
 SAMPLE_RATE = 16000 #Hz
@@ -62,9 +61,7 @@ async def audio_player(play_queue: asyncio.Queue) -> None:
             channels=CHANNELS,
             dtype='int16',  # 16-bit PCM
             blocksize=CHUNK_SIZE,
-            device=None,
             latency='high',
-            callback=None
         ) as stream:
             buffer=[]
             while True:
