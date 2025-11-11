@@ -55,6 +55,7 @@ from ._models import TurnPredictionMetadata
 from ._models import TurnStartEndResetMessage
 from ._models import VADStatusMessage
 from ._models import VoiceAgentConfig
+from ._presets import VoiceAgentConfigPreset
 from ._smart_turn import SMART_TURN_INSTALL_HINT
 from ._smart_turn import SmartTurnDetector
 from ._smart_turn import SmartTurnPredictionResult
@@ -81,6 +82,7 @@ class VoiceAgentClient(AsyncClient):
         url: Optional[str] = None,
         app: Optional[str] = None,
         config: Optional[VoiceAgentConfig] = None,
+        preset: Optional[str] = None,
     ):
         """Initialize the Voice Agent client.
 
@@ -90,6 +92,7 @@ class VoiceAgentClient(AsyncClient):
                  or defaults to production endpoint.
             app: Optional application name to use in the endpoint URL.
             config: Optional voice agent configuration.
+            preset: Optional voice agent preset.
 
         Examples:
             Recommended - using context manager:
@@ -98,6 +101,23 @@ class VoiceAgentClient(AsyncClient):
                 >>> async with VoiceAgentClient(api_key="your_api_key", config=config) as client:
                 ...     # Client automatically connects and disconnects
                 ...     await client.send_audio(audio_data)
+
+            Using a preset (named):
+                >>> from speechmatics.voice import VoiceAgentClient
+                >>> client = VoiceAgentClient(
+                ...     api_key="your_api_key",
+                ...     url="wss://custom.endpoint.com/v2",
+                ...     preset="conversation_adaptive"
+                ... )
+
+            Using a preset (utility class):
+                >>> from speechmatics.voice import VoiceAgentClient, VoiceAgentConfigPreset
+                >>> config=VoiceAgentConfigPreset.CONVERSATION_ADAPTIVE()
+                >>> client = VoiceAgentClient(
+                ...     api_key="your_api_key",
+                ...     url="wss://custom.endpoint.com/v2",
+                ...     config=config
+                ... )
 
             Manual connection management:
                 >>> client = VoiceAgentClient(api_key="your_api_key", config=config)
@@ -132,6 +152,11 @@ class VoiceAgentClient(AsyncClient):
         # -------------------------------------
         # Client Configuration
         # -------------------------------------
+
+        # Check for preset
+        if preset:
+            preset_config = VoiceAgentConfigPreset.load(preset)
+            config = VoiceAgentConfigPreset._merge_configs(preset_config, config)
 
         # Process the config
         self._config, self._transcription_config, self._audio_format = self._prepare_config(config)
