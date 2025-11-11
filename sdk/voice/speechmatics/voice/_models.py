@@ -638,8 +638,15 @@ class VoiceAgentConfig(BaseConfigModel):
     # Parse JSON
     @classmethod
     def from_json(cls, json_data: str) -> VoiceAgentConfig:
+        """Convert a JSON string to a VoiceAgentConfig object."""
         cfg: VoiceAgentConfig = cls.model_validate_json(json_data)
         return cfg
+
+    # To JSON
+    def to_json(self) -> str:
+        """Convert the model to a JSON string."""
+        config_str: str = self.model_dump_json(exclude_none=True, exclude_defaults=True, exclude_unset=True)
+        return config_str
 
 
 # ==============================================================================

@@ -28,18 +28,21 @@ async def test_voice_agent_config():
     )
 
     # Test JSON serialisation
-    json_data = config.model_dump()
-    assert json_data["language"] == "en"
-    assert json_data["max_delay"] == 1.5
-    assert json_data["enable_diarization"] is True
-    assert json_data["speaker_sensitivity"] == 0.7
-    assert len(json_data["additional_vocab"]) == 1
-    assert json_data["additional_vocab"][0]["content"] == "Speechmatics"
-    assert len(json_data["known_speakers"]) == 1
-    assert json_data["known_speakers"][0]["label"] == "John"
+    config_dict = config.model_dump()
+    assert config_dict["language"] == "en"
+    assert config_dict["max_delay"] == 1.5
+    assert config_dict["enable_diarization"] is True
+    assert config_dict["speaker_sensitivity"] == 0.7
+    assert len(config_dict["additional_vocab"]) == 1
+    assert config_dict["additional_vocab"][0]["content"] == "Speechmatics"
+    assert len(config_dict["known_speakers"]) == 1
+    assert config_dict["known_speakers"][0]["label"] == "John"
+
+    # Get JSON from the model
+    config_json = config.to_json()
 
     # Test JSON deserialisation
-    config_from_json = VoiceAgentConfig.model_validate(json_data)
+    config_from_json = VoiceAgentConfig.from_json(config_json)
     assert config_from_json.language == config.language
     assert config_from_json.max_delay == config.max_delay
     assert config_from_json.enable_diarization == config.enable_diarization
