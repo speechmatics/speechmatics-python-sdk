@@ -1,25 +1,31 @@
-# Ambient Scribe / Note-Taking
+# Ambient Scribe
 
-Real-time ambient transcription for note-taking and documentation. Designed for continuous background transcription where the output feeds into another system.
+Real-time transcription for note-taking and documentation. Uses the default microphone and the SCRIBE preset.
+
+A custom dictionary can be used to improve accuracy for domain-specific terms. The example `vocab.json` is loaded automatically if present.
 
 ## Quick Start
 
 ```bash
-export SPEECHMATICS_API_KEY=your_api_key   # Required
-export SPEECHMATICS_RT_URL=endpoint_url    # Optional
+export SPEECHMATICS_API_KEY=your_api_key
 python scribe.py
 ```
 
 Press `CTRL+C` to stop.
 
-## What It Does
+## Features
 
-- Transcribes conversations in real-time for note-taking
-- Uses the SCRIBE preset optimized for ambient transcription
-- Shows partial results (yellow) that update as speech continues
-- Shows final results (green) with timestamps when sentences complete
-- Identifies different speakers (S1, S2, etc.)
-- Ideal for meeting notes, interview transcription, or ambient documentation
+- Real-time transcription with speaker diarization
+- Partial results (yellow) update as speech continues
+- Final results (green) shown with timestamps
+- Automatically loads custom vocabulary from `vocab.json` if present
+- Uses SCRIBE preset (fixed EOU, 1s max delay, sentence emission)
+
+## Requirements
+
+- Speechmatics API key from the [portal](https://portal.speechmatics.com/)
+- PyAudio: `pip install pyaudio`
+- See [examples README](../README.md) for SDK dependencies
 
 ## Output Example
 
@@ -32,39 +38,18 @@ Microphone ready - speak now... (Press CTRL+C to stop)
  listening ...
 ```
 
-Partial results appear in yellow and update on the same line. Once finalized, they turn green with a timestamp showing elapsed time since session start.
+## Custom Vocabulary
 
-## Requirements
-
-- Speechmatics API key from the [portal](https://portal.speechmatics.com/)
-- PyAudio: `pip install pyaudio`
-- Install SDK dependencies: see [examples README](../README.md)
-
-## Configuration
-
-This example uses the SCRIBE preset:
-
-- Fixed end of utterance detection
-- 1.2s max delay for smooth note-taking
-- Emits finalized sentences as they complete
-- Speaker diarization enabled
-
-### Custom Vocabulary
-
-The example automatically loads custom vocabulary from `vocab.json` if present. This helps improve transcription accuracy for domain-specific terms, brand names, or technical jargon.
-
-**Example `vocab.json`:**
+Create `vocab.json` to improve accuracy for domain-specific terms:
 
 ```json
 [
   {
     "content": "Speechmatics",
-    "sounds_like": ["speech matics", "speech mattics"]
+    "sounds_like": ["speech matics"]
   },
   {
     "content": "API"
   }
 ]
 ```
-
-Edit `vocab.json` to add your own terms without modifying the Python code.

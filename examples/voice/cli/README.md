@@ -1,17 +1,15 @@
 # Transcription CLI with Speaker Diarization
 
-Command-line tool for real-time transcription using the Speechmatics Voice SDK. Supports both microphone input and audio file streaming with speaker diarization.
+Real-time transcription tool using the Speechmatics Voice SDK. Supports microphone input and audio file streaming with speaker diarization.
 
 ## Quick Start
 
 **Microphone:**
-
 ```bash
 python cli.py -p -k YOUR_API_KEY
 ```
 
 **Audio file:**
-
 ```bash
 python cli.py -p -k YOUR_API_KEY -i audio.wav
 ```
@@ -23,207 +21,116 @@ Press `CTRL+C` to stop.
 - Speechmatics API key from the [portal](https://portal.speechmatics.com/)
 - Install dependencies: see [examples README](../README.md)
 
-## Usage
+## Options
 
-```bash
-python cli.py [OPTIONS]
-```
+### Core
 
-### Core Parameters
+- `-k, --api-key` - API key (defaults to `SPEECHMATICS_API_KEY` env var)
+- `-u, --url` - Server URL (defaults to `SPEECHMATICS_RT_URL` env var)
+- `-i, --input-file` - Audio file path (WAV, mono 16-bit). Uses microphone if not specified
+- `-c, --config` - JSON config string or file path (overrides other Voice Agent options)
 
-**`-k, --api-key`**
-Speechmatics API key. Defaults to `SPEECHMATICS_API_KEY` environment variable.
+### Output
 
-**`-u, --url`**
-Custom Speechmatics server URL. Also uses `SPEECHMATICS_RT_URL` environment variable, if not provided. Optional, defaults to production endpoint.
+- `-p, --pretty` - Formatted console output with colors
+- `-o, --output-file` - Save output to JSONL file
+- `-v, --verbose` - Increase verbosity (can repeat: `-v`, `-vv`, `-vvv`, `-vvvv`, `-vvvvv`)
+  - `-v` - Add speaker VAD events
+  - `-vv` - Add turn predictions
+  - `-vvv` - Add segment annotations
+  - `-vvvv` - Add metrics
+  - `-vvvvv` - Add STT events
+- `-L, --legacy` - Show only legacy transcript messages
+- `--results` - Include word-level results in segments
 
-**`-i, --input-file FILE`**
-Path to input audio file (WAV format, mono 16-bit). If not provided, uses microphone.
+### Audio
 
-**`-p, --pretty`**
-Enable formatted console output with colours and emojis.
+- `--sample-rate` - Sample rate in Hz (default: 16000)
+- `--chunk-size` - Chunk size in bytes (default: 320)
+- `-M, --mute` - Mute audio playback for file input
+- `-D, --default-device` - Use default audio device (skip selection)
 
-**`-o, --output-file FILE`**
-Save all output to a JSONL file for later analysis.
+### Voice Agent Config
 
-**`-v, --verbose`**
-Increase logging verbosity. `-v` adds speaker start/end VAD events. `-vv` also emits `END_OF_TURN_PREDICTION`. `-vvv` shows the `annotation` field in segments. `-vvvv` adds metric messages.`-vvvvv` adds additional payloads: `END_OF_UTTERANCE`, `ADD_PARTIAL_TRANSCRIPT`, and `ADD_TRANSCRIPT`. Useful for debugging or detailed analysis. Default: `0`.
-
-**`--results`**
-Include the individual fragments in the segment payload. Default: `False`.
-
-### Audio Configuration
-
-**`--sample-rate`**
-Audio sample rate in Hz. Default: `16000`.
-
-**`--chunk-size`**
-Audio chunk size in bytes. Default: `320`.
-
-**`-M, --mute`**
-Mute audio playback for file input. When enabled, audio files are transcribed without playing through speakers. Default: `False`.
-
-### Turn Detection
-
-**`-m, --end-of-utterance-mode`**
-Controls how turn endings are detected. Options:
-
-- `FIXED` - Fixed silence threshold
-- `ADAPTIVE` - Adjusts based on speaker characteristics
-- `SMART_TURN` - ML-based turn detection
-- `EXTERNAL` - Manual control via `finalize()`
-
-**`-t, --end-of-utterance-silence-trigger`**
-Silence duration in seconds to trigger turn end. Default: `0.5`.
-
-**`-d, --max-delay`**
-Maximum transcription delay in seconds. Default: `0.7`.
+- `-l, --language` - Language code (default: en)
+- `-d, --max-delay` - Max transcription delay in seconds (default: 0.7)
+- `-t, --end-of-utterance-silence-trigger` - Silence duration for turn end (default: 0.5)
+- `-m, --end-of-utterance-mode` - Turn detection mode: `FIXED`, `ADAPTIVE`, `SMART_TURN`, or `EXTERNAL`
+- `-e, --emit-sentences` - Emit sentence-level segments
+- `--forced-eou` - Enable forced end of utterance
 
 ### Speaker Management
 
-**`--focus-speakers 'S1' 'S2' ...`**
-Speakers to focus on. Only these speakers will be emitted as finalized frames.
-
-**`--ignore-speakers 'S1' 'S2' ...`**
-Specific speakers to exclude from transcription.
-
-**`--ignore-mode`**
-Use ignore mode instead of focus mode for `--focus-speakers`.
+- `-f, --focus-speakers` - Speakers to focus on (e.g., `S1 S2`)
+- `-I, --ignore-speakers` - Speakers to ignore (e.g., `S1 S2`)
+- `-x, --ignore-mode` - Use ignore mode (instead of retain) for focus speakers
 
 ### Speaker Identification
 
-**`-E, --enrol`**
-Enrol speakers and output their identifiers at the end of the session.
-
-**`-s, --speakers JSON|FILE`**
-Use known speakers from previous sessions. Provide as either:
-
-- A JSON string: `'[{"label": "Alice", "speaker_identifiers": ["XX...XX"]}]'`
-- A path to a JSON file: `speakers.json`
-
-**`--preview`**
-Enable preview features.
+- `-E, --enrol` - Enrol speakers and output identifiers at end
+- `-s, --speakers` - Known speakers JSON string or file path
 
 ## Examples
 
-### Microphone - basic transcription
-
+**Basic microphone:**
 ```bash
 python cli.py -k YOUR_KEY -p
 ```
 
-### Audio file - basic transcription
-
+**Audio file:**
 ```bash
 python cli.py -k YOUR_KEY -i audio.wav -p
 ```
 
-### Audio file - muted (no playback)
-
+**Audio file (muted):**
 ```bash
 python cli.py -k YOUR_KEY -i audio.wav -Mp
 ```
 
-### With adaptive turn detection
-
-```bash
-python cli.py -k YOUR_KEY -m ADAPTIVE -p
-```
-
-### Enrol speakers (microphone)
-
-```bash
-python cli.py -k YOUR_KEY -ep
-```
-
-Press `CTRL+C` when done. Speaker identifiers will be displayed:
-
-```json
-[{ "label": "S1", "speaker_identifiers": ["XX...XX"] }]
-```
-
-### Use known speakers (JSON string)
-
-```bash
-python cli.py -k YOUR_KEY -s '[{"label": "Alice", "speaker_identifiers": ["XX...XX"]}]' -p
-```
-
-### Use known speakers (JSON file)
-
-Create a `speakers.json` file:
-
-```json
-[
-  {
-    "label": "Alice",
-    "speaker_identifiers": ["XX...XX"]
-  },
-  {
-    "label": "Bob",
-    "speaker_identifiers": ["YY...YY"]
-  }
-]
-```
-
-Then run:
-
-```bash
-python cli.py -k YOUR_KEY -s speakers.json -p
-```
-
-Output shows speaker labels:
-
-```
-@Alice: Hello, how are you?
-@Bob: I'm doing well, thanks!
-```
-
-### Focus on specific speakers
-
-```bash
-python cli.py -k YOUR_KEY --focus-speakers S1 S2 -p
-```
-
-### Save to file
-
+**Save output:**
 ```bash
 python cli.py -k YOUR_KEY -o output.jsonl -p
 ```
 
-### Verbose logging
-
-Show speaker start/end events:
-
+**Verbose logging:**
 ```bash
-python cli.py -k YOUR_KEY -i audio.wav -v -p
+python cli.py -k YOUR_KEY -vv -p
 ```
 
-Include turn prediction events:
-
+**Focus on speakers:**
 ```bash
-python cli.py -k YOUR_KEY -i audio.wav -vv -p
+python cli.py -k YOUR_KEY -f S1 S2 -p
 ```
 
-Include additional payloads for debugging:
-
+**Enrol speakers:**
 ```bash
-python cli.py -k YOUR_KEY -i audio.wav -vvv -p
+python cli.py -k YOUR_KEY -Ep
+```
+Press `CTRL+C` when done to see speaker identifiers.
+
+**Use known speakers:**
+```bash
+python cli.py -k YOUR_KEY -s speakers.json -p
 ```
 
-### Audio file with speaker focus
-
-```bash
-python cli.py -k YOUR_KEY -i audio.wav --focus-speakers S2 -p
+Example `speakers.json`:
+```json
+[
+  {"label": "Alice", "speaker_identifiers": ["XX...XX"]},
+  {"label": "Bob", "speaker_identifiers": ["YY...YY"]}
+]
 ```
 
-## Speaker Identification
+**Custom config:**
+```bash
+python cli.py -k YOUR_KEY -c config.json -p
+```
 
-Speaker identifiers are encrypted and unique to your API key. They enable the engine to recognise speakers across sessions.
+## Notes
 
-**Best practices:**
-
+- Speaker identifiers are encrypted and unique to your API key
 - Allow speakers to say at least 20 words before enrolling
-- Avoid using labels `S1`, `S2` (reserved by engine)
-- Labels in format `__XXX__` are automatically ignored
+- Avoid labels `S1`, `S2` (reserved by engine)
+- Labels like `__XXX__` are automatically ignored
 
-For more details, see the [Speechmatics documentation](https://docs.speechmatics.com/speech-to-text/realtime/realtime-speaker-identification).
+See the [Speechmatics documentation](https://docs.speechmatics.com/speech-to-text/realtime/realtime-speaker-identification) for more details.

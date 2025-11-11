@@ -1,24 +1,55 @@
 # Simple Microphone Transcription
 
-Basic real-time transcription example using your default microphone with speaker diarization.
+Basic real-time transcription using the default microphone with speaker diarization.
 
 ## Quick Start
 
 ```bash
 export SPEECHMATICS_API_KEY=your_api_key
-python app.py
+python simple.py
 ```
 
 Press `CTRL+C` to stop.
 
-## What It Does
+## Features
 
-- Uses your default microphone
-- Transcribes speech in real-time
-- Identifies different speakers (S1, S2, etc.)
-- Shows partial results as you speak
-- Shows final results when complete
-- Detects end of turn using adaptive mode
+- Uses default microphone
+- Real-time transcription with speaker diarization
+- Shows partial and final results
+- Detects end of turn
+- Uses "scribe" preset
+
+## Requirements
+
+- Speechmatics API key from the [portal](https://portal.speechmatics.com/)
+- PyAudio: `pip install pyaudio`
+- See [examples README](../README.md) for SDK dependencies
+
+## Code Example
+
+```python
+from speechmatics.rt import Microphone
+from speechmatics.voice import VoiceAgentClient, AgentServerMessageType
+
+# Create client with preset
+client = VoiceAgentClient(api_key="YOUR_KEY", preset="scribe")
+
+# Register event handlers
+@client.on(AgentServerMessageType.ADD_SEGMENT)
+def on_segment(message):
+    segments = message.get("segments", [])
+    for segment in segments:
+        print(f"{segment['speaker_id']}: {segment['text']}")
+
+# Connect and stream
+await client.connect()
+mic = Microphone(sample_rate=16000, chunk_size=320)
+mic.start()
+
+while True:
+    audio_chunk = await mic.read(320)
+    await client.send_audio(audio_chunk)
+```
 
 ## Output Example
 
@@ -35,21 +66,3 @@ Microphone ready - speak now... (Press CTRL+C to stop)
 [FINAL] S2: I'm good, thanks!
 [END OF TURN]
 ```
-
-## Requirements
-
-- Speechmatics API key from the [portal](https://portal.speechmatics.com/)
-- PyAudio: `pip install pyaudio`
-- Install SDK dependencies: see [examples README](../README.md)
-
-## Configuration
-
-This example uses standard settings:
-
-- Language: English
-- Turn detection: Adaptive (adjusts to speaker characteristics)
-- Speaker diarization: Enabled
-- Sample rate: 16kHz
-- Chunk size: 320 bytes
-
-For more advanced options, see the [transcribe_mic](../transcribe_mic) example.
