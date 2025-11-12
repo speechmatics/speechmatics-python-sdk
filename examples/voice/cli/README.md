@@ -5,15 +5,23 @@ Real-time transcription tool using the Speechmatics Voice SDK. Supports micropho
 ## Quick Start
 
 **Microphone:**
+
 ```bash
+# Quick example
 python cli.py -k YOUR_API_KEY -p
+
+# Example that saves the output in verbose mode using a preset
+python cli.py -k YOUR_API_KEY -vvvvvpDSr -P conversation_smart_turn
 ```
+
 Output saved to `./output/YYYYMMDD_HHMMSS/log.jsonl`
 
 **Audio file:**
+
 ```bash
 python cli.py -k YOUR_API_KEY -i audio.wav -p
 ```
+
 Output saved to `./output/YYYYMMDD_HHMMSS/log.jsonl`
 
 Press `CTRL+C` to stop.
@@ -28,6 +36,7 @@ Press `CTRL+C` to stop.
 ### Quick Reference
 
 Common short codes:
+
 - `-k` API key | `-i` input file | `-o` output dir | `-p` pretty print | `-v` verbose
 - `-r` record | `-S` save slices | `-P` preset | `-W` show config
 - `-l` language | `-m` mode | `-d` max delay | `-t` silence trigger
@@ -69,6 +78,7 @@ Common short codes:
 ### Voice Agent Config
 
 **Configuration Priority:**
+
 1. Use `--preset` to start with a preset configuration (recommended)
 2. Use `-c/--config` to provide a complete JSON configuration
 3. Use individual parameters (`-l`, `-d`, `-t`, `-m`) to override preset settings or create custom config
@@ -103,101 +113,126 @@ Common short codes:
 ## Examples
 
 **List presets:**
+
 ```bash
 python cli.py --list-presets
 ```
 
 **Show config (from preset):**
+
 ```bash
 python cli.py -P scribe -W
 ```
 
 **Show config (with overrides):**
+
 ```bash
 python cli.py -P scribe -l fr -d 1.0 -W
 ```
 
 **Use preset:**
+
 ```bash
 python cli.py -k YOUR_KEY -P scribe -p
 ```
 
 **Use preset with overrides:**
+
 ```bash
 python cli.py -k YOUR_KEY -P scribe -l fr -d 1.0 -p
 ```
 
 **Basic microphone:**
+
 ```bash
 python cli.py -k YOUR_KEY -p
 ```
+
 Output saved to `./output/YYYYMMDD_HHMMSS/log.jsonl`
 
 **Record microphone audio:**
+
 ```bash
 python cli.py -k YOUR_KEY -r -p
 ```
+
 Recording saved to `./output/YYYYMMDD_HHMMSS/recording.wav`
 
 **Custom output directory:**
+
 ```bash
 python cli.py -k YOUR_KEY -o ./my_sessions -p
 ```
+
 Output saved to `./my_sessions/YYYYMMDD_HHMMSS/log.jsonl`
 
 **EXTERNAL mode with manual turn control:**
+
 ```bash
 python cli.py -k YOUR_KEY -m EXTERNAL -p
 ```
+
 Press 't' or 'T' to manually signal end of turn.
 
 **Save audio slices (SMART_TURN mode):**
+
 ```bash
 python cli.py -k YOUR_KEY -P conversation_smart_turn -S -p
 ```
+
 Audio slices (~8 seconds) saved to `./output/YYYYMMDD_HHMMSS/slice_*.wav` with matching `.json` metadata files on each SPEAKER_ENDED event.
 
 **Audio file:**
+
 ```bash
 python cli.py -k YOUR_KEY -i audio.wav -p
 ```
 
 **Audio file (muted):**
+
 ```bash
 python cli.py -k YOUR_KEY -i audio.wav -Mp
 ```
 
 **Verbose logging:**
+
 ```bash
 python cli.py -k YOUR_KEY -vv -p
 ```
+
 Shows additional events (speaker VAD, turn predictions, etc.)
 
 **Focus on speakers:**
+
 ```bash
 python cli.py -k YOUR_KEY -f S1 S2 -p
 ```
 
 **Enrol speakers:**
+
 ```bash
 python cli.py -k YOUR_KEY -Ep
 ```
+
 Press `CTRL+C` when done to see speaker identifiers.
 
 **Use known speakers:**
+
 ```bash
 python cli.py -k YOUR_KEY -s speakers.json -p
 ```
 
 Example `speakers.json`:
+
 ```json
 [
-  {"label": "Alice", "speaker_identifiers": ["XX...XX"]},
-  {"label": "Bob", "speaker_identifiers": ["YY...YY"]}
+  { "label": "Alice", "speaker_identifiers": ["XX...XX"] },
+  { "label": "Bob", "speaker_identifiers": ["YY...YY"] }
 ]
 ```
 
 **Custom config:**
+
 ```bash
 python cli.py -k YOUR_KEY -c config.json -p
 ```
