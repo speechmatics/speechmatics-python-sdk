@@ -6,13 +6,15 @@ Real-time transcription tool using the Speechmatics Voice SDK. Supports micropho
 
 **Microphone:**
 ```bash
-python cli.py -p -k YOUR_API_KEY
+python cli.py -k YOUR_API_KEY -p
 ```
+Output saved to `./output/YYYYMMDD_HHMMSS/log.jsonl`
 
 **Audio file:**
 ```bash
-python cli.py -p -k YOUR_API_KEY -i audio.wav
+python cli.py -k YOUR_API_KEY -i audio.wav -p
 ```
+Output saved to `./output/YYYYMMDD_HHMMSS/log.jsonl`
 
 Press `CTRL+C` to stop.
 
@@ -23,6 +25,14 @@ Press `CTRL+C` to stop.
 
 ## Options
 
+### Quick Reference
+
+Common short codes:
+- `-k` API key | `-i` input file | `-o` output dir | `-p` pretty print | `-v` verbose
+- `-r` record | `-S` save slices | `-P` preset | `-W` show config
+- `-l` language | `-m` mode | `-d` max delay | `-t` silence trigger
+- `-f` focus speakers | `-s` known speakers | `-E` enrol
+
 ### Core
 
 - `-k, --api-key` - API key (defaults to `SPEECHMATICS_API_KEY` env var)
@@ -31,8 +41,15 @@ Press `CTRL+C` to stop.
 
 ### Output
 
+- `-o, --output-dir` - Base output directory (default: ./output)
+  - Creates a session subdirectory with timestamp (YYYYMMDD_HHMMSS)
+  - Inside session directory:
+    - `log.jsonl` - All events with timestamps
+    - `recording.wav` - Microphone recording (if `-r` is used)
+    - `slice_*.wav` and `slice_*.json` - Audio slices (if `-S` is used)
+- `-r, --record` - Record microphone audio to recording.wav (microphone input only)
+- `-S, --save-slices` - Save audio slices on SPEAKER_ENDED events (SMART_TURN mode only)
 - `-p, --pretty` - Formatted console output with colors
-- `-o, --output-file` - Save output to JSONL file
 - `-v, --verbose` - Increase verbosity (can repeat: `-v`, `-vv`, `-vvv`, `-vvvv`, `-vvvvv`)
   - `-v` - Add speaker VAD events
   - `-vv` - Add turn predictions
@@ -40,14 +57,14 @@ Press `CTRL+C` to stop.
   - `-vvvv` - Add metrics
   - `-vvvvv` - Add STT events
 - `-L, --legacy` - Show only legacy transcript messages
-- `--results` - Include word-level results in segments
+- `-D, --default-device` - Use default audio device (skip selection)
+- `-w, --results` - Include word-level results in segments
 
 ### Audio
 
-- `--sample-rate` - Sample rate in Hz (default: 16000)
-- `--chunk-size` - Chunk size in bytes (default: 320)
+- `-R, --sample-rate` - Sample rate in Hz (default: 16000)
+- `-C, --chunk-size` - Chunk size in bytes (default: 320)
 - `-M, --mute` - Mute audio playback for file input
-- `-D, --default-device` - Use default audio device (skip selection)
 
 ### Voice Agent Config
 
@@ -58,9 +75,9 @@ Press `CTRL+C` to stop.
 
 **Preset Options:**
 
-- `--preset` - Use preset configuration: `scribe`, `low_latency`, `conversation_adaptive`, `conversation_smart_turn`, or `captions`
+- `-P, --preset` - Use preset configuration: `scribe`, `low_latency`, `conversation_adaptive`, `conversation_smart_turn`, or `captions`
 - `--list-presets` - List available presets and exit
-- `--show` - Display the final configuration as JSON and exit (after applying preset/config and overrides)
+- `-W, --show` - Display the final configuration as JSON and exit (after applying preset/config and overrides)
 
 **Configuration Options:**
 
@@ -92,28 +109,53 @@ python cli.py --list-presets
 
 **Show config (from preset):**
 ```bash
-python cli.py --preset scribe --show
+python cli.py -P scribe -W
 ```
 
 **Show config (with overrides):**
 ```bash
-python cli.py --preset scribe -l fr -d 1.0 --show
+python cli.py -P scribe -l fr -d 1.0 -W
 ```
 
 **Use preset:**
 ```bash
-python cli.py -k YOUR_KEY --preset scribe -p
+python cli.py -k YOUR_KEY -P scribe -p
 ```
 
 **Use preset with overrides:**
 ```bash
-python cli.py -k YOUR_KEY --preset scribe -l fr -d 1.0 -p
+python cli.py -k YOUR_KEY -P scribe -l fr -d 1.0 -p
 ```
 
 **Basic microphone:**
 ```bash
 python cli.py -k YOUR_KEY -p
 ```
+Output saved to `./output/YYYYMMDD_HHMMSS/log.jsonl`
+
+**Record microphone audio:**
+```bash
+python cli.py -k YOUR_KEY -r -p
+```
+Recording saved to `./output/YYYYMMDD_HHMMSS/recording.wav`
+
+**Custom output directory:**
+```bash
+python cli.py -k YOUR_KEY -o ./my_sessions -p
+```
+Output saved to `./my_sessions/YYYYMMDD_HHMMSS/log.jsonl`
+
+**EXTERNAL mode with manual turn control:**
+```bash
+python cli.py -k YOUR_KEY -m EXTERNAL -p
+```
+Press 't' or 'T' to manually signal end of turn.
+
+**Save audio slices (SMART_TURN mode):**
+```bash
+python cli.py -k YOUR_KEY -P conversation_smart_turn -S -p
+```
+Audio slices (~8 seconds) saved to `./output/YYYYMMDD_HHMMSS/slice_*.wav` with matching `.json` metadata files on each SPEAKER_ENDED event.
 
 **Audio file:**
 ```bash
@@ -125,15 +167,11 @@ python cli.py -k YOUR_KEY -i audio.wav -p
 python cli.py -k YOUR_KEY -i audio.wav -Mp
 ```
 
-**Save output:**
-```bash
-python cli.py -k YOUR_KEY -o output.jsonl -p
-```
-
 **Verbose logging:**
 ```bash
 python cli.py -k YOUR_KEY -vv -p
 ```
+Shows additional events (speaker VAD, turn predictions, etc.)
 
 **Focus on speakers:**
 ```bash
@@ -166,6 +204,15 @@ python cli.py -k YOUR_KEY -c config.json -p
 
 ## Notes
 
+- Output directory (`-o`) defaults to `./output`
+- Each session creates a timestamped subdirectory (YYYYMMDD_HHMMSS format)
+- Session directory contains:
+  - `log.jsonl` - All events with timestamps
+  - `recording.wav` - Microphone recording (if `-r` is used)
+  - `slice_*.wav` and `slice_*.json` - Audio slices (if `--save-slices` is used in SMART_TURN mode)
+- Session subdirectories prevent accidental data loss from multiple runs
+- Audio slices are ~8 seconds and saved on each SPEAKER_ENDED event
+- JSON metadata includes event details, speaker ID, timing, and slice duration
 - Speaker identifiers are encrypted and unique to your API key
 - Allow speakers to say at least 20 words before enrolling
 - Avoid labels `S1`, `S2` (reserved by engine)
