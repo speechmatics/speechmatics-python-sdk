@@ -1,18 +1,21 @@
 ---
 name: Bug report
 about: Create a report to help us improve
-title: '[BUG] '
-labels: 'bug'
-assignees: ''
+title: "[BUG] "
+labels: "bug"
+assignees: ""
 ---
 
 **Which SDK are you using?**
+
 - [ ] speechmatics-rt (Real-Time SDK)
 - [ ] speechmatics-batch (Batch SDK)
-- [ ] Both
+- [ ] speechmatics-voice (Voice SDK)
+- [ ] All
 
 **Package Information**
-- **Package Name**: (e.g., speechmatics-rt, speechmatics-batch)
+
+- **Package Name**: (e.g., speechmatics-rt, speechmatics-batch, speechmatics-voice)
 - **Package Version**: (e.g., 1.0.0)
 - **Python Version**: (e.g., 3.9, 3.10, 3.11, 3.12, 3.13)
 - **Operating System**: (e.g., Windows 10, macOS 12, Ubuntu 20.04)
@@ -22,6 +25,7 @@ A clear and concise description of what the bug is.
 
 **To Reproduce**
 Steps to reproduce the behavior:
+
 1.
 2.
 

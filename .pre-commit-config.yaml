@@ -50,6 +50,7 @@ repos:
       - id: bandit
         files: ^sdk/.*/speechmatics/
         args: [-r, -f, json, -ll]
+        additional_dependencies: ["pbr"]
 
   - repo: https://github.com/pre-commit/pygrep-hooks
     rev: v1.10.0

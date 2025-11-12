@@ -3,14 +3,18 @@ requires = ["setuptools>=61.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "speechmatics-batch"
+name = "speechmatics-voice"
 dynamic = ["version"]
-description = "Speechmatics Batch API Client"
+description = "Speechmatics Voice Agent Python client for Real-Time API"
 readme = "README.md"
 authors = [{ name = "Speechmatics", email = "support@speechmatics.com" }]
 license = "MIT"
 requires-python = ">=3.9"
-dependencies = ["aiohttp", "aiofiles"]
+dependencies = [
+    "speechmatics-rt>=0.5.1",
+    "pydantic>=2.10.6,<3",
+    "numpy>=1.26.4,<3"
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -23,14 +27,27 @@ classifiers = [
     "Topic :: Multimedia :: Sound/Audio :: Speech",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-keywords = ["speechmatics", "speech-to-text", "batch", "transcription", "api"]
+keywords = [
+    "speechmatics",
+    "conversational-ai",
+    "voice",
+    "agents",
+    "websocket",
+    "real-time",
+    "pipecat",
+    "livekit"
+]
 
 [project.optional-dependencies]
+smart = [
+    "certifi>=2025.10.5",
+    "onnxruntime>=1.19.0,<2",
+    "transformers>=4.57.0,<5",
+]
 dev = [
     "black",
     "ruff",
     "mypy",
-    "types-aiofiles",
     "pre-commit",
     "pytest",
     "pytest-asyncio",
@@ -46,11 +63,14 @@ repository = "https://github.com/speechmatics/speechmatics-python-sdk"
 issues = "https://github.com/speechmatics/speechmatics-python-sdk/issues"
 
 [tool.setuptools.dynamic]
-version = { attr = "speechmatics.batch.__version__" }
+version = { attr = "speechmatics.voice.__version__" }
+
+[tool.setuptools.package-data]
+"speechmatics.voice" = ["py.typed"]
 
 [tool.setuptools.packages.find]
 where = ["."]
 
 [[tool.mypy.overrides]]
-module = ["aiofiles.*"]
+module = ["speechmatics.rt.*", "onnxruntime.*"]
 ignore_missing_imports = true

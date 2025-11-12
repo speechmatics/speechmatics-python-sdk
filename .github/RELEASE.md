@@ -5,9 +5,11 @@ This document outlines the release process for the Speechmatics Python SDK packa
 ## Overview
 
 The Speechmatics Python SDK repository contains two separate packages:
+
 - `speechmatics-rt` - Real-Time API Client
 - `speechmatics-batch` - Batch API Client
 - `speechmatics-flow` - Flow API Client
+- `speechmatics-voice` - Voice Agent API Client
 
 Each package is released independently with its own versioning and release workflow.
 
@@ -16,6 +18,7 @@ Each package is released independently with its own versioning and release workf
 Before creating a release, ensure the following steps are completed:
 
 ### Code Quality
+
 - [ ] All tests pass locally (`make test-all`)
 - [ ] Linting passes (`make lint-all`)
 - [ ] Type checking passes (`make type-check-all`)
@@ -23,10 +26,12 @@ Before creating a release, ensure the following steps are completed:
 - [ ] Documentation is up to date
 
 ### Version Management
+
 - [ ] Review and update README files if needed
 - [ ] Verify dependencies are correct in `pyproject.toml`
 
 ### Testing
+
 - [ ] Test examples with fresh installations
 - [ ] Verify environment variables work correctly
 - [ ] Test error handling scenarios
@@ -39,6 +44,7 @@ Before creating a release, ensure the following steps are completed:
 To release a new version of the RT SDK:
 
 1. **Create a Release Tag**
+
    ```bash
    git tag rt/v1.0.0
    git push origin rt/v1.0.0
@@ -46,6 +52,7 @@ To release a new version of the RT SDK:
 
 2. **Automated Workflow**
    The `release-rt.yaml` workflow will automatically:
+
    - Extract version from tag (e.g., `rt/v1.0.0` → `1.0.0`)
    - Run comprehensive tests across Python versions
    - Update version in `sdk/rt/speechmatics/rt/__init__.py`
@@ -63,6 +70,7 @@ To release a new version of the RT SDK:
 To release a new version of the Batch SDK:
 
 1. **Create a Release Tag**
+
    ```bash
    git tag batch/v1.0.0
    git push origin batch/v1.0.0
@@ -70,6 +78,7 @@ To release a new version of the Batch SDK:
 
 2. **Automated Workflow**
    The `release-batch.yaml` workflow will automatically:
+
    - Extract version from tag (e.g., `batch/v1.0.0` → `1.0.0`)
    - Run comprehensive tests across Python versions
    - Update version in `sdk/batch/speechmatics/batch/__init__.py`
@@ -87,6 +96,7 @@ To release a new version of the Batch SDK:
 To release a new version of the Flow SDK:
 
 1. **Create a Release Tag**
+
    ```bash
    git tag flow/v1.0.0
    git push origin flow/v1.0.0
@@ -94,6 +104,7 @@ To release a new version of the Flow SDK:
 
 2. **Automated Workflow**
    The `release-flow.yaml` workflow will automatically:
+
    - Extract version from tag (e.g., `flow/v1.0.0` → `1.0.0`)
    - Run comprehensive tests across Python versions
    - Update version in `sdk/flow/speechmatics/flow/__init__.py`
@@ -106,36 +117,72 @@ To release a new version of the Flow SDK:
    - Update GitHub release notes
    - Announce the release
 
+### 4. Voice Agent SDK Release
+
+To release a new version of the Voice Agent SDK:
+
+1. **Create a Release Tag**
+
+   ```bash
+   git tag voice/v1.0.0
+   git push origin voice/v1.0.0
+   ```
+
+2. **Automated Workflow**
+   The `release-voice.yaml` workflow will automatically:
+
+   - Extract version from tag (e.g., `voice/v1.0.0` → `1.0.0`)
+   - Run comprehensive tests across Python versions
+   - Update version in `sdk/voice/speechmatics/voice/__init__.py`
+   - Build the package
+   - Publish to PyPI
+
+3. **Manual Steps After Release**
+   - Verify the package is available on PyPI
+   - Test installation: `pip install speechmatics-voice==1.0.0`
+   - Update GitHub release notes
+   - Announce the release
+
 ## Version Management
 
 ### Version Format
+
 Both packages follow semantic versioning (SemVer):
+
 - `MAJOR.MINOR.PATCH` (e.g., `1.2.3`)
 - `MAJOR.MINOR.PATCH-beta.N` for beta releases (e.g., `1.2.3-beta.1`)
 
 ### Version Update Process
+
 1. **Development**: Versions remain as `0.0.0` in `__init__.py` files
 2. **Release**: GitHub Actions automatically updates the version during release
 3. **Post-Release**: The updated version remains in the repository
 
 ### Tag Naming Convention
+
 - RT SDK: `rt/v{version}` (e.g., `rt/v1.0.0`)
 - Batch SDK: `batch/v{version}` (e.g., `batch/v1.0.0`)
 - Flow SDK: `flow/v{version}` (e.g., `flow/v1.0.0`)
+- Voice Agent SDK: `voice/v{version}` (e.g., `voice/v1.0.0`)
 
 ## Environment Setup
 
 ### PyPI Configuration
+
 Both packages are published to PyPI using GitHub Actions with OpenID Connect (OIDC):
+
 - RT SDK: Uses `pypi-rt` environment
 - Batch SDK: Uses `pypi-batch` environment
 - Flow SDK: Uses `pypi-flow` environment
+- Voice Agent SDK: Uses `pypi-voice` environment
 
 ### Required Secrets
+
 No manual secrets are required as the workflows use OIDC for PyPI authentication.
 
 ## Testing Matrix
 
 Both packages are tested against:
+
 - Python versions: 3.9, 3.10, 3.11, 3.12, 3.13
 - Operating system: Ubuntu (latest)

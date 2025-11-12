@@ -1,0 +1,139 @@
+import asyncio
+import datetime
+import json
+import os
+
+import pytest
+from _utils import get_client
+from _utils import send_audio_file
+
+from speechmatics.voice import AgentServerMessageType
+from speechmatics.voice import EndOfUtteranceMode
+from speechmatics.voice import VoiceAgentConfig
+
+# Skip for CI testing
+pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping finalization tests in CI")
+
+# Constants
+API_KEY = os.getenv("SPEECHMATICS_API_KEY")
+SHOW_LOG = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
+AUDIO_FILE = "./assets/audio_05_16kHz.wav"
+
+
+@pytest.mark.asyncio
+async def test_finalize():
+    """Test finalization.
+
+    This test will:
+        - play a short audio clip
+        - finalize the segment
+        - this MUST use a preview / dev endpoint
+    """
+
+    # API key
+    api_key = os.getenv("SPEECHMATICS_API_KEY")
+    if not api_key:
+        pytest.skip("Valid API key required for test")
+
+    # Client
+    client = await get_client(
+        api_key=api_key,
+        connect=False,
+        config=VoiceAgentConfig(
+            end_of_utterance_silence_trigger=0.7,
+            max_delay=1.2,
+            end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL,
+            use_forced_eou_message=True,
+        ),
+    )
+
+    # Create an event to track when the callback is called
+    messages: list[str] = []
+    bytes_sent: int = 0
+
+    # Flag
+    eot_received = asyncio.Event()
+
+    # Start time
+    start_time = datetime.datetime.now()
+
+    # Bytes logger
+    def log_bytes_sent(bytes):
+        nonlocal bytes_sent
+        bytes_sent += bytes
+
+    # Callback for each message
+    def log_message(message):
+        ts = (datetime.datetime.now() - start_time).total_seconds()
+        audio_ts = bytes_sent / 16000 / 2
+        log = json.dumps({"ts": round(ts, 3), "audio_ts": round(audio_ts, 2), "payload": message})
+        messages.append(log)
+        if SHOW_LOG:
+            print(log)
+
+    # EOT received
+    def eot_received_callback(message):
+        eot_received.set()
+
+    # Add listeners
+    client.once(AgentServerMessageType.RECOGNITION_STARTED, log_message)
+    client.on(AgentServerMessageType.INFO, log_message)
+    client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, log_message)
+    client.on(AgentServerMessageType.ADD_SEGMENT, log_message)
+    client.on(AgentServerMessageType.END_OF_UTTERANCE, log_message)
+    client.on(AgentServerMessageType.START_OF_TURN, log_message)
+    client.on(AgentServerMessageType.END_OF_TURN, log_message)
+    client.on(AgentServerMessageType.END_OF_TRANSCRIPT, log_message)
+
+    # End of Turn
+    client.once(AgentServerMessageType.END_OF_TURN, eot_received_callback)
+
+    # HEADER
+    if SHOW_LOG:
+        print()
+        print()
+        print("---")
+        log_message({"message": "VoiceAgentConfig", **client._config.model_dump()})
+        log_message({"message": "TranscriptionConfig", **client._transcription_config.to_dict()})
+        log_message({"message": "AudioFormat", **client._audio_format.to_dict()})
+
+    # Connect
+    try:
+        await client.connect()
+    except Exception:
+        pytest.skip("Failed to connect to server")
+
+    # Check we are connected
+    assert client._is_connected
+
+    # Set chunk size
+    chunk_size = 160
+
+    asyncio.create_task(send_audio_file(client, AUDIO_FILE, chunk_size=chunk_size, progress_callback=log_bytes_sent))
+
+    # Wait for 0.25 seconds
+    await asyncio.sleep(2)
+
+    # Request the speakers result
+    finalize_trigger_time = datetime.datetime.now()
+    client.finalize()
+
+    # Wait for the callback with timeout
+    try:
+        await asyncio.wait_for(eot_received.wait(), timeout=5.0)
+        finalize_latency = (datetime.datetime.now() - finalize_trigger_time).total_seconds() * 1000
+    except asyncio.TimeoutError:
+        pytest.fail("END_OF_TURN event was not received within 5 seconds of audio finish")
+
+    # FOOTER
+    if SHOW_LOG:
+        print(f"--- latency {finalize_latency:.2f} ms")
+        print()
+        print()
+
+    # Make sure latency is within bounds
+    assert finalize_latency < 500
+
+    # Close session
+    await client.disconnect()
+    assert not client._is_connected
