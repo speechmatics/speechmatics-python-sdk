@@ -124,6 +124,25 @@ class VoiceAgentConfigPreset:
         )
 
     @staticmethod
+    def EXTERNAL(overlay: Optional[VoiceAgentConfig] = None) -> VoiceAgentConfig:  # noqa: N802
+        """Best suited for external turn control.
+
+        This mode will emit partial and final segments as they become available. The end of
+        utterance is set to external. End of turn is not required for external turn control.
+        """
+        return VoiceAgentConfigPreset._merge_configs(
+            VoiceAgentConfig(
+                operating_point=OperatingPoint.ENHANCED,
+                enable_diarization=True,
+                max_delay=1.0,
+                end_of_utterance_silence_trigger=1.2,
+                end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL,
+                speech_segment_config=SpeechSegmentConfig(emit_sentences=True),
+            ),
+            overlay,
+        )
+
+    @staticmethod
     def list_presets() -> list[str]:
         """List available presets."""
         return [attr.lower() for attr in dir(VoiceAgentConfigPreset) if not attr.startswith("_") and attr.isupper()]
