@@ -1,7 +1,7 @@
 # Speechmatics TTS Async Streaming API Client
 
 This example shows how to use the Speechmatics TTS API to generate audio from text and autoplay it using sounddevice through the systems default audio output device.
-- User must have an audio output device configured on their system for this example to work.
+You must have an audio output device configured on their system for this example to work.
 
 # audio_generator() 
 This producer function takes a string of text, fetches and decodes audio chunks from the Speechmatics TTS API, and converts the audio data into a queue of samples, ready for the audio player to consume.
