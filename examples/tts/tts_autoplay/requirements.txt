@@ -1,0 +1,3 @@
+sounddevice>=0.4.6
+numpy>=1.24.3
+speechmatics-tts>=0.1.0

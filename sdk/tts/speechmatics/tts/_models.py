@@ -50,8 +50,10 @@ class Voice(str, Enum):
         sarah: English (UK) female voice.
         theo: English (UK) male voice.
         megan: English (UK) female voice.
+        jack: English (US) male voice.
     """
 
     SARAH = "sarah"
     THEO = "theo"
     MEGAN = "megan"
+    JACK = "jack"
