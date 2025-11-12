@@ -28,7 +28,6 @@ Press `CTRL+C` to stop.
 - `-k, --api-key` - API key (defaults to `SPEECHMATICS_API_KEY` env var)
 - `-u, --url` - Server URL (defaults to `SPEECHMATICS_RT_URL` env var)
 - `-i, --input-file` - Audio file path (WAV, mono 16-bit). Uses microphone if not specified
-- `-c, --config` - JSON config string or file path (overrides other Voice Agent options)
 
 ### Output
 
@@ -52,12 +51,26 @@ Press `CTRL+C` to stop.
 
 ### Voice Agent Config
 
-- `-l, --language` - Language code (default: en)
-- `-d, --max-delay` - Max transcription delay in seconds (default: 0.7)
-- `-t, --end-of-utterance-silence-trigger` - Silence duration for turn end (default: 0.5)
-- `-m, --end-of-utterance-mode` - Turn detection mode: `FIXED`, `ADAPTIVE`, `SMART_TURN`, or `EXTERNAL`
-- `-e, --emit-sentences` - Emit sentence-level segments
-- `--forced-eou` - Enable forced end of utterance
+**Configuration Priority:**
+1. Use `--preset` to start with a preset configuration (recommended)
+2. Use `-c/--config` to provide a complete JSON configuration
+3. Use individual parameters (`-l`, `-d`, `-t`, `-m`) to override preset settings or create custom config
+
+**Preset Options:**
+
+- `--preset` - Use preset configuration: `scribe`, `low_latency`, `conversation_adaptive`, `conversation_smart_turn`, or `captions`
+- `--list-presets` - List available presets and exit
+- `--show` - Display the final configuration as JSON and exit (after applying preset/config and overrides)
+
+**Configuration Options:**
+
+- `-c, --config` - JSON config string or file path (complete configuration)
+- `-l, --language` - Language code (overrides preset if used together)
+- `-d, --max-delay` - Max transcription delay in seconds (overrides preset if used together)
+- `-t, --end-of-utterance-silence-trigger` - Silence duration for turn end in seconds (overrides preset if used together)
+- `-m, --end-of-utterance-mode` - Turn detection mode: `FIXED`, `ADAPTIVE`, `SMART_TURN`, or `EXTERNAL` (overrides preset if used together)
+
+**Note:** When using `-c/--config`, you cannot use `-l`, `-d`, `-t`, `-m`, `-f`, `-I`, `-x`, or `-s` as the config JSON should contain all settings.
 
 ### Speaker Management
 
@@ -71,6 +84,31 @@ Press `CTRL+C` to stop.
 - `-s, --speakers` - Known speakers JSON string or file path
 
 ## Examples
+
+**List presets:**
+```bash
+python cli.py --list-presets
+```
+
+**Show config (from preset):**
+```bash
+python cli.py --preset scribe --show
+```
+
+**Show config (with overrides):**
+```bash
+python cli.py --preset scribe -l fr -d 1.0 --show
+```
+
+**Use preset:**
+```bash
+python cli.py -k YOUR_KEY --preset scribe -p
+```
+
+**Use preset with overrides:**
+```bash
+python cli.py -k YOUR_KEY --preset scribe -l fr -d 1.0 -p
+```
 
 **Basic microphone:**
 ```bash

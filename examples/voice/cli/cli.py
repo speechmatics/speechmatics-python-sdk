@@ -21,14 +21,12 @@ from speechmatics.rt import ClientMessageType
 from speechmatics.rt import Microphone
 from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
-from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import SpeakerFocusConfig
 from speechmatics.voice import SpeakerFocusMode
 from speechmatics.voice import SpeakerIdentifier
-from speechmatics.voice import SpeechSegmentConfig
 from speechmatics.voice import VoiceAgentClient
 from speechmatics.voice import VoiceAgentConfig
-from speechmatics.voice._models import TranscriptionUpdatePreset
+from speechmatics.voice import VoiceAgentConfigPreset
 
 # ==============================================================================
 # CONSTANTS
@@ -65,13 +63,24 @@ async def main() -> None:
     # Parse the command line arguments
     args = parse_args()
 
-    # Setup audio source (microphone or file)
-    audio_source = setup_audio_source(args)
-    if not audio_source:
+    # Handle preset listing
+    if args.list_presets:
+        print("Available presets:")
+        for preset in VoiceAgentConfigPreset.list_presets():
+            print(f"  - {preset}")
         return
 
-    # Setup audio output (for file playback)
-    audio_player = setup_audio_output(audio_source, args)
+    # Setup audio source (microphone or file) - skip if just showing config
+    if not args.show:
+        audio_source = setup_audio_source(args)
+        if not audio_source:
+            return
+        # Setup audio output (for file playback)
+        audio_player = setup_audio_output(audio_source, args)
+    else:
+        # Dummy audio source for config display
+        audio_source = {"sample_rate": 16000}
+        audio_player = None
 
     # Remove JSONL output file if it already exists
     if args.output_file and os.path.exists(args.output_file):
@@ -91,37 +100,53 @@ async def main() -> None:
             print(f"Error validating config: {e}")
             return
 
-    # Create Voice Agent configuration
+    # Use a preset
+    elif args.preset:
+        try:
+            config = VoiceAgentConfigPreset.load(args.preset)
+        except ValueError as e:
+            print(f"Error loading preset {args.preset}: {e}")
+            return
+
+    # Default config
     else:
         config = VoiceAgentConfig(
-            language=args.language or "en",
-            end_of_utterance_silence_trigger=args.end_of_utterance_silence_trigger or 0.5,
-            max_delay=args.max_delay or 0.7,
-            end_of_utterance_mode=(
-                args.end_of_utterance_mode.lower() if args.end_of_utterance_mode else EndOfUtteranceMode.ADAPTIVE
-            ),
-            speaker_config=speaker_config,
-            use_forced_eou_message=args.forced_eou,
             additional_vocab=[
                 AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"]),
-            ],
-            known_speakers=known_speakers,
-            speech_segment_config=SpeechSegmentConfig(
-                emit_sentences=args.emit_sentences,
-            ),
-            transcription_update_preset=TranscriptionUpdatePreset.COMPLETE_PLUS_TIMING,
-            include_results=args.results,
+            ]
         )
+
+    # Copy in overrides
+    if args.language:
+        config.language = args.language
+    if args.end_of_utterance_silence_trigger:
+        config.end_of_utterance_silence_trigger = args.end_of_utterance_silence_trigger
+    if args.max_delay:
+        config.max_delay = args.max_delay
+    if args.end_of_utterance_mode:
+        config.end_of_utterance_mode = args.end_of_utterance_mode
+
+    # Copy speaker settings
+    config.speaker_config = speaker_config
+    config.known_speakers = known_speakers
+    config.include_results = args.results
+
+    # Set common items
+    config.enable_diarization = True
+
+    # Handle config display
+    if args.show:
+        print(config.model_dump_json(indent=2, exclude_unset=True, exclude_none=True))
+        return
+
+    # Set the audio sample rate
+    config.sample_rate = audio_source["sample_rate"]
 
     # Display instructions
     if audio_source["type"] == "file":
         print("\nStreaming audio file... (Press CTRL+C to stop)\n")
     else:
         print("\nMicrophone ready - speak now... (Press CTRL+C to stop)\n")
-
-    # Set common items
-    config.enable_diarization = True
-    config.sample_rate = audio_source["sample_rate"]
 
     # Create Voice Agent client
     client = VoiceAgentClient(api_key=args.api_key, url=args.url, config=config)
@@ -646,6 +671,21 @@ def parse_args():
     # ==============================================================================
 
     parser.add_argument(
+        "--preset",
+        type=str,
+        help="Preset configuration name (e.g., scribe, low_latency, conversation_adaptive)",
+    )
+    parser.add_argument(
+        "--list-presets",
+        action="store_true",
+        help="List available preset configurations and exit",
+    )
+    parser.add_argument(
+        "--show",
+        action="store_true",
+        help="Display the final configuration as JSON and exit (after applying preset/config and overrides)",
+    )
+    parser.add_argument(
         "-c",
         "--config",
         type=load_json,
@@ -675,12 +715,6 @@ def parse_args():
         type=lambda s: s.upper(),
         choices=["FIXED", "ADAPTIVE", "EXTERNAL", "SMART_TURN"],
         help="End of utterance detection mode (default: ADAPTIVE)",
-    )
-    parser.add_argument(
-        "-e",
-        "--emit-sentences",
-        action="store_true",
-        help="Emit sentences (default: False)",
     )
 
     # ==============================================================================
@@ -722,11 +756,6 @@ def parse_args():
         type=load_json,
         help="Known speakers as JSON string or path to JSON file (default: None)",
     )
-    parser.add_argument(
-        "--forced-eou",
-        action="store_true",
-        help="Use forced end of utterance (default: False)",
-    )
 
     # ==============================================================================
     # Check for mutually exclusive options
@@ -735,7 +764,7 @@ def parse_args():
     args = parser.parse_args()
 
     mutually_excludive = [
-        "emit-sentences",
+        "preset",
         "end-of-utterance-mode",
         "end-of-utterance-silence-trigger",
         "focus-speakers",
@@ -743,7 +772,6 @@ def parse_args():
         "ignore-speakers",
         "language",
         "max-delay",
-        "forced-eou",
         "speakers",
     ]
 
