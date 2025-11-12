@@ -71,6 +71,9 @@ class VoiceAgentClient(AsyncClient):
     and provides additional functionality for processing partial and final
     transcription from the STT engine into accumulated transcriptions with
     flags to indicate changes between messages, etc.
+
+    If no config or preset is provided, the client will default to the EXTERNAL
+    preset.
     """
 
     # ============================================================================
@@ -157,8 +160,12 @@ class VoiceAgentClient(AsyncClient):
         # Client Configuration
         # -------------------------------------
 
+        # Default to EXTERNAL if no config or preset string provided
+        if config is None and not preset:
+            config = VoiceAgentConfigPreset.EXTERNAL()
+
         # Check for preset
-        if preset:
+        elif preset:
             preset_config = VoiceAgentConfigPreset.load(preset)
             config = VoiceAgentConfigPreset._merge_configs(preset_config, config)
 
