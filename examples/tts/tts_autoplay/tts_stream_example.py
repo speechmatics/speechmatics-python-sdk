@@ -28,9 +28,9 @@ async def audio_generator(audio_queue: asyncio.Queue, text: str, voice: str, out
     
     try:
         async with AsyncClient() as client, await client.generate(
-                       text=text,
-                       voice=voice,
-                       output_format=output_format
+            text=text,
+            voice=voice,
+            output_format=output_format
         ) as response:
             buffer=bytearray()
             async for chunk in response.content.iter_chunked(BUFFER_SIZE):
