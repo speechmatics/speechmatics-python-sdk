@@ -2,11 +2,11 @@
 
 .PHONY: help
 .PHONY: test-all test-rt test-batch test-flow test-tts test-voice
-.PHONY: format-all format-rt format-batch format-flow format-tts format-voice
-.PHONY: lint-all lint-rt lint-batch lint-flow lint-tts lint-voice
+.PHONY: format-all format-rt format-batch format-flow format-tts format-voice format-sdk
+.PHONY: lint-all lint-rt lint-batch lint-flow lint-tts lint-voice lint-sdk
 .PHONY: type-check-all type-check-rt type-check-batch type-check-flow type-check-tts type-check-voice
-.PHONY: build-all build-rt build-batch build-flow build-tts build-voice
-.PHONY: clean-all clean-rt clean-batch clean-flow clean-tts clean-voice
+.PHONY: build-all build-rt build-batch build-flow build-tts build-voice build-sdk
+.PHONY: clean-all clean-rt clean-batch clean-flow clean-tts clean-voice clean-sdk
 
 
 help:
@@ -27,6 +27,7 @@ help:
 	@echo "  format-flow       Auto-fix formatting for Flow SDK"
 	@echo "  format-tts        Auto-fix formatting for TTS SDK"
 	@echo "  format-voice      Auto-fix formatting for Voice Agent SDK"
+	@echo "  format-sdk        Auto-fix formatting for SDK meta-package"
 	@echo ""
 	@echo "Linting:"
 	@echo "  lint-all          Run linting for all SDKs"
@@ -35,6 +36,7 @@ help:
 	@echo "  lint-flow         Run linting for Flow SDK"
 	@echo "  lint-tts          Run linting for TTS SDK"
 	@echo "  lint-voice        Run linting for Voice Agent SDK"
+	@echo "  lint-sdk          Run linting for SDK meta-package"
 	@echo ""
 	@echo "Type checking:"
 	@echo "  type-check-all    Run type checking for all SDKs"
@@ -43,6 +45,7 @@ help:
 	@echo "  type-check-flow   Run type checking for Flow SDK"
 	@echo "  type-check-tts    Run type checking for TTS SDK"
 	@echo "  type-check-voice  Run type checking for Voice Agent SDK"
+	@echo "  type-check-sdk    Run type checking for SDK meta-package"
 	@echo ""
 	@echo "Building:"
 	@echo "  build-all         Build all SDKs"
@@ -51,6 +54,7 @@ help:
 	@echo "  build-flow        Build Flow SDK"
 	@echo "  build-tts         Build TTS SDK"
 	@echo "  build-voice       Build Voice Agent SDK"
+	@echo "  build-sdk         Build SDK meta-package"
 	@echo ""
 	@echo "Cleaning:"
 	@echo "  clean-all         Clean all SDKs"
@@ -59,6 +63,7 @@ help:
 	@echo "  clean-flow        Clean Flow SDK build artifacts"
 	@echo "  clean-tts         Clean TTS SDK build artifacts"
 	@echo "  clean-voice       Clean Voice Agent SDK build artifacts"
+	@echo "  clean-sdk         Clean SDK meta-package build artifacts"
 	@echo ""
 
 # Testing targets
@@ -79,7 +84,7 @@ test-voice:
 	pytest tests/voice/ -v -s
 
 # Formatting targets
-format-all: format-rt format-batch format-flow format-tts format-voice format-tests format-examples
+format-all: format-rt format-batch format-flow format-tts format-voice format-sdk format-tests format-examples
 
 format-rt:
 	cd sdk/rt/speechmatics && black .
@@ -101,6 +106,10 @@ format-voice:
 	cd sdk/voice/speechmatics && black .
 	cd sdk/voice/speechmatics && ruff check --fix .
 
+format-sdk:
+	cd sdk/sdk/speechmatics && black .
+	cd sdk/sdk/speechmatics && ruff check --fix .
+
 format-tests:
 	cd tests && black .
 	cd tests && ruff check --fix .
@@ -110,7 +119,7 @@ format-examples:
 	cd examples && ruff check --fix .
 
 # Linting targets
-lint-all: lint-rt lint-batch lint-flow lint-tts lint-voice
+lint-all: lint-rt lint-batch lint-flow lint-tts lint-voice lint-sdk
 
 lint-rt:
 	cd sdk/rt/speechmatics && ruff check .
@@ -127,8 +136,11 @@ lint-tts:
 lint-voice:
 	cd sdk/voice/speechmatics && ruff check .
 
+lint-sdk:
+	cd sdk/sdk/speechmatics && ruff check .
+
 # Type checking targets
-type-check-all: type-check-rt type-check-batch type-check-flow type-check-tts type-check-voice
+type-check-all: type-check-rt type-check-batch type-check-flow type-check-tts type-check-voice type-check-sdk
 type-check-rt:
 	cd sdk/rt/speechmatics && mypy .
 
@@ -144,6 +156,9 @@ type-check-tts:
 type-check-voice:
 	cd sdk/voice/speechmatics && mypy .
 
+type-check-sdk:
+	cd sdk/sdk/speechmatics && mypy .
+
 # Installation targets
 install-dev:
 	python -m pip install --upgrade pip
@@ -157,7 +172,7 @@ install-build:
 	python -m pip install --upgrade build
 
 # Building targets
-build-all: build-rt build-batch build-flow build-tts build-voice
+build-all: build-rt build-batch build-flow build-tts build-voice build-sdk
 
 build-rt: install-build
 	cd sdk/rt && python -m build
@@ -174,8 +189,11 @@ build-tts: install-build
 build-voice: install-build
 	cd sdk/voice && python -m build
 
+build-sdk: install-build
+	cd sdk/sdk && python -m build
+
 # Cleaning targets
-clean-all: clean-rt clean-batch clean-flow clean-tts clean-voice clean-test clean-examples
+clean-all: clean-rt clean-batch clean-flow clean-tts clean-voice clean-sdk clean-test clean-examples
 clean-rt:
 	rm -rf sdk/rt/dist sdk/rt/build sdk/rt/*.egg-info
 	find sdk/rt -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
@@ -195,6 +213,10 @@ clean-tts:
 clean-voice:
 	rm -rf sdk/voice/dist sdk/voice/build sdk/voice/*.egg-info
 	find sdk/voice -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+
+clean-sdk:
+	rm -rf sdk/sdk/dist sdk/sdk/build sdk/sdk/*.egg-info
+	find sdk/sdk -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 
 clean-test:
 	find tests -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
