@@ -58,7 +58,7 @@ jobs:
     needs: [release-build]
     environment:
       name: pypi-sdk
-      url: https://pypi.org/project/sdk/${{ needs.release-build.outputs.version }}
+      url: https://pypi.org/project/speechmatics-sdk/${{ needs.release-build.outputs.version }}
 
     steps:
       - name: Retrieve release dist
