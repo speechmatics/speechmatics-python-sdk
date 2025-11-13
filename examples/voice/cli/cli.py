@@ -23,6 +23,7 @@ from speechmatics.rt import ClientMessageType
 from speechmatics.rt import Microphone
 from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
+from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import SpeakerFocusConfig
 from speechmatics.voice import SpeakerFocusMode
 from speechmatics.voice import SpeakerIdentifier
@@ -189,9 +190,15 @@ async def main() -> None:
 
     # Display instructions
     if audio_source["type"] == "file":
-        print("\nStreaming audio file... (Press CTRL+C to stop)\n")
+        print("\nStreaming audio file... (Press CTRL+C to stop)")
     else:
-        print("\nMicrophone ready - speak now... (Press CTRL+C to stop)\n")
+        print("\nMicrophone ready - speak now... (Press CTRL+C to stop)")
+
+    # Show press 't' to trigger end of turn
+    if config.end_of_utterance_mode == EndOfUtteranceMode.EXTERNAL:
+        print("EXTERNAL end of utterance mode enabled (Press 't' to trigger end of turn)\n")
+    else:
+        print(f"{config.end_of_utterance_mode.value.upper()} end of utterance mode enabled\n")
 
     # Create Voice Agent client
     client = VoiceAgentClient(api_key=args.api_key, url=args.url, config=config)

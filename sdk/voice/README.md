@@ -96,6 +96,9 @@ if __name__ == "__main__":
 Presets provide optimized configurations for common use cases:
 
 ```python
+# External end of turn preset - endpointing handled by the client
+client = VoiceAgentClient(api_key=api_key, preset="external")
+
 # Scribe preset - for note-taking
 client = VoiceAgentClient(api_key=api_key, preset="scribe")
 
