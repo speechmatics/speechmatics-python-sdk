@@ -71,6 +71,9 @@ class VoiceAgentClient(AsyncClient):
     and provides additional functionality for processing partial and final
     transcription from the STT engine into accumulated transcriptions with
     flags to indicate changes between messages, etc.
+
+    If no config or preset is provided, the client will default to the EXTERNAL
+    preset.
     """
 
     # ============================================================================
@@ -157,8 +160,12 @@ class VoiceAgentClient(AsyncClient):
         # Client Configuration
         # -------------------------------------
 
+        # Default to EXTERNAL if no config or preset string provided
+        if config is None and not preset:
+            config = VoiceAgentConfigPreset.EXTERNAL()
+
         # Check for preset
-        if preset:
+        elif preset:
             preset_config = VoiceAgentConfigPreset.load(preset)
             config = VoiceAgentConfigPreset._merge_configs(preset_config, config)
 
@@ -238,6 +245,7 @@ class VoiceAgentClient(AsyncClient):
         # Handlers
         self._turn_handler: TurnTaskProcessor = TurnTaskProcessor(name="turn_handler", done_callback=self.finalize)
         self._smart_turn_detector: Optional[SmartTurnDetector] = None
+        self._eot_calculation_task: Optional[asyncio.Task] = None
 
         # Current turn
         self._turn_start_time: Optional[float] = None
@@ -1134,9 +1142,13 @@ class VoiceAgentClient(AsyncClient):
 
         # Turn prediction
         if self._uses_forced_eou:
-            ttl = await self._calculate_finalize_delay()
-            if ttl:
-                self._turn_handler.update_timer(ttl)
+
+            async def fn() -> None:
+                ttl = await self._calculate_finalize_delay()
+                if ttl:
+                    self._turn_handler.update_timer(ttl)
+
+            self._run_background_eot_calculation(fn)
 
         # Check for gaps
         # FragmentUtils.find_segment_pauses(self._client_session, self._current_view)
@@ -1351,6 +1363,16 @@ class VoiceAgentClient(AsyncClient):
     # TURN DETECTION & FINALIZATION
     # ============================================================================
 
+    def _run_background_eot_calculation(self, fn: Callable) -> None:
+        """Run the calculation async."""
+
+        # Existing task takes precedence
+        if self._eot_calculation_task and not self._eot_calculation_task.done():
+            return
+
+        # Create new task
+        self._eot_calculation_task = asyncio.create_task(fn())
+
     async def _calculate_finalize_delay(
         self,
         smart_turn_prediction: Optional[SmartTurnPredictionResult] = None,
@@ -1469,8 +1491,6 @@ class VoiceAgentClient(AsyncClient):
             start_time=end_time - self._config.smart_turn_config.audio_buffer_length,
             end_time=end_time + self._config.smart_turn_config.slice_margin,
         )
-
-        # TODO - Output audio (for client to use)
 
         # Evaluate
         prediction = await self._smart_turn_detector.predict(
@@ -1650,8 +1670,12 @@ class VoiceAgentClient(AsyncClient):
 
         # Turn prediction
         if self._uses_forced_eou:
-            ttl = await self._eot_prediction(event_time)
-            self._turn_handler.update_timer(ttl)
+
+            async def fn() -> None:
+                ttl = await self._eot_prediction(event_time)
+                self._turn_handler.update_timer(ttl)
+
+            self._run_background_eot_calculation(fn)
 
         # Emit the event
         self._emit_message(

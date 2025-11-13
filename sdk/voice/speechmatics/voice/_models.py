@@ -364,7 +364,7 @@ class EndOfTurnConfig(BaseConfigModel):
     """
 
     base_multiplier: float = 1.0
-    min_end_of_turn_delay: float = 0.015
+    min_end_of_turn_delay: float = 0.3
     end_of_turn_adjustment_factor: float = 1.0
     penalties: list[EndOfTurnPenaltyItem] = Field(
         default_factory=lambda: [
@@ -372,7 +372,7 @@ class EndOfTurnConfig(BaseConfigModel):
             EndOfTurnPenaltyItem(penalty=3.0, annotation=[AnnotationFlags.VERY_SLOW_SPEAKER]),
             EndOfTurnPenaltyItem(penalty=2.0, annotation=[AnnotationFlags.SLOW_SPEAKER]),
             EndOfTurnPenaltyItem(penalty=2.5, annotation=[AnnotationFlags.ENDS_WITH_DISFLUENCY]),
-            EndOfTurnPenaltyItem(penalty=1.2, annotation=[AnnotationFlags.HAS_DISFLUENCY]),
+            EndOfTurnPenaltyItem(penalty=1.1, annotation=[AnnotationFlags.HAS_DISFLUENCY]),
             EndOfTurnPenaltyItem(
                 penalty=2.0,
                 annotation=[AnnotationFlags.ENDS_WITH_EOS],
@@ -417,8 +417,8 @@ class SmartTurnConfig(BaseConfigModel):
     audio_buffer_length: float = 0.0
     smart_turn_threshold: float = 0.5
     slice_margin: float = 0.05
-    positive_penalty: float = 0.2
-    negative_penalty: float = 2.5
+    positive_penalty: float = 0.3
+    negative_penalty: float = 1.7
 
 
 class VoiceAgentConfig(BaseConfigModel):

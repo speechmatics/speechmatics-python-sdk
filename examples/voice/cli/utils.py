@@ -5,11 +5,15 @@ This module provides:
 - Audio playback functionality
 - Custom logging with colour support
 - Helper functions for async operations
+- File system utilities
 """
 
+import argparse
 import asyncio
+import json
 import logging
 import sys
+from pathlib import Path
 
 import pyaudio
 
@@ -21,6 +25,112 @@ if sys.platform == "win32":
 else:
     import termios
     import tty
+
+
+# ==============================================================================
+# FILE SYSTEM UTILITIES
+# ==============================================================================
+
+
+def ensure_directory_exists(file_path: str) -> None:
+    """Ensure the directory for a file path exists.
+
+    Creates all parent directories if they don't exist.
+
+    Args:
+        file_path: Path to a file (can include filename)
+    """
+    path = Path(file_path)
+    directory = path.parent if path.suffix else path
+
+    if directory and not directory.exists():
+        directory.mkdir(parents=True, exist_ok=True)
+
+
+def load_json(value: str):
+    """Load JSON string or file path.
+
+    Args:
+        value: Either a JSON string or path to a JSON file
+
+    Returns:
+        Parsed json object
+
+    Raises:
+        argparse.ArgumentTypeError: If the value cannot be parsed
+    """
+    # First, try to parse as JSON string
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        pass
+
+    # If that fails, try to load as a file path
+    try:
+        file_path = Path(value)
+        if file_path.exists() and file_path.is_file():
+            with open(file_path) as f:
+                return json.load(f)
+        else:
+            raise argparse.ArgumentTypeError(f"File not found: {value}")
+    except Exception as e:
+        raise argparse.ArgumentTypeError(f"Could not parse as JSON or load from file: {value}. Error: {e}")
+
+
+# ==============================================================================
+# AUDIO FILE UTILITIES
+# ==============================================================================
+
+
+class AudioFileWriter:
+    """Context manager for writing audio to WAV files.
+
+    Usage:
+        async with AudioFileWriter(filepath, sample_rate, sample_width) as writer:
+            async for audio_chunk in source:
+                await writer.write(audio_chunk)
+    """
+
+    def __init__(self, filepath: str, sample_rate: int, sample_width: int = 2, channels: int = 1):
+        """Initialize audio file writer.
+
+        Args:
+            filepath: Path to output WAV file
+            sample_rate: Audio sample rate in Hz
+            sample_width: Sample width in bytes (default: 2 for 16-bit)
+            channels: Number of audio channels (default: 1 for mono)
+        """
+        self.filepath = filepath
+        self.sample_rate = sample_rate
+        self.sample_width = sample_width
+        self.channels = channels
+        self._wav_file = None
+
+    async def __aenter__(self):
+        """Open WAV file for writing."""
+        import wave
+
+        ensure_directory_exists(self.filepath)
+        self._wav_file = wave.open(self.filepath, "wb")  # noqa: SIM115
+        self._wav_file.setnchannels(self.channels)
+        self._wav_file.setsampwidth(self.sample_width)
+        self._wav_file.setframerate(self.sample_rate)
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Close WAV file."""
+        if self._wav_file:
+            self._wav_file.close()
+        return False
+
+    async def write(self, audio_data: bytes) -> None:
+        """Write audio data to file.
+
+        Args:
+            audio_data: Raw audio bytes to write
+        """
+        if self._wav_file:
+            self._wav_file.writeframes(audio_data)
 
 
 # ==============================================================================

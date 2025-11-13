@@ -169,4 +169,5 @@ tmp/
 .claude
 
 # Examples
+output/
 **/output.wav

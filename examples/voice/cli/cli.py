@@ -13,7 +13,9 @@ import wave
 from pathlib import Path
 from typing import Any
 
+from utils import AudioFileWriter
 from utils import AudioPlayer
+from utils import load_json
 from utils import select_audio_device
 from utils import select_audio_output_device
 
@@ -25,15 +27,25 @@ from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import SpeakerFocusConfig
 from speechmatics.voice import SpeakerFocusMode
 from speechmatics.voice import SpeakerIdentifier
-from speechmatics.voice import SpeechSegmentConfig
 from speechmatics.voice import VoiceAgentClient
 from speechmatics.voice import VoiceAgentConfig
-from speechmatics.voice._models import TranscriptionUpdatePreset
+from speechmatics.voice import VoiceAgentConfigPreset
 
 # ==============================================================================
 # CONSTANTS
 # ==============================================================================
 
+# Audio slice duration (seconds of audio to capture before speaker ends)
+AUDIO_SLICE_DURATION = 8.0
+
+# Default output directory
+DEFAULT_OUTPUT_DIR = "./output"
+
+# Output filenames
+LOG_FILENAME = "log.jsonl"
+RECORDING_FILENAME = "recording.wav"
+
+# Console colors for message types
 COLORS = {
     # Segments
     "AddPartialSegment": "\033[93m",
@@ -60,22 +72,65 @@ COLORS = {
 
 
 async def main() -> None:
-    """Run the transcription CLI."""
+    """Run the transcription CLI.
+
+    Main entry point for the CLI application. Handles:
+    - Command-line argument parsing
+    - Audio source setup (microphone or file)
+    - Output directory management
+    - Configuration setup (preset, custom, or default)
+    - Event handler registration
+    - Audio streaming and transcription
+    """
 
     # Parse the command line arguments
     args = parse_args()
 
-    # Setup audio source (microphone or file)
-    audio_source = setup_audio_source(args)
-    if not audio_source:
+    # Handle preset listing
+    if args.list_presets:
+        print("Available presets:")
+        for preset in VoiceAgentConfigPreset.list_presets():
+            print(f"  - {preset}")
         return
 
-    # Setup audio output (for file playback)
-    audio_player = setup_audio_output(audio_source, args)
+    # Setup audio source (microphone or file) - skip if just showing config
+    if not args.show:
+        audio_source = setup_audio_source(args)
+        if not audio_source:
+            return
 
-    # Remove JSONL output file if it already exists
-    if args.output_file and os.path.exists(args.output_file):
-        os.remove(args.output_file)
+        # Warn if trying to record from file input
+        if args.record and audio_source["type"] == "file":
+            print("Warning: --record is only supported for microphone input, not file playback. Recording disabled.")
+            args.record = None
+
+        # Setup audio output (for file playback)
+        audio_player = setup_audio_output(audio_source, args)
+    else:
+        # Dummy audio source for config display
+        audio_source = {"sample_rate": 16000}
+        audio_player = None
+
+    # Setup output directory with session subdirectory
+    base_output_dir = Path(args.output_dir)
+
+    # Create session reference (YYYYMMDD_HHMMSS format for better sorting)
+    session_ref = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_dir = base_output_dir / session_ref
+
+    # Create session directory
+    output_dir.mkdir(parents=True, exist_ok=True)
+    print(f"Session output directory: {output_dir}")
+
+    # Setup file paths
+    log_file = output_dir / LOG_FILENAME
+    record_file = output_dir / RECORDING_FILENAME if args.record else None
+    slices_dir = output_dir if args.save_slices else None
+
+    # Store in args for easy access
+    args.log_file = str(log_file)
+    args.record_file = str(record_file) if record_file else None
+    args.slices_dir = str(slices_dir) if slices_dir else None
 
     # Create speaker configuration
     speaker_config = create_speaker_config(args)
@@ -91,37 +146,59 @@ async def main() -> None:
             print(f"Error validating config: {e}")
             return
 
-    # Create Voice Agent configuration
+    # Use a preset
+    elif args.preset:
+        try:
+            config = VoiceAgentConfigPreset.load(args.preset)
+        except ValueError as e:
+            print(f"Error loading preset {args.preset}: {e}")
+            return
+
+    # Default config
     else:
         config = VoiceAgentConfig(
-            language=args.language or "en",
-            end_of_utterance_silence_trigger=args.end_of_utterance_silence_trigger or 0.5,
-            max_delay=args.max_delay or 0.7,
-            end_of_utterance_mode=(
-                args.end_of_utterance_mode.lower() if args.end_of_utterance_mode else EndOfUtteranceMode.ADAPTIVE
-            ),
-            speaker_config=speaker_config,
-            use_forced_eou_message=args.forced_eou,
             additional_vocab=[
                 AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"]),
-            ],
-            known_speakers=known_speakers,
-            speech_segment_config=SpeechSegmentConfig(
-                emit_sentences=args.emit_sentences,
-            ),
-            transcription_update_preset=TranscriptionUpdatePreset.COMPLETE_PLUS_TIMING,
-            include_results=args.results,
+            ]
         )
 
-    # Display instructions
-    if audio_source["type"] == "file":
-        print("\nStreaming audio file... (Press CTRL+C to stop)\n")
-    else:
-        print("\nMicrophone ready - speak now... (Press CTRL+C to stop)\n")
+    # Copy in overrides
+    if args.language:
+        config.language = args.language
+    if args.end_of_utterance_silence_trigger:
+        config.end_of_utterance_silence_trigger = args.end_of_utterance_silence_trigger
+    if args.max_delay:
+        config.max_delay = args.max_delay
+    if args.end_of_utterance_mode:
+        config.end_of_utterance_mode = args.end_of_utterance_mode
+
+    # Copy speaker settings
+    config.speaker_config = speaker_config
+    config.known_speakers = known_speakers
+    config.include_results = args.results
 
     # Set common items
     config.enable_diarization = True
+
+    # Handle config display
+    if args.show:
+        print(config.model_dump_json(indent=2, exclude_unset=True, exclude_none=True))
+        return
+
+    # Set the audio sample rate
     config.sample_rate = audio_source["sample_rate"]
+
+    # Display instructions
+    if audio_source["type"] == "file":
+        print("\nStreaming audio file... (Press CTRL+C to stop)")
+    else:
+        print("\nMicrophone ready - speak now... (Press CTRL+C to stop)")
+
+    # Show press 't' to trigger end of turn
+    if config.end_of_utterance_mode == EndOfUtteranceMode.EXTERNAL:
+        print("EXTERNAL end of utterance mode enabled (Press 't' to trigger end of turn)\n")
+    else:
+        print(f"{config.end_of_utterance_mode.value.upper()} end of utterance mode enabled\n")
 
     # Create Voice Agent client
     client = VoiceAgentClient(api_key=args.api_key, url=args.url, config=config)
@@ -143,7 +220,7 @@ async def main() -> None:
 
     # Stream audio
     try:
-        await stream_audio(audio_source, audio_player, client, args.chunk_size)
+        await stream_audio(audio_source, audio_player, client, args.chunk_size, config, args.record_file)
     except asyncio.CancelledError:
         pass
     finally:
@@ -324,6 +401,70 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
         start_time: Start time for timestamp calculation
     """
 
+    # Audio slice counter
+    slice_counter = {"count": 0}
+
+    async def async_save_audio_slice(message: dict) -> None:
+        """Save audio slice when speaker ends (SMART_TURN mode only)."""
+        if not args.slices_dir:
+            return
+
+        # Only save slices in SMART_TURN mode
+        if client._config.end_of_utterance_mode != "smart_turn":
+            return
+
+        # Get time from message
+        event_time = message.get("time")
+        if not event_time:
+            return
+
+        speaker_id = message.get("speaker_id", "unknown")
+
+        # Get audio slice from buffer
+        # Capture audio leading up to the speaker ending
+        start_time = event_time - AUDIO_SLICE_DURATION
+        end_time = event_time
+
+        try:
+            audio_data = await client._audio_buffer.get_frames(
+                start_time=start_time,
+                end_time=end_time,
+            )
+
+            if audio_data:
+                # Generate filenames
+                slice_counter["count"] += 1
+                base_filename = f"slice_{slice_counter['count']:04d}_{speaker_id}_{event_time:.2f}"
+                wav_filepath = Path(args.slices_dir) / f"{base_filename}.wav"
+                json_filepath = Path(args.slices_dir) / f"{base_filename}.json"
+
+                # Save audio file
+                async with AudioFileWriter(
+                    str(wav_filepath), client._audio_sample_rate, client._audio_sample_width
+                ) as writer:
+                    await writer.write(audio_data)
+
+                # Save JSON metadata
+                metadata = {
+                    "message": message,
+                    "speaker_id": speaker_id,
+                    "is_active": message.get("is_active"),
+                    "time": event_time,
+                    "slice_start_time": start_time,
+                    "slice_end_time": end_time,
+                    "slice_duration": end_time - start_time,
+                    "audio_file": f"{base_filename}.wav",
+                }
+                with open(json_filepath, "w") as f:
+                    json.dump(metadata, f, indent=2)
+
+        except Exception as e:
+            print(f"Error saving audio slice: {e}")
+
+    def save_audio_slice(message: dict) -> None:
+        """Save audio slice when speaker ends (SMART_TURN mode only)."""
+        asyncio.create_task(async_save_audio_slice(message))
+
     def console_print(ts: datetime.datetime, message: dict) -> None:
         """Print message to console with optional formatting."""
         if not args.pretty:
@@ -354,9 +495,9 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
         """Log message to console and optional JSONL file."""
         now = datetime.datetime.now()
         console_print(now, message)
-        if args.output_file:
+        if args.log_file:
             ts_str = now.strftime("%Y-%m-%d %H:%M:%S") + f".{now.microsecond // 1000:03d}"
-            with open(args.output_file, "a") as f:
+            with open(args.log_file, "a") as f:
                 f.write(json.dumps({"ts": ts_str, **message}) + "\n")
 
     # Register standard handlers
@@ -377,6 +518,10 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
         if args.verbose >= 1:
             client.on(AgentServerMessageType.SPEAKER_STARTED, log_message)
             client.on(AgentServerMessageType.SPEAKER_ENDED, log_message)
+
+        # Save audio slices on SPEAKER_ENDED (SMART_TURN mode only)
+        if args.slices_dir:
+            client.on(AgentServerMessageType.SPEAKER_ENDED, save_audio_slice)
 
         # Verbose turn prediction
         if args.verbose >= 2:
@@ -420,6 +565,8 @@ async def stream_audio(
     audio_player: AudioPlayer | None,
     client: VoiceAgentClient,
     chunk_size: int,
+    config: VoiceAgentConfig,
+    record_path: str | None = None,
 ) -> None:
     """Stream audio from source to client.
 
@@ -428,11 +575,13 @@ async def stream_audio(
         audio_player: Audio player for file playback (optional)
         client: Voice Agent client
         chunk_size: Audio chunk size in bytes
+        config: Voice agent configuration (for EXTERNAL mode detection)
+        record_path: Path to save recorded audio (microphone only)
     """
     if audio_source["type"] == "file":
         await stream_file(audio_source, audio_player, client, chunk_size)
     else:
-        await stream_microphone(audio_source, client, chunk_size)
+        await stream_microphone(audio_source, client, chunk_size, config, record_path)
 
 
 async def stream_file(
@@ -489,6 +638,8 @@ async def stream_microphone(
     audio_source: dict,
     client: VoiceAgentClient,
     chunk_size: int,
+    config: VoiceAgentConfig,
+    record_path: str | None = None,
 ) -> None:
     """Stream microphone audio to client.
 
@@ -496,46 +647,72 @@ async def stream_microphone(
         audio_source: Audio source information
         client: Voice Agent client
         chunk_size: Audio chunk size in bytes
+        config: Voice agent configuration (for EXTERNAL mode detection)
+        record_path: Path to save recorded audio (optional)
     """
+    import select
+    import sys
+    import termios
+    import tty
+
     mic = audio_source["mic"]
-    while True:
-        frame = await mic.read(chunk_size)
-        await client.send_audio(frame)
+    sample_rate = audio_source["sample_rate"]
+
+    # Check if EXTERNAL mode for keyboard input
+    is_external_mode = config.end_of_utterance_mode == "external"
+
+    # Setup keyboard input for EXTERNAL mode
+    old_settings = None
+    if is_external_mode:
+        # print("EXTERNAL mode: Press 't' or 'T' to send end of turn")
+        old_settings = termios.tcgetattr(sys.stdin)
+        tty.setcbreak(sys.stdin.fileno())
+
+    # Setup WAV file recording if requested
+    if record_path:
+        async with AudioFileWriter(record_path, sample_rate) as writer:
+            try:
+                while True:
+                    # Read audio frame
+                    frame = await mic.read(chunk_size)
+                    await client.send_audio(frame)
+
+                    # Write to WAV file
+                    await writer.write(frame)
+
+                    # Check for keyboard input in EXTERNAL mode
+                    if is_external_mode and select.select([sys.stdin], [], [], 0.0)[0]:
+                        char = sys.stdin.read(1)
+                        if char.lower() == "t":
+                            client.finalize(end_of_turn=True)
+
+            finally:
+                # Restore terminal settings
+                if old_settings:
+                    termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+    else:
+        # No recording - simpler logic
+        try:
+            while True:
+                # Read audio frame
+                frame = await mic.read(chunk_size)
+                await client.send_audio(frame)
+
+                # Check for keyboard input in EXTERNAL mode
+                if is_external_mode and select.select([sys.stdin], [], [], 0.0)[0]:
+                    char = sys.stdin.read(1)
+                    if char.lower() == "t":
+                        client.finalize(end_of_turn=True)
+
+        finally:
+            # Restore terminal settings
+            if old_settings:
+                termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
 
 
 # ==============================================================================
 # COMMAND-LINE ARGUMENT PARSING
 # ==============================================================================
-
-
-def load_json(value: str):
-    """Load JSON string or file path.
-
-    Args:
-        value: Either a JSON string or path to a JSON file
-
-    Returns:
-        Parsed json object
-
-    Raises:
-        argparse.ArgumentTypeError: If the value cannot be parsed
-    """
-    # First, try to parse as JSON string
-    try:
-        return json.loads(value)
-    except json.JSONDecodeError:
-        pass
-
-    # If that fails, try to load as a file path
-    try:
-        file_path = Path(value)
-        if file_path.exists() and file_path.is_file():
-            with open(file_path) as f:
-                return json.load(f)
-        else:
-            raise argparse.ArgumentTypeError(f"File not found: {value}")
-    except Exception as e:
-        raise argparse.ArgumentTypeError(f"Could not parse as JSON or load from file: {value}. Error: {e}")
 
 
 def parse_args():
@@ -550,7 +727,7 @@ def parse_args():
     )
 
     # ==============================================================================
-    # Core parameters
+    # Core parameters (authentication)
     # ==============================================================================
 
     parser.add_argument(
@@ -567,7 +744,35 @@ def parse_args():
     )
 
     # ==============================================================================
-    # Audio source
+    # Configuration (preset or custom)
+    # ==============================================================================
+
+    parser.add_argument(
+        "-P",
+        "--preset",
+        type=str,
+        help="Preset configuration name (e.g., scribe, low_latency, conversation_adaptive)",
+    )
+    parser.add_argument(
+        "--list-presets",
+        action="store_true",
+        help="List available preset configurations and exit",
+    )
+    parser.add_argument(
+        "-W",
+        "--show",
+        action="store_true",
+        help="Display the final configuration as JSON and exit (after applying preset/config and overrides)",
+    )
+    parser.add_argument(
+        "-c",
+        "--config",
+        type=load_json,
+        help="Config JSON string or path to JSON file (default: None)",
+    )
+
+    # ==============================================================================
+    # Input/Output
     # ==============================================================================
 
     parser.add_argument(
@@ -576,18 +781,33 @@ def parse_args():
         type=str,
         help="Path to input audio file (WAV format, mono 16-bit). If not provided, uses microphone",
     )
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        type=str,
+        default=DEFAULT_OUTPUT_DIR,
+        help=f"Output directory for {LOG_FILENAME}, {RECORDING_FILENAME}, and audio slices (default: {DEFAULT_OUTPUT_DIR})",
+    )
+    parser.add_argument(
+        "-r",
+        "--record",
+        action="store_true",
+        help=f"Record microphone audio to {RECORDING_FILENAME} in output directory (microphone input only)",
+    )
 
     # ==============================================================================
-    # Audio configuration
+    # Audio settings
     # ==============================================================================
 
     parser.add_argument(
+        "-R",
         "--sample-rate",
         type=int,
         default=16000,
         help="Audio sample rate in Hz (default: 16000)",
     )
     parser.add_argument(
+        "-C",
         "--chunk-size",
         type=int,
         default=320,
@@ -601,14 +821,14 @@ def parse_args():
     )
 
     # ==============================================================================
-    # Output configuration
+    # Output options
     # ==============================================================================
 
     parser.add_argument(
-        "-o",
-        "--output-file",
-        type=str,
-        help="Output to a JSONL file",
+        "-S",
+        "--save-slices",
+        action="store_true",
+        help="Save audio slices to output directory on SPEAKER_ENDED events (SMART_TURN mode only)",
     )
     parser.add_argument(
         "-p",
@@ -636,21 +856,16 @@ def parse_args():
         help="Use default device (default: False)",
     )
     parser.add_argument(
+        "-w",
         "--results",
         action="store_true",
-        help="Include word transcription payload results in output (default: False)",
+        help="Include word-level transcription results in output (default: False)",
     )
 
     # ==============================================================================
-    # Voice Agent configuration
+    # Voice Agent configuration overrides
     # ==============================================================================
 
-    parser.add_argument(
-        "-c",
-        "--config",
-        type=load_json,
-        help="Config JSON string or path to JSON file (default: None)",
-    )
     parser.add_argument(
         "-l",
         "--language",
@@ -676,15 +891,9 @@ def parse_args():
         choices=["FIXED", "ADAPTIVE", "EXTERNAL", "SMART_TURN"],
         help="End of utterance detection mode (default: ADAPTIVE)",
     )
-    parser.add_argument(
-        "-e",
-        "--emit-sentences",
-        action="store_true",
-        help="Emit sentences (default: False)",
-    )
 
     # ==============================================================================
-    # Speaker configuration
+    # Speaker management
     # ==============================================================================
 
     parser.add_argument(
@@ -722,11 +931,6 @@ def parse_args():
         type=load_json,
         help="Known speakers as JSON string or path to JSON file (default: None)",
     )
-    parser.add_argument(
-        "--forced-eou",
-        action="store_true",
-        help="Use forced end of utterance (default: False)",
-    )
 
     # ==============================================================================
     # Check for mutually exclusive options
@@ -735,7 +939,7 @@ def parse_args():
     args = parser.parse_args()
 
     mutually_excludive = [
-        "emit-sentences",
+        "preset",
         "end-of-utterance-mode",
         "end-of-utterance-silence-trigger",
         "focus-speakers",
@@ -743,7 +947,6 @@ def parse_args():
         "ignore-speakers",
         "language",
         "max-delay",
-        "forced-eou",
         "speakers",
     ]
 
