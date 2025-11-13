@@ -15,7 +15,7 @@ Install the complete SDK:
 pip install speechmatics-sdk
 ```
 
-For Voice API with Smart features (TTS/punctuation):
+For Voice SDK with Smart Turn features (includes ONNX ML runtime and models):
 
 ```bash
 pip install speechmatics-sdk[smart]
