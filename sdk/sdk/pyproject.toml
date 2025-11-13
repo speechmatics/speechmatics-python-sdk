@@ -11,9 +11,9 @@ authors = [{ name = "Speechmatics", email = "support@speechmatics.com" }]
 license = "MIT"
 requires-python = ">=3.9"
 dependencies = [
-    "speechmatics-voice",
     "speechmatics-batch",
     "speechmatics-rt",
+    "speechmatics-voice",
     "speechmatics-tts",
 ]
 classifiers = [
@@ -48,6 +48,7 @@ version = { attr = "speechmatics.sdk.__version__" }
 smart = [
     "speechmatics-voice[smart]",
 ]
+
 dev = [
     "black",
     "ruff",
