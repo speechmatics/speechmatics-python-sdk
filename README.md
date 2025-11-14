@@ -1,6 +1,7 @@
 # Speechmatics Python SDK
 
 [![License](https://img.shields.io/badge/license-MIT-yellow.svg)](https://github.com/speechmatics/speechmatics-python-sdk/blob/master/LICENSE)
+[![PythonSupport](https://img.shields.io/badge/Python-3.9%2B-green)](https://www.python.org/)
 
 A collection of Python clients for Speechmatics APIs packaged as separate installable packages. These packages replace the old [speechmatics-python](https://pypi.org/project/speechmatics-python) package, which will be deprecated soon.
 
@@ -10,7 +11,7 @@ Each client targets a specific Speechmatics API (e.g. real-time, batch transcrip
 
 This repository contains the following packages:
 
-### (Beta) Real-Time Client (`speechmatics-rt`)
+### Real-Time Client (`speechmatics-rt`)
 
 A Python client for Speechmatics Real-Time API.
 
@@ -18,7 +19,7 @@ A Python client for Speechmatics Real-Time API.
 pip install speechmatics-rt
 ```
 
-### (Beta) Batch Client (`speechmatics-batch`)
+### Batch Client (`speechmatics-batch`)
 
 An async Python client for Speechmatics Batch API.
 
@@ -26,15 +27,7 @@ An async Python client for Speechmatics Batch API.
 pip install speechmatics-batch
 ```
 
-### (Beta) Flow Client (`speechmatics-flow`)
-
-An async Python client for Speechmatics Flow API.
-
-```bash
-pip install speechmatics-flow
-```
-
-### (Beta) Voice Agent Client (`speechmatics-voice`)
+### Voice Agent Client (`speechmatics-voice`)
 
 A Voice Agent Python client for Speechmatics Real-Time API.
 
@@ -46,7 +39,7 @@ pip install speechmatics-voice
 pip install speechmatics-voice[smart]
 ```
 
-### (Beta) TTS Client (`speechmatics-tts`)
+### TTS Client (`speechmatics-tts`)
 
 An async Python client for Speechmatics TTS API.
 
@@ -69,10 +62,6 @@ speechmatics-python-sdk/
 │   │   ├── pyproject.toml
 │   │   └── README.md
 │   │
-│   ├── flow/
-│   │   ├── pyproject.toml
-│   │   └── README.md
-│   │
 │   ├── voice/
 │   │   ├── pyproject.toml
 │   │   └── README.md
@@ -84,7 +73,6 @@ speechmatics-python-sdk/
 ├── tests/
 │   ├── batch/
 │   ├── rt/
-│   ├── flow/
 │   ├── voice/
 │   └── tts/
 │
@@ -126,7 +114,6 @@ Each package can be installed separately:
 ```bash
 pip install speechmatics-rt
 pip install speechmatics-batch
-pip install speechmatics-flow
 pip install speechmatics-voice[smart]
 pip install speechmatics-tts
 ```
