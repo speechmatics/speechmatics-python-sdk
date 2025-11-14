@@ -18,7 +18,9 @@ from ._logging import get_logger
 from ._models import AudioEventsConfig
 from ._models import AudioFormat
 from ._models import ConnectionConfig
+from ._models import ServerMessageType
 from ._models import SessionInfo
+from ._models import SpeakerIdentifier
 from ._models import TranscriptionConfig
 from ._models import TranslationConfig
 from ._transport import Transport
@@ -145,6 +147,36 @@ class _BaseClient(EventEmitter):
         try:
             data = json.dumps(message)
             await self._transport.send_message(data)
+        except Exception:
+            self._closed_evt.set()
+            raise
+
+    async def get_speakers(self, final=False) -> list[SpeakerIdentifier]:
+        """
+        Get the list of speakers in the current session.
+        This method returns as soon as a SPEAKERS_RESULT message is received.
+        Multiple requests to the method may therefore cause a race condition in which the same
+        SPEAKERS_RESULT message is received by multiple requests. This should not cause any issues,
+        but will result in redundant SPEAKERS_RESULT events.
+
+        Args:
+            final: Whether to wait to the end of the session to return speaker IDs (default: False)
+
+        Returns:
+            List of SpeakerIdentifier objects
+        """
+        try:
+            await self.send_message({"message": "GetSpeakers", "final": final})
+            speaker_evt = asyncio.Event()
+            speaker_identifiers: list[SpeakerIdentifier] = []
+            self.once(
+                ServerMessageType.SPEAKERS_RESULT,
+                lambda msg: (speaker_identifiers.extend(msg.get("speakers", [])), speaker_evt.set()),
+            )
+            await speaker_evt.wait()
+            return speaker_identifiers
+        except asyncio.TimeoutError:
+            raise TransportError("Timeout waiting for SPEAKERS_RESULT")
         except Exception:
             self._closed_evt.set()
             raise
