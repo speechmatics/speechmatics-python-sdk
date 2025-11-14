@@ -8,8 +8,8 @@ The Speechmatics Python SDK repository contains two separate packages:
 
 - `speechmatics-rt` - Real-Time API Client
 - `speechmatics-batch` - Batch API Client
-- `speechmatics-flow` - Flow API Client
 - `speechmatics-voice` - Voice Agent API Client
+- `speechmatics-tts` - TTS API Client
 
 Each package is released independently with its own versioning and release workflow.
 
@@ -91,33 +91,7 @@ To release a new version of the Batch SDK:
    - Update GitHub release notes
    - Announce the release
 
-### 3. Flow SDK Release
-
-To release a new version of the Flow SDK:
-
-1. **Create a Release Tag**
-
-   ```bash
-   git tag flow/v1.0.0
-   git push origin flow/v1.0.0
-   ```
-
-2. **Automated Workflow**
-   The `release-flow.yaml` workflow will automatically:
-
-   - Extract version from tag (e.g., `flow/v1.0.0` → `1.0.0`)
-   - Run comprehensive tests across Python versions
-   - Update version in `sdk/flow/speechmatics/flow/__init__.py`
-   - Build the package
-   - Publish to PyPI
-
-3. **Manual Steps After Release**
-   - Verify the package is available on PyPI
-   - Test installation: `pip install speechmatics-flow==1.0.0`
-   - Update GitHub release notes
-   - Announce the release
-
-### 4. Voice Agent SDK Release
+### 3. Voice Agent SDK Release
 
 To release a new version of the Voice Agent SDK:
 
@@ -143,6 +117,32 @@ To release a new version of the Voice Agent SDK:
    - Update GitHub release notes
    - Announce the release
 
+### 4. TTS SDK Release
+
+To release a new version of the TTS SDK:
+
+1. **Create a Release Tag**
+
+   ```bash
+   git tag tts/v1.0.0
+   git push origin tts/v1.0.0
+   ```
+
+2. **Automated Workflow**
+   The `release-tts.yaml` workflow will automatically:
+
+   - Extract version from tag (e.g., `tts/v1.0.0` → `1.0.0`)
+   - Run comprehensive tests across Python versions
+   - Update version in `sdk/tts/speechmatics/tts/__init__.py`
+   - Build the package
+   - Publish to PyPI
+
+3. **Manual Steps After Release**
+   - Verify the package is available on PyPI
+   - Test installation: `pip install speechmatics-tts==1.0.0`
+   - Update GitHub release notes
+   - Announce the release
+
 ## Version Management
 
 ### Version Format
@@ -162,8 +162,8 @@ Both packages follow semantic versioning (SemVer):
 
 - RT SDK: `rt/v{version}` (e.g., `rt/v1.0.0`)
 - Batch SDK: `batch/v{version}` (e.g., `batch/v1.0.0`)
-- Flow SDK: `flow/v{version}` (e.g., `flow/v1.0.0`)
 - Voice Agent SDK: `voice/v{version}` (e.g., `voice/v1.0.0`)
+- TTS SDK: `tts/v{version}` (e.g., `tts/v1.0.0`)
 
 ## Environment Setup
 
@@ -173,8 +173,8 @@ Both packages are published to PyPI using GitHub Actions with OpenID Connect (OI
 
 - RT SDK: Uses `pypi-rt` environment
 - Batch SDK: Uses `pypi-batch` environment
-- Flow SDK: Uses `pypi-flow` environment
 - Voice Agent SDK: Uses `pypi-voice` environment
+- TTS SDK: Uses `pypi-tts` environment
 
 ### Required Secrets
 
