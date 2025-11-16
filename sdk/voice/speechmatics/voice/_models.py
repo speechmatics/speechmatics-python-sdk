@@ -1046,6 +1046,14 @@ class BaseMessage(BaseModel):
 
     message: str
 
+    @classmethod
+    def from_message(cls, data: dict, **kwargs: Any) -> Self:
+        """Convert a message dictionary to a message object.
+
+        Alias for from_dict() for semantic clarity when working with messages.
+        """
+        return cls.from_dict(data, **kwargs)
+
 
 class ErrorMessage(BaseMessage):
     """Emitted when an error occurs.
