@@ -10,9 +10,10 @@ from typing import Any
 from typing import Literal
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ConfigDict
 from pydantic import Field
+from typing_extensions import Self
 
 from speechmatics.rt import AudioEncoding
 from speechmatics.rt import OperatingPoint
@@ -248,13 +249,39 @@ class AnnotationFlags(str, Enum):
 # ==============================================================================
 
 
-class BaseConfigModel(BaseModel):
+class BaseModel(PydanticBaseModel):
     """Base configuration model."""
 
     model_config = ConfigDict(extra="forbid")
 
+    @classmethod
+    def from_dict(cls, data: dict, **kwargs: Any) -> Self:
+        """Convert a dictionary to a config object."""
+        return cls.model_validate(data, **kwargs)  # type: ignore[no-any-return]
 
-class AdditionalVocabEntry(BaseConfigModel):
+    def to_dict(
+        self, exclude_none: bool = True, exclude_defaults: bool = False, exclude_unset: bool = False, **kwargs: Any
+    ) -> dict[str, Any]:
+        """Convert the model to a dictionary."""
+        return super().model_dump(  # type: ignore[no-any-return]
+            exclude_none=exclude_none, exclude_defaults=exclude_defaults, exclude_unset=exclude_unset, **kwargs
+        )
+
+    @classmethod
+    def from_json(cls, json_data: str, **kwargs: Any) -> Self:
+        """Convert a JSON string to a config object."""
+        return cls.model_validate_json(json_data, **kwargs)  # type: ignore[no-any-return]
+
+    def to_json(
+        self, exclude_none: bool = True, exclude_defaults: bool = False, exclude_unset: bool = False, **kwargs: Any
+    ) -> str:
+        """Convert the model to a JSON string."""
+        return self.model_dump_json(  # type: ignore[no-any-return]
+            exclude_none=exclude_none, exclude_defaults=exclude_defaults, exclude_unset=exclude_unset, **kwargs
+        )
+
+
+class AdditionalVocabEntry(BaseModel):
     """Additional vocabulary entry.
 
     Parameters:
@@ -280,10 +307,10 @@ class AdditionalVocabEntry(BaseConfigModel):
     """
 
     content: str
-    sounds_like: list[str] = Field(default_factory=list)
+    sounds_like: Optional[list[str]] = None
 
 
-class SpeakerFocusConfig(BaseConfigModel):
+class SpeakerFocusConfig(BaseModel):
     """Speaker Focus Config.
 
     List of speakers to focus on, ignore and how to deal with speakers that are not
@@ -317,7 +344,7 @@ class SpeakerFocusConfig(BaseConfigModel):
     focus_mode: SpeakerFocusMode = SpeakerFocusMode.RETAIN
 
 
-class SpeechSegmentConfig(BaseConfigModel):
+class SpeechSegmentConfig(BaseModel):
     """Configuration on how segments are emitted.
 
     Parameters:
@@ -339,7 +366,7 @@ class SpeechSegmentConfig(BaseConfigModel):
     pause_mark: Optional[str] = None
 
 
-class EndOfTurnPenaltyItem(BaseConfigModel):
+class EndOfTurnPenaltyItem(BaseModel):
     """End of turn penalty item.
 
     Parameters:
@@ -353,7 +380,7 @@ class EndOfTurnPenaltyItem(BaseConfigModel):
     is_not: bool = False
 
 
-class EndOfTurnConfig(BaseConfigModel):
+class EndOfTurnConfig(BaseModel):
     """Configuration for end of turn.
 
     Parameters:
@@ -386,7 +413,7 @@ class EndOfTurnConfig(BaseConfigModel):
     )
 
 
-class SmartTurnConfig(BaseConfigModel):
+class SmartTurnConfig(BaseModel):
     """Smart turn configuration for the Speechmatics Voice Agent.
 
     This configuration is used to determine when a turn has completed. It is used to
@@ -421,7 +448,7 @@ class SmartTurnConfig(BaseConfigModel):
     negative_penalty: float = 1.7
 
 
-class VoiceAgentConfig(BaseConfigModel):
+class VoiceAgentConfig(BaseModel):
     """Voice Agent configuration.
 
     A framework-independent configuration object for the Speechmatics Voice Agent. This uses
@@ -635,19 +662,6 @@ class VoiceAgentConfig(BaseConfigModel):
     sample_rate: int = 16000
     audio_encoding: AudioEncoding = AudioEncoding.PCM_S16LE
 
-    # Parse JSON
-    @classmethod
-    def from_json(cls, json_data: str) -> VoiceAgentConfig:
-        """Convert a JSON string to a VoiceAgentConfig object."""
-        cfg: VoiceAgentConfig = cls.model_validate_json(json_data)
-        return cfg
-
-    # To JSON
-    def to_json(self) -> str:
-        """Convert the model to a JSON string."""
-        config_str: str = self.model_dump_json(exclude_none=True, exclude_defaults=True, exclude_unset=True)
-        return config_str
-
 
 # ==============================================================================
 # SESSION & INFO MODELS
@@ -852,12 +866,28 @@ class SpeakerSegment(BaseModel):
         """Return the end time of the segment."""
         return self.fragments[-1].end_time if self.fragments else 0.0
 
-    def model_dump(self, include_results: bool = False, **kwargs: Any) -> dict[str, Any]:
+    def to_dict(
+        self,
+        exclude_none: bool = True,
+        exclude_defaults: bool = False,
+        exclude_unset: bool = False,
+        include_results: bool = False,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
         """Override model_dump to control fragments/results inclusion."""
 
         # Always exclude fragments from the base dump
-        kwargs["exclude"] = {"fragments"}
-        data: dict[str, Any] = super().model_dump(**kwargs)
+        exclude = kwargs.get("exclude", set())
+        if isinstance(exclude, set):
+            exclude.add("fragments")
+        else:
+            exclude = {"fragments"}
+        kwargs["exclude"] = exclude
+
+        # Get the base dump
+        data: dict[str, Any] = super().model_dump(
+            exclude_none=exclude_none, exclude_defaults=exclude_defaults, exclude_unset=exclude_unset, **kwargs
+        )
 
         # Add timing information
         data["start_time"] = self.start_time
@@ -904,7 +934,16 @@ class SpeakerSegmentView(BaseModel):
             annotate_segments=annotate_segments,
         )
 
-        super().__init__(session=session, fragments=fragments, segments=segments, focus_speakers=focus_speakers, **data)
+        # Initialize with the computed values
+        data.update(
+            {
+                "session": session,
+                "fragments": fragments,
+                "segments": segments,
+                "focus_speakers": focus_speakers,
+            }
+        )
+        super().__init__(**data)
 
     @property
     def start_time(self) -> float:
@@ -998,22 +1037,10 @@ class SpeakerSegmentView(BaseModel):
 # ==============================================================================
 
 
-class BaseMessageModel(BaseModel):
+class BaseMessage(BaseModel):
     """Base model for all messages."""
 
-    def model_dump(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
-        """Default to excluding None values."""
-        return super().model_dump(*args, **kwargs, exclude_none=True, mode="json")  # type: ignore[no-any-return]
-
-    def model_dump_json(self, *args: Any, **kwargs: Any) -> str:
-        """Default to excluding None values."""
-        return super().model_dump_json(*args, **kwargs, exclude_none=True)  # type: ignore[no-any-return]
-
-
-class BaseMessage(BaseMessageModel):
-    """Base model for all messages."""
-
-    message: AgentServerMessageType
+    message: str
 
 
 class ErrorMessage(BaseMessage):
@@ -1065,7 +1092,7 @@ class VADStatusMessage(BaseMessage):
     time: Optional[float] = None
 
 
-class MessageTimeMetadata(BaseMessageModel):
+class MessageTimeMetadata(BaseModel):
     """Metadata for segment messages.
 
     Parameters:
@@ -1097,7 +1124,7 @@ class TurnStartEndResetMessage(BaseMessage):
     metadata: MessageTimeMetadata
 
 
-class TurnPredictionMetadata(BaseMessageModel):
+class TurnPredictionMetadata(BaseModel):
     """Metadata for turn prediction messages.
 
     Parameters:
@@ -1128,7 +1155,7 @@ class SpeakerMetricsMessage(BaseMessage):
     speakers: list[SessionSpeaker]
 
 
-class SegmentMessageSegmentFragment(BaseMessageModel):
+class SegmentMessageSegmentFragment(BaseModel):
     """Speech fragment for segment messages.
 
     Parameters:
@@ -1152,7 +1179,7 @@ class SegmentMessageSegmentFragment(BaseMessageModel):
     model_config = ConfigDict(extra="ignore")
 
 
-class SegmentMessageSegment(BaseMessageModel):
+class SegmentMessageSegment(BaseModel):
     """Partial or final segment.
 
     Parameters:

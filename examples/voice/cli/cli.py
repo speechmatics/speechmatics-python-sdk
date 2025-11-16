@@ -141,7 +141,7 @@ async def main() -> None:
     # Use JSON config
     if args.config is not None:
         try:
-            config = VoiceAgentConfig.model_validate(args.config)
+            config = VoiceAgentConfig.from_dict(args.config)
         except Exception as e:
             print(f"Error validating config: {e}")
             return
@@ -182,7 +182,7 @@ async def main() -> None:
 
     # Handle config display
     if args.show:
-        print(config.model_dump_json(indent=2, exclude_unset=True, exclude_none=True))
+        print(config.to_json(indent=2, exclude_unset=True, exclude_none=True))
         return
 
     # Set the audio sample rate
@@ -550,7 +550,7 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
         log_message(
             {
                 "message": "VoiceAgentClientConfig",
-                "config": client._config.model_dump(exclude_none=True, exclude_unset=True),
+                "config": client._config.to_dict(exclude_none=True, exclude_unset=True),
             }
         )
 

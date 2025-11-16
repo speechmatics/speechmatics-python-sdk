@@ -115,7 +115,7 @@ async def test_extract_speaker_ids():
         print()
         print()
         print("---")
-        log_message({"message": "VoiceAgentConfig", **client._config.model_dump()})
+        log_message({"message": "VoiceAgentConfig", **client._config.to_dict()})
         log_message({"message": "TranscriptionConfig", **client._transcription_config.to_dict()})
         log_message({"message": "AudioFormat", **client._audio_format.to_dict()})
 
