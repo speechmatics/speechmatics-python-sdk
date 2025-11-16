@@ -264,7 +264,11 @@ class BaseModel(PydanticBaseModel):
     ) -> dict[str, Any]:
         """Convert the model to a dictionary."""
         return super().model_dump(  # type: ignore[no-any-return]
-            exclude_none=exclude_none, exclude_defaults=exclude_defaults, exclude_unset=exclude_unset, **kwargs
+            mode="json",
+            exclude_none=exclude_none,
+            exclude_defaults=exclude_defaults,
+            exclude_unset=exclude_unset,
+            **kwargs,
         )
 
     @classmethod
