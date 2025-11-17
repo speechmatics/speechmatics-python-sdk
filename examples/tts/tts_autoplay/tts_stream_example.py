@@ -25,7 +25,6 @@ END_OF_STREAM = None
 
 async def audio_generator(audio_queue: asyncio.Queue, text: str, voice: str, output_format: str) -> None:
 # Generate speech and stream audio chunks into the queue.
-    
     try:
         async with AsyncClient() as client, await client.generate(
             text=text,
