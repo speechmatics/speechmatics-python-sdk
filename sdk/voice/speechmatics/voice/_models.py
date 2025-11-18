@@ -1141,11 +1141,11 @@ class TurnPredictionMetadata(BaseModel):
 
     Parameters:
         ttl: The time to live of the prediction in seconds.
-        reasons: The reasons for the prediction.
     """
 
     ttl: float
-    reasons: list[str]
+
+    model_config = ConfigDict(extra="ignore")
 
 
 class TurnPredictionMessage(BaseMessage):
@@ -1187,6 +1187,7 @@ class SegmentMessageSegmentFragment(BaseModel):
     type: str = Field(default="word", alias="type_")
     content: str = ""
     attaches_to: str = ""
+    is_eos: bool = False
 
     model_config = ConfigDict(extra="ignore")
 
@@ -1201,7 +1202,6 @@ class SegmentMessageSegment(BaseModel):
         language: The language of the frame.
         text: The text of the segment.
         fragments: The fragments associated with the segment.
-        annotation: The annotation associated with the segment.
         metadata: The metadata associated with the segment.
     """
 
@@ -1211,8 +1211,9 @@ class SegmentMessageSegment(BaseModel):
     language: Optional[str] = None
     text: Optional[str] = None
     fragments: Optional[list[SegmentMessageSegmentFragment]] = None
-    annotation: list[AnnotationFlags] = Field(default_factory=list)
     metadata: MessageTimeMetadata
+
+    model_config = ConfigDict(extra="ignore")
 
 
 class SegmentMessage(BaseMessage):
