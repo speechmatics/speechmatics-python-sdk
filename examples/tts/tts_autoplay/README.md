@@ -25,7 +25,7 @@ If an error occurs during audio playback, the END_OF_STREAM sentinel value is st
 ## Installation
 
 ```bash
-pip install speechmatics-tts
+pip install -r requirements.txt
 ```
 
 ## Usage
