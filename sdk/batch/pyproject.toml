@@ -50,3 +50,7 @@ version = { attr = "speechmatics.batch.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["."]
+
+[[tool.mypy.overrides]]
+module = ["aiofiles.*"]
+ignore_missing_imports = true

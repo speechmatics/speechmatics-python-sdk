@@ -1,0 +1,16 @@
+[
+  {
+    "content": "Speechmatics",
+    "sounds_like": ["speech matics", "speech mattics"]
+  },
+  {
+    "content": "API"
+  },
+  {
+    "content": "WebSocket"
+  },
+  {
+    "content": "OAuth",
+    "sounds_like": ["oh auth", "o auth"]
+  }
+]

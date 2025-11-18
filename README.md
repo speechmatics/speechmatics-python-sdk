@@ -34,6 +34,26 @@ An async Python client for Speechmatics Flow API.
 pip install speechmatics-flow
 ```
 
+### (Beta) Voice Agent Client (`speechmatics-voice`)
+
+A Voice Agent Python client for Speechmatics Real-Time API.
+
+```bash
+# Standard installation
+pip install speechmatics-voice
+
+# With SMART_TURN (ML-based turn detection)
+pip install speechmatics-voice[smart]
+```
+
+### (Beta) TTS Client (`speechmatics-tts`)
+
+An async Python client for Speechmatics TTS API.
+
+```bash
+pip install speechmatics-tts
+```
+
 ## Development
 
 ### Repository Structure
@@ -52,11 +72,21 @@ speechmatics-python-sdk/
 │   ├── flow/
 │   │   ├── pyproject.toml
 │   │   └── README.md
+│   │
+│   ├── voice/
+│   │   ├── pyproject.toml
+│   │   └── README.md
+│   │
+│   ├── tts/
+│   │   ├── pyproject.toml
+│   │   └── README.md
 │
 ├── tests/
 │   ├── batch/
-│   └── rt/
-│   └── flow/
+│   ├── rt/
+│   ├── flow/
+│   ├── voice/
+│   └── tts/
 │
 ├── examples/
 ├── Makefile
@@ -97,6 +127,8 @@ Each package can be installed separately:
 pip install speechmatics-rt
 pip install speechmatics-batch
 pip install speechmatics-flow
+pip install speechmatics-voice[smart]
+pip install speechmatics-tts
 ```
 
 ## Docs
