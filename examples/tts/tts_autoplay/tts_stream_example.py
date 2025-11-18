@@ -4,7 +4,7 @@ import numpy as np
 from speechmatics.tts import AsyncClient, Voice, OutputFormat
 
 # Configuration
-TEXT = "Welcome to the future of audio generation from text! This audio is a demo of the async streaming Speechmatics Text-to-Speech (TTS) API."
+TEXT = "Welcome to the future of audio generation from text! This audio is a demo of the async streaming Speechmatics' text to speech API."
 VOICE = Voice.JACK
 OUTPUT_FORMAT = OutputFormat.RAW_PCM_16000
 
