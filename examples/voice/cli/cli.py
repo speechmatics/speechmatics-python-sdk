@@ -35,8 +35,6 @@ from speechmatics.voice import VoiceAgentConfigPreset
 # CONSTANTS
 # ==============================================================================
 
-# Audio slice duration (seconds of audio to capture before speaker ends)
-AUDIO_SLICE_DURATION = 8.0
 
 # Default output directory
 DEFAULT_OUTPUT_DIR = "./output"
@@ -413,17 +411,17 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
         if client._config.end_of_utterance_mode != "smart_turn":
             return
 
+        # Metadata
+        metadata = message.get("metadata", {})
+
         # Get time from message
-        event_time = message.get("time")
-        if not event_time:
+        start_time = metadata.get("start_time")
+        end_time = metadata.get("end_time")
+        if not end_time or not start_time:
             return
 
-        speaker_id = message.get("speaker_id", "unknown")
-
-        # Get audio slice from buffer
-        # Capture audio leading up to the speaker ending
-        start_time = event_time - AUDIO_SLICE_DURATION
-        end_time = event_time
+        # Speaker ID
+        speaker_id = metadata.get("speaker_id", "unknown")
 
         try:
             audio_data = await client._audio_buffer.get_frames(
@@ -434,7 +432,7 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
             if audio_data:
                 # Generate filenames
                 slice_counter["count"] += 1
-                base_filename = f"slice_{slice_counter['count']:04d}_{speaker_id}_{event_time:.2f}"
+                base_filename = f"slice_{slice_counter['count']:04d}_{speaker_id}_{end_time:.2f}"
                 wav_filepath = Path(args.slices_dir) / f"{base_filename}.wav"
                 json_filepath = Path(args.slices_dir) / f"{base_filename}.json"
 
@@ -449,7 +447,7 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
                     "message": message,
                     "speaker_id": speaker_id,
                     "is_active": message.get("is_active"),
-                    "time": event_time,
+                    "time": end_time,
                     "slice_start_time": start_time,
                     "slice_end_time": end_time,
                     "slice_duration": end_time - start_time,
@@ -482,10 +480,7 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
             _segs = []
             for segment in message["segments"]:
                 suffix = "" if segment["is_active"] else " (background)"
-                if args.verbose >= 3:
-                    _segs.append(f"@{segment['speaker_id']}{suffix}: `{segment['text']}` {segment['annotation']}")
-                else:
-                    _segs.append(f"@{segment['speaker_id']}{suffix}: `{segment['text']}`")
+                _segs.append(f"@{segment['speaker_id']}{suffix}: `{segment['text']}` {segment['annotation']}")
             payload = {"segments": _segs}
 
         # Print to console
@@ -521,19 +516,20 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
 
         # Save audio slices on SPEAKER_ENDED (SMART_TURN mode only)
         if args.slices_dir:
-            client.on(AgentServerMessageType.SPEAKER_ENDED, save_audio_slice)
+            client.on(AgentServerMessageType.SMART_TURN_RESULT, save_audio_slice)
 
         # Verbose turn prediction
         if args.verbose >= 2:
             client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, log_message)
+            client.on(AgentServerMessageType.SMART_TURN_RESULT, log_message)
 
         # Metrics
-        if args.verbose >= 4:
+        if args.verbose >= 3:
             client.on(AgentServerMessageType.SESSION_METRICS, log_message)
             client.on(AgentServerMessageType.SPEAKER_METRICS, log_message)
 
         # Verbose STT events
-        if args.verbose >= 5:
+        if args.verbose >= 4:
             client.on(AgentServerMessageType.END_OF_UTTERANCE, log_message)
             client.on("ForcedEndOfUtterance", log_message)
             client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, log_message)
@@ -942,12 +938,11 @@ def parse_args():
         "preset",
         "end-of-utterance-mode",
         "end-of-utterance-silence-trigger",
-        "focus-speakers",
-        "ignore-mode",
-        "ignore-speakers",
+        # "focus-speakers",
+        # "ignore-mode",
+        # "ignore-speakers",
         "language",
         "max-delay",
-        "speakers",
     ]
 
     if args.config is not None:

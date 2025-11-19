@@ -263,7 +263,7 @@ class VoiceAgentClient(AsyncClient):
                 )
                 if detector.model_exists():
                     self._smart_turn_detector = detector
-                    self._config.smart_turn_config.audio_buffer_length = 10.0
+                    self._config.smart_turn_config.audio_buffer_length = 8.0
                     eou_mode_ok = True
             if not eou_mode_ok:
                 self._logger.warning("Smart Turn model not available. Falling back to ADAPTIVE.")
@@ -291,6 +291,8 @@ class VoiceAgentClient(AsyncClient):
         self._current_speaker: Optional[str] = None
         self._dz_enabled: bool = self._config.enable_diarization
         self._dz_config = self._config.speaker_config
+        self._last_speak_start_time: Optional[float] = None
+        self._last_speak_end_time: Optional[float] = None
 
         # -------------------------------------
         # Metrics
@@ -1453,12 +1455,12 @@ class VoiceAgentClient(AsyncClient):
 
         return finalize_delay
 
-    async def _eot_prediction(self, end_time: Optional[float] = None) -> float:
+    async def _eot_prediction(self, end_time: Optional[float] = None, speaker: Optional[str] = None) -> float:
         """Handle end of turn prediction."""
 
         # Wait for Smart Turn result
         if self._eou_mode == EndOfUtteranceMode.SMART_TURN and end_time is not None:
-            result = await self._smart_turn_prediction(end_time, self._config.language)
+            result = await self._smart_turn_prediction(end_time, self._config.language, speaker=speaker)
         else:
             result = None
 
@@ -1468,7 +1470,9 @@ class VoiceAgentClient(AsyncClient):
         # Return the result
         return delay or 0.005
 
-    async def _smart_turn_prediction(self, end_time: float, language: str) -> SmartTurnPredictionResult:
+    async def _smart_turn_prediction(
+        self, end_time: float, language: str, start_time: float = 0.0, speaker: Optional[str] = None
+    ) -> SmartTurnPredictionResult:
         """Predict when to emit the end of turn.
 
         This will give an acoustic prediction of when the turn has completed using
@@ -1486,11 +1490,26 @@ class VoiceAgentClient(AsyncClient):
         if not self._smart_turn_detector:
             return SmartTurnPredictionResult(error="Smart turn is not enabled")
 
+        # Calculate the times
+        end_time = end_time + self._config.smart_turn_config.slice_margin
+        start_time = max(start_time, end_time - self._config.smart_turn_config.audio_buffer_length)
+        total_time = self._total_time
+
+        # Find the start / end times for the current speaker for this turn ...
+        if self._current_view:
+            """Extract the audio for this speaker only."""
+
+            # Filter segments that match the current speaker
+            speaker_segments: list[SpeakerSegment] = [
+                seg for seg in self._current_view.segments if seg.speaker_id == speaker
+            ]
+
+            # Get the LAST segment
+            if speaker_segments:
+                start_time = speaker_segments[-1].start_time
+
         # Get audio slice (add small margin of 100ms to the end of the audio)
-        segment_audio = await self._audio_buffer.get_frames(
-            start_time=end_time - self._config.smart_turn_config.audio_buffer_length,
-            end_time=end_time + self._config.smart_turn_config.slice_margin,
-        )
+        segment_audio = await self._audio_buffer.get_frames(start_time=start_time, end_time=end_time)
 
         # Evaluate
         prediction = await self._smart_turn_detector.predict(
@@ -1498,6 +1517,25 @@ class VoiceAgentClient(AsyncClient):
             language=language,
             sample_rate=self._audio_sample_rate,
             sample_width=self._audio_sample_width,
+        )
+
+        # Metadata
+        metadata = {
+            "start_time": round(start_time, 3),
+            "end_time": round(end_time, 3),
+            "language": language,
+            "speaker_id": speaker,
+            "total_time": round(total_time, 3),
+        }
+
+        # Emit smart turn info
+        self.emit(
+            AgentServerMessageType.SMART_TURN_RESULT,
+            {
+                "message": AgentServerMessageType.SMART_TURN_RESULT.value,
+                "prediction": prediction.to_dict(),
+                "metadata": metadata,
+            },
         )
 
         # Return the prediction
@@ -1617,6 +1655,7 @@ class VoiceAgentClient(AsyncClient):
                         time=speaker_end_time,
                     ),
                 )
+                self._last_speak_start_time = speaker_end_time
 
         # Update current speaker
         self._current_speaker = latest_speaker
@@ -1644,6 +1683,9 @@ class VoiceAgentClient(AsyncClient):
     async def _handle_speaker_started(self, speaker: Optional[str], event_time: float) -> None:
         """Reset timers when a new speaker starts speaking after silence."""
 
+        # Update last speak start time
+        self._last_speak_start_time = event_time
+
         # Emit start of turn (not when using EXTERNAL)
         if self._is_speaking and not self._turn_active:
             await self._emit_start_of_turn(event_time)
@@ -1668,11 +1710,14 @@ class VoiceAgentClient(AsyncClient):
     async def _handle_speaker_stopped(self, speaker: Optional[str], event_time: float) -> None:
         """Reset the current speaker and do smart turn detection (if enabled)."""
 
+        # Update last speak end time
+        self._last_speak_end_time = event_time
+
         # Turn prediction
         if self._uses_forced_eou:
 
             async def fn() -> None:
-                ttl = await self._eot_prediction(event_time)
+                ttl = await self._eot_prediction(event_time, speaker)
                 self._turn_handler.update_timer(ttl)
 
             self._run_background_eot_calculation(fn)

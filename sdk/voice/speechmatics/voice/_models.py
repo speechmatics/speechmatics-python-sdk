@@ -141,6 +141,7 @@ class AgentServerMessageType(str, Enum):
         StartOfTurn: Start of turn has been detected.
         EndOfTurnPrediction: End of turn prediction timing.
         EndOfTurn: End of turn has been detected.
+        SmartTurn: Smart turn metadata.
         SpeakersResult: Speakers result has been detected.
         Metrics: Metrics for the STT engine.
         SpeakerMetrics: Metrics relating to speakers.
@@ -190,7 +191,7 @@ class AgentServerMessageType(str, Enum):
     START_OF_TURN = "StartOfTurn"
     END_OF_TURN_PREDICTION = "EndOfTurnPrediction"
     END_OF_TURN = "EndOfTurn"
-    SMART_TURN_AUDIO = "SmartTurnAudio"
+    SMART_TURN_RESULT = "SmartTurnResult"
 
     # Speaker messages
     SPEAKERS_RESULT = "SpeakersResult"
@@ -395,7 +396,7 @@ class EndOfTurnConfig(BaseModel):
     """
 
     base_multiplier: float = 1.0
-    min_end_of_turn_delay: float = 0.3
+    min_end_of_turn_delay: float = 0.05
     end_of_turn_adjustment_factor: float = 1.0
     penalties: list[EndOfTurnPenaltyItem] = Field(
         default_factory=lambda: [
@@ -411,7 +412,7 @@ class EndOfTurnConfig(BaseModel):
             ),
             # Decrease delay
             EndOfTurnPenaltyItem(
-                penalty=0.25, annotation=[AnnotationFlags.ENDS_WITH_FINAL, AnnotationFlags.ENDS_WITH_EOS]
+                penalty=0.5, annotation=[AnnotationFlags.ENDS_WITH_FINAL, AnnotationFlags.ENDS_WITH_EOS]
             ),
         ]
     )
@@ -448,7 +449,7 @@ class SmartTurnConfig(BaseModel):
     audio_buffer_length: float = 0.0
     smart_turn_threshold: float = 0.5
     slice_margin: float = 0.05
-    positive_penalty: float = 0.3
+    positive_penalty: float = 0.1
     negative_penalty: float = 1.7
 
 
@@ -1144,6 +1145,7 @@ class TurnPredictionMetadata(BaseModel):
     """
 
     ttl: float
+    reasons: list[str]
 
     model_config = ConfigDict(extra="ignore")
 
@@ -1211,6 +1213,7 @@ class SegmentMessageSegment(BaseModel):
     language: Optional[str] = None
     text: Optional[str] = None
     fragments: Optional[list[SegmentMessageSegmentFragment]] = None
+    annotation: list[AnnotationFlags] = Field(default_factory=list)
     metadata: MessageTimeMetadata
 
     model_config = ConfigDict(extra="ignore")
