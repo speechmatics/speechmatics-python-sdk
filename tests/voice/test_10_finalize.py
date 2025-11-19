@@ -43,7 +43,6 @@ async def test_finalize():
             end_of_utterance_silence_trigger=0.7,
             max_delay=1.2,
             end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL,
-            use_forced_eou_message=True,
         ),
     )
 

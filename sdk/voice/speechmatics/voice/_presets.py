@@ -8,7 +8,9 @@ from typing import Optional
 
 from ._models import EndOfUtteranceMode
 from ._models import OperatingPoint
+from ._models import SmartTurnConfig
 from ._models import SpeechSegmentConfig
+from ._models import VoiceActivityConfig
 from ._models import VoiceAgentConfig
 
 
@@ -77,8 +79,14 @@ class VoiceAgentConfigPreset:
                 enable_diarization=True,
                 max_delay=0.7,
                 end_of_utterance_silence_trigger=1.0,
-                end_of_utterance_mode=EndOfUtteranceMode.SMART_TURN,
+                end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
                 speech_segment_config=SpeechSegmentConfig(emit_sentences=False),
+                smart_turn_config=SmartTurnConfig(
+                    enabled=True,
+                ),
+                vad_config=VoiceActivityConfig(
+                    enabled=True,
+                ),
             ),
             overlay,
         )
@@ -138,7 +146,6 @@ class VoiceAgentConfigPreset:
                 end_of_utterance_silence_trigger=1.2,
                 end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL,
                 speech_segment_config=SpeechSegmentConfig(emit_sentences=True),
-                use_forced_eou_message=True,
             ),
             overlay,
         )

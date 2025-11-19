@@ -46,6 +46,7 @@ RECORDING_FILENAME = "recording.wav"
 # Console colors for message types
 COLORS = {
     # Segments
+    "Diagnostics": "\033[90m",
     "AddPartialSegment": "\033[93m",
     "AddSegment": "\033[1;92m",
     # Speaker events
@@ -57,6 +58,8 @@ COLORS = {
     "StartOfTurn": "\033[91m",
     "EndOfTurnPrediction": "\033[95m",
     "EndOfTurn": "\033[1;91m",
+    # VAD status
+    "VadStatus": "\033[41;97m",
     # Transcript events
     "AddPartialTranscript": "\033[90m",
     "AddTranscript": "\033[90m",
@@ -180,7 +183,7 @@ async def main() -> None:
 
     # Handle config display
     if args.show:
-        print(config.to_json(indent=2, exclude_unset=True, exclude_none=True))
+        print(config.to_json(indent=2, exclude_unset=False, exclude_none=False))
         return
 
     # Set the audio sample rate
@@ -399,7 +402,7 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
         start_time: Start time for timestamp calculation
     """
 
-    # Audio slice counter
+    # Counters
     slice_counter = {"count": 0}
 
     async def async_save_audio_slice(message: dict) -> None:
@@ -407,8 +410,8 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
         if not args.slices_dir:
             return
 
-        # Only save slices in SMART_TURN mode
-        if client._config.end_of_utterance_mode != "smart_turn":
+        # Skip if not a VAD end
+        if message.get("message") == AgentServerMessageType.VAD_STATUS and not message.get("is_speech"):
             return
 
         # Metadata
@@ -417,7 +420,7 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
         # Get time from message
         start_time = metadata.get("start_time")
         end_time = metadata.get("end_time")
-        if not end_time or not start_time:
+        if end_time is None or start_time is None:
             return
 
         # Speaker ID
@@ -480,11 +483,11 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
             _segs = []
             for segment in message["segments"]:
                 suffix = "" if segment["is_active"] else " (background)"
-                _segs.append(f"@{segment['speaker_id']}{suffix}: `{segment['text']}` {segment['annotation']}")
+                _segs.append(f"@{segment['speaker_id']}{suffix}: `{segment['text']}` {segment.get('annotation', '')}")
             payload = {"segments": _segs}
 
         # Print to console
-        print(f"{color}{ts_str} {msg_type:<24} {json.dumps(payload)}\033[0m")
+        print(f"{color}{ts_str} {client._total_time:>7.3f} {msg_type:<24} {json.dumps(payload)}\033[0m")
 
     def log_message(message: dict[str, Any]) -> None:
         """Log message to console and optional JSONL file."""
@@ -497,8 +500,8 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
 
     # Register standard handlers
     client.on(AgentServerMessageType.INFO, log_message)
-    client.on(AgentServerMessageType.RECOGNITION_STARTED, log_message)
-    client.on(AgentServerMessageType.END_OF_TRANSCRIPT, log_message)
+    client.once(AgentServerMessageType.RECOGNITION_STARTED, log_message)
+    client.once(AgentServerMessageType.END_OF_TRANSCRIPT, log_message)
 
     # Voice SDK messages
     if not args.legacy:
@@ -513,10 +516,13 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
         if args.verbose >= 1:
             client.on(AgentServerMessageType.SPEAKER_STARTED, log_message)
             client.on(AgentServerMessageType.SPEAKER_ENDED, log_message)
+            client.on(AgentServerMessageType.VAD_STATUS, log_message)
+            client.on(AgentServerMessageType.DIAGNOSTICS, log_message)
 
         # Save audio slices on SPEAKER_ENDED (SMART_TURN mode only)
         if args.slices_dir:
             client.on(AgentServerMessageType.SMART_TURN_RESULT, save_audio_slice)
+            client.on(AgentServerMessageType.VAD_STATUS, save_audio_slice)
 
         # Verbose turn prediction
         if args.verbose >= 2:
@@ -531,7 +537,6 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
         # Verbose STT events
         if args.verbose >= 4:
             client.on(AgentServerMessageType.END_OF_UTTERANCE, log_message)
-            client.on("ForcedEndOfUtterance", log_message)
             client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, log_message)
             client.on(AgentServerMessageType.ADD_TRANSCRIPT, log_message)
 
@@ -806,7 +811,7 @@ def parse_args():
         "-C",
         "--chunk-size",
         type=int,
-        default=320,
+        default=80,
         help="Audio chunk size in bytes (default: 320)",
     )
     parser.add_argument(

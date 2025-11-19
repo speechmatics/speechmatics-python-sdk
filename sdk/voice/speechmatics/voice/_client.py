@@ -49,6 +49,7 @@ from ._models import SpeakerFocusMode
 from ._models import SpeakerMetricsMessage
 from ._models import SpeakerSegment
 from ._models import SpeakerSegmentView
+from ._models import SpeakerStatusMessage
 from ._models import SpeechFragment
 from ._models import TranscriptionUpdatePreset
 from ._models import TurnPredictionMessage
@@ -62,6 +63,9 @@ from ._smart_turn import SmartTurnDetector
 from ._smart_turn import SmartTurnPredictionResult
 from ._turn import TurnTaskProcessor
 from ._utils import FragmentUtils
+from ._vad import SILERO_INSTALL_HINT
+from ._vad import SileroVAD
+from ._vad import SileroVADResult
 
 
 class VoiceAgentClient(AsyncClient):
@@ -239,48 +243,75 @@ class VoiceAgentClient(AsyncClient):
         self._previous_view: Optional[SpeakerSegmentView] = None
 
         # -------------------------------------
+        # VAD
+        # -------------------------------------
+
+        # Handlers
+        self._uses_silero_vad: bool = False
+        self._silero_detector: Optional[SileroVAD] = None
+
+        # Silero VAD detector
+        if self._config.vad_config and self._config.vad_config.enabled:
+            if not SileroVAD.dependencies_available():
+                self._logger.warning(SILERO_INSTALL_HINT)
+            else:
+                silero_detector = SileroVAD(
+                    silence_duration_ms=self._config.vad_config.silence_duration_ms,
+                    threshold=self._config.vad_config.threshold,
+                    auto_init=True,
+                    on_state_change=self._handle_vad_result,
+                )
+                if silero_detector.model_exists():
+                    self._silero_detector = silero_detector
+                    self._uses_silero_vad = True
+            if not self._uses_silero_vad:
+                self._logger.warning("Silero model not available and VAD will be disabled.")
+
+        # -------------------------------------
         # EOU / EOT
         # -------------------------------------
 
         # Handlers
-        self._turn_handler: TurnTaskProcessor = TurnTaskProcessor(name="turn_handler", done_callback=self.finalize)
+        self._uses_smart_turn: bool = False
         self._smart_turn_detector: Optional[SmartTurnDetector] = None
-        self._eot_calculation_task: Optional[asyncio.Task] = None
 
         # Current turn
         self._turn_start_time: Optional[float] = None
         self._turn_active: bool = False
 
         # Start turn detector if SMART_TURN requested
-        if self._config.end_of_utterance_mode == EndOfUtteranceMode.SMART_TURN:
-            eou_mode_ok: bool = False
+        if self._config.smart_turn_config and self._config.smart_turn_config.enabled:
             if not SmartTurnDetector.dependencies_available():
                 self._logger.warning(SMART_TURN_INSTALL_HINT)
             else:
-                detector = SmartTurnDetector(
-                    auto_init=True,
-                    threshold=self._config.smart_turn_config.smart_turn_threshold,
+                smart_turn_detector = SmartTurnDetector(
+                    auto_init=True, threshold=self._config.smart_turn_config.smart_turn_threshold
                 )
-                if detector.model_exists():
-                    self._smart_turn_detector = detector
-                    self._config.smart_turn_config.audio_buffer_length = 8.0
-                    eou_mode_ok = True
-            if not eou_mode_ok:
+                if smart_turn_detector.model_exists():
+                    self._smart_turn_detector = smart_turn_detector
+                    self._uses_smart_turn = True
+            if not self._uses_smart_turn:
                 self._logger.warning("Smart Turn model not available. Falling back to ADAPTIVE.")
                 self._config.end_of_utterance_mode = EndOfUtteranceMode.ADAPTIVE
+
+        # -------------------------------------
+        # Turn / End of Utterance Handling
+        # -------------------------------------
 
         # EOU mode
         self._eou_mode: EndOfUtteranceMode = self._config.end_of_utterance_mode
 
-        # Uses fixed EndOfUtterance message
-        self._uses_fixed_eou: bool = self._eou_mode == EndOfUtteranceMode.FIXED
+        # Handlers
+        self._turn_handler: TurnTaskProcessor = TurnTaskProcessor(name="turn_handler", done_callback=self.finalize)
+        self._eot_calculation_task: Optional[asyncio.Task] = None
+
+        # Uses fixed EndOfUtterance message from STT
+        self._uses_fixed_eou: bool = self._eou_mode == EndOfUtteranceMode.FIXED and not self._silero_detector
 
         # Uses ForceEndOfUtterance message
-        self._uses_forced_eou: bool = self._eou_mode in [
-            EndOfUtteranceMode.ADAPTIVE,
-            EndOfUtteranceMode.SMART_TURN,
-        ]
+        self._uses_forced_eou: bool = self._uses_smart_turn or self._uses_silero_vad
         self._forced_eou_active: bool = False
+        self._last_forced_eou_latency: float = 0.0
 
         # -------------------------------------
         # Diarization / Speakers
@@ -312,12 +343,16 @@ class VoiceAgentClient(AsyncClient):
             AudioEncoding.PCM_S16LE: 2,
         }.get(self._audio_format.encoding, 1)
 
+        # Default audio buffer
+        if not self._config.audio_buffer_length and (self._uses_smart_turn or self._uses_silero_vad):
+            self._config.audio_buffer_length = 15.0
+
         # Audio buffer
-        if self._config.smart_turn_config.audio_buffer_length > 0:
+        if self._config.audio_buffer_length > 0:
             self._audio_buffer: AudioBuffer = AudioBuffer(
                 sample_rate=self._audio_format.sample_rate,
                 frame_size=self._audio_format.chunk_size,
-                total_seconds=self._config.smart_turn_config.audio_buffer_length,
+                total_seconds=self._config.audio_buffer_length,
             )
 
         # Register handlers
@@ -604,8 +639,12 @@ class VoiceAgentClient(AsyncClient):
             await self.disconnect()
             return
 
+        # Process with Silero VAD
+        if self._silero_detector:
+            asyncio.create_task(self._silero_detector.process_audio(payload))
+
         # Add to audio buffer (use put_bytes to handle variable chunk sizes)
-        if self._config.smart_turn_config.audio_buffer_length > 0:
+        if self._config.audio_buffer_length > 0:
             await self._audio_buffer.put_bytes(payload)
 
         # Calculate the time (in seconds) for the payload
@@ -666,16 +705,17 @@ class VoiceAgentClient(AsyncClient):
         # Current turn
         _turn_id = self._turn_handler.handler_id
 
+        # print("finalize() called")
+
         # Emit the finalize or use EndOfTurn on demand preview
         async def emit() -> None:
             """Wait for EndOfUtterance if needed, then emit segments."""
 
             # Forced end of utterance message (only when no speaker is detected)
-            if (
-                self._config.use_forced_eou_message
-                and self._current_view
-                and (self._eou_mode == EndOfUtteranceMode.EXTERNAL or not self._is_speaking)
-            ) and not (self._current_view.fragments[-1].is_eos and self._current_view.fragments[-1].is_final):
+            if (self._current_view and self._current_view.fragments) and not (
+                self._current_view.fragments[-1].is_eos and self._current_view.fragments[-1].is_final
+            ):
+                # print("Waiting for forced EOU...")
                 await self._await_forced_eou()
 
             # Check if the turn has changed
@@ -750,11 +790,11 @@ class VoiceAgentClient(AsyncClient):
         # Forward to the emit() method
         self.emit(message.message, message.to_dict())
 
-    def _emit_info_message(self, message: Union[str, dict[str, Any]]) -> None:
-        """Emit an info message to the client."""
+    def _emit_diagnostic_message(self, message: Union[str, dict[str, Any]]) -> None:
+        """Emit a diagnostic message to the client."""
         if isinstance(message, str):
             message = {"msg": message}
-        self.emit(AgentServerMessageType.INFO, {"message": AgentServerMessageType.INFO.value, **message})
+        self.emit(AgentServerMessageType.DIAGNOSTICS, {"message": AgentServerMessageType.DIAGNOSTICS.value, **message})
 
     # ============================================================================
     # QUEUE PROCESSING
@@ -1143,14 +1183,14 @@ class VoiceAgentClient(AsyncClient):
             return
 
         # Turn prediction
-        if self._uses_forced_eou:
+        if self._uses_forced_eou and not self._forced_eou_active:
 
             async def fn() -> None:
                 ttl = await self._calculate_finalize_delay()
                 if ttl:
                     self._turn_handler.update_timer(ttl)
 
-            self._run_background_eot_calculation(fn)
+            self._run_background_eot_calculation(fn, "speech_fragments")
 
         # Check for gaps
         # FragmentUtils.find_segment_pauses(self._client_session, self._current_view)
@@ -1365,8 +1405,11 @@ class VoiceAgentClient(AsyncClient):
     # TURN DETECTION & FINALIZATION
     # ============================================================================
 
-    def _run_background_eot_calculation(self, fn: Callable) -> None:
+    def _run_background_eot_calculation(self, fn: Callable, source: Optional[str] = None) -> None:
         """Run the calculation async."""
+
+        # Debug
+        # print(f">>> _run_background_eot_calculation() - {source}")
 
         # Existing task takes precedence
         if self._eot_calculation_task and not self._eot_calculation_task.done():
@@ -1421,7 +1464,7 @@ class VoiceAgentClient(AsyncClient):
                     reasons.append((p.penalty, reason))
 
         # Apply smart turn prediction penalty
-        if smart_turn_prediction:
+        if smart_turn_prediction and self._config.smart_turn_config:
             if smart_turn_prediction.prediction:
                 reasons.append((self._config.smart_turn_config.positive_penalty, "smart_turn_true"))
             else:
@@ -1438,6 +1481,10 @@ class VoiceAgentClient(AsyncClient):
         # Calculate delay with minimum of 25ms
         delay = round(self._config.end_of_utterance_silence_trigger * multiplier, 3)
 
+        # Trim off the most recent forced EOU delay if we're in forced EOU mode
+        if self._uses_forced_eou:
+            delay -= self._last_forced_eou_latency
+
         # Clamp to max delay and adjust for TTFB
         clamped_delay = min(delay, self._config.end_of_utterance_max_delay)
         finalize_delay = max(clamped_delay - self._last_ttfb, self._config.end_of_turn_config.min_end_of_turn_delay)
@@ -1453,13 +1500,14 @@ class VoiceAgentClient(AsyncClient):
             ),
         )
 
+        # Return the calculated delay
         return finalize_delay
 
     async def _eot_prediction(self, end_time: Optional[float] = None, speaker: Optional[str] = None) -> float:
         """Handle end of turn prediction."""
 
         # Wait for Smart Turn result
-        if self._eou_mode == EndOfUtteranceMode.SMART_TURN and end_time is not None:
+        if self._smart_turn_detector and end_time is not None:
             result = await self._smart_turn_prediction(end_time, self._config.language, speaker=speaker)
         else:
             result = None
@@ -1468,7 +1516,7 @@ class VoiceAgentClient(AsyncClient):
         delay = await self._calculate_finalize_delay(smart_turn_prediction=result)
 
         # Return the result
-        return delay or 0.005
+        return max(delay or 0, self._config.end_of_turn_config.min_end_of_turn_delay)
 
     async def _smart_turn_prediction(
         self, end_time: float, language: str, start_time: float = 0.0, speaker: Optional[str] = None
@@ -1487,12 +1535,11 @@ class VoiceAgentClient(AsyncClient):
         """
 
         # Check we have smart turn enabled
-        if not self._smart_turn_detector:
+        if not self._smart_turn_detector or not self._config.smart_turn_config:
             return SmartTurnPredictionResult(error="Smart turn is not enabled")
 
         # Calculate the times
-        end_time = end_time + self._config.smart_turn_config.slice_margin
-        start_time = max(start_time, end_time - self._config.smart_turn_config.audio_buffer_length)
+        start_time = max(start_time, end_time - self._config.smart_turn_config.max_audio_length)
         total_time = self._total_time
 
         # Find the start / end times for the current speaker for this turn ...
@@ -1551,13 +1598,22 @@ class VoiceAgentClient(AsyncClient):
         self.once(AgentServerMessageType.END_OF_UTTERANCE, lambda message: eou_received.set())
 
         # Trigger EOU message
-        self._emit_info_message("ForceEndOfUtterance sent")
-        await self.force_end_of_utterance()
+        self._emit_diagnostic_message("ForceEndOfUtterance sent - waiting for EndOfUtterance")
 
         # Wait for EOU
         try:
+            # Track the start time
+            start_time = time.time()
             self._forced_eou_active = True
+
+            # Send the force EOU and wait for the response
+            await self.force_end_of_utterance()
             await asyncio.wait_for(eou_received.wait(), timeout=timeout)
+
+            # Record the latency
+            self._last_forced_eou_latency = time.time() - start_time
+            self._emit_diagnostic_message(f"EndOfUtterance received after {self._last_forced_eou_latency:.3f}s")
+
         except asyncio.TimeoutError:
             pass
         finally:
@@ -1640,7 +1696,7 @@ class VoiceAgentClient(AsyncClient):
             # Check if speaker is different to the current speaker
             if current_is_speaking and speaker_changed:
                 self._emit_message(
-                    VADStatusMessage(
+                    SpeakerStatusMessage(
                         message=AgentServerMessageType.SPEAKER_ENDED,
                         speaker_id=current_speaker,
                         is_active=False,
@@ -1648,7 +1704,7 @@ class VoiceAgentClient(AsyncClient):
                     ),
                 )
                 self._emit_message(
-                    VADStatusMessage(
+                    SpeakerStatusMessage(
                         message=AgentServerMessageType.SPEAKER_STARTED,
                         speaker_id=latest_speaker,
                         is_active=True,
@@ -1680,6 +1736,39 @@ class VoiceAgentClient(AsyncClient):
         else:
             await self._handle_speaker_stopped(latest_speaker, speaker_end_time)
 
+    def _handle_vad_result(self, result: SileroVADResult) -> None:
+        """Handle VAD state change events.
+
+        Args:
+            result: VAD result containing state change information.
+        """
+
+        # Time of event
+        event_time = self._total_time
+
+        # Create the message
+        message = VADStatusMessage(
+            is_speech=result.is_speech,
+            probability=result.probability,
+            transition_duration_ms=result.transition_duration_ms,
+            metadata=MessageTimeMetadata(
+                start_time=round(max(0, event_time - 8), 4),
+                end_time=round(event_time, 4),
+            ),
+        )
+
+        # Emit VAD status message
+        self._emit_message(message)
+
+        # If speech has ended, we need to predict the end of turn
+        if result.speech_ended and self._is_speaking:
+
+            async def fn() -> None:
+                ttl = await self._eot_prediction(end_time=event_time, speaker=self._current_speaker)
+                self._turn_handler.update_timer(ttl)
+
+            self._run_background_eot_calculation(fn, "silero_vad")
+
     async def _handle_speaker_started(self, speaker: Optional[str], event_time: float) -> None:
         """Reset timers when a new speaker starts speaking after silence."""
 
@@ -1696,7 +1785,7 @@ class VoiceAgentClient(AsyncClient):
 
         # Emit the event
         self._emit_message(
-            VADStatusMessage(
+            SpeakerStatusMessage(
                 message=AgentServerMessageType.SPEAKER_STARTED,
                 speaker_id=speaker,
                 is_active=True,
@@ -1714,17 +1803,17 @@ class VoiceAgentClient(AsyncClient):
         self._last_speak_end_time = event_time
 
         # Turn prediction
-        if self._uses_forced_eou:
+        if self._uses_forced_eou and not self._forced_eou_active:
 
             async def fn() -> None:
                 ttl = await self._eot_prediction(event_time, speaker)
                 self._turn_handler.update_timer(ttl)
 
-            self._run_background_eot_calculation(fn)
+            self._run_background_eot_calculation(fn, "speaker_stopped")
 
         # Emit the event
         self._emit_message(
-            VADStatusMessage(
+            SpeakerStatusMessage(
                 message=AgentServerMessageType.SPEAKER_ENDED,
                 speaker_id=speaker,
                 is_active=False,

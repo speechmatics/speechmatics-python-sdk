@@ -153,6 +153,7 @@ cython_debug/
 
 # Ruff stuff:
 .ruff_cache/
+**/output.wav
 
 # PyPI configuration file
 .pypirc
