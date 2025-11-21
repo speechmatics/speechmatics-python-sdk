@@ -9,6 +9,7 @@ from _utils import ConversationLog
 from _utils import get_client
 
 from speechmatics.voice import AgentServerMessageType
+from speechmatics.voice import EndOfTurnConfig
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import SpeechSegmentConfig
 from speechmatics.voice import VoiceAgentConfig
@@ -234,7 +235,9 @@ async def test_external_vad():
         api_key="NONE",
         connect=False,
         config=VoiceAgentConfig(
-            end_of_utterance_silence_trigger=adaptive_timeout, end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL
+            end_of_utterance_silence_trigger=adaptive_timeout,
+            end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL,
+            end_of_turn_config=EndOfTurnConfig(use_forced_eou=False),
         ),
     )
     assert client is not None
@@ -268,6 +271,15 @@ async def test_external_vad():
 
             # Emit the message
             client.emit(message["payload"]["message"], message["payload"])
+
+    # Debug
+    if SHOW_LOG:
+        client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, lambda message: print(message))
+        client.on(AgentServerMessageType.ADD_SEGMENT, lambda message: print(message))
+        client.on(AgentServerMessageType.START_OF_TURN, lambda message: print(message))
+        client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, lambda message: print(message))
+        client.on(AgentServerMessageType.END_OF_TURN, lambda message: print(message))
+        client.on(AgentServerMessageType.END_OF_UTTERANCE, lambda message: print(message))
 
     # Inject conversation
     await send_message(0, count=12, use_ttl=False)
@@ -333,6 +345,7 @@ async def test_end_of_utterance_adaptive_vad():
             end_of_utterance_silence_trigger=adaptive_timeout,
             end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
             speech_segment_config=SpeechSegmentConfig(emit_sentences=False),
+            end_of_turn_config=EndOfTurnConfig(use_forced_eou=False),
         ),
     )
     assert client is not None

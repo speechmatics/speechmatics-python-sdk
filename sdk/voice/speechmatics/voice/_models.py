@@ -391,6 +391,7 @@ class EndOfTurnConfig(BaseModel):
         min_end_of_turn_delay: Minimum end of turn delay.
         end_of_turn_adjustment_factor: End of turn adjustment factor.
         penalties: List of end of turn penalty items.
+        use_forced_eou: Whether to use forced end of utterance detection.
     """
 
     base_multiplier: float = 1.0
@@ -414,6 +415,7 @@ class EndOfTurnConfig(BaseModel):
             ),
         ]
     )
+    use_forced_eou: bool = True
 
 
 class VoiceActivityConfig(BaseModel):

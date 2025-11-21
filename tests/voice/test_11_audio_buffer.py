@@ -14,6 +14,7 @@ from _utils import send_silence
 
 from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
+from speechmatics.voice import EndOfTurnConfig
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import SmartTurnConfig
 from speechmatics.voice import VoiceAgentConfig
@@ -248,7 +249,8 @@ async def test_transcribe_and_slice():
             additional_vocab=[
                 AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"]),
             ],
-            smart_turn_config=SmartTurnConfig(audio_buffer_length=20.0),
+            smart_turn_config=SmartTurnConfig(enabled=True),
+            end_of_turn_config=EndOfTurnConfig(use_forced_eou=False),
         ),
     )
 
@@ -353,7 +355,8 @@ async def x_test_transcribe_and_slice_vad():
             additional_vocab=[
                 AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"]),
             ],
-            smart_turn_config=SmartTurnConfig(audio_buffer_length=20.0),
+            smart_turn_config=SmartTurnConfig(enabled=True),
+            end_of_turn_config=EndOfTurnConfig(use_forced_eou=False),
         ),
     )
 

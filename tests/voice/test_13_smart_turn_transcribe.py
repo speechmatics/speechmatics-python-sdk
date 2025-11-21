@@ -12,8 +12,9 @@ from pydantic import Field
 from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
+from speechmatics.voice import SmartTurnConfig
 from speechmatics.voice import SpeechSegmentConfig
-from speechmatics.voice import VoiceAgentConfig, SmartTurnConfig
+from speechmatics.voice import VoiceAgentConfig
 from speechmatics.voice._smart_turn import SmartTurnDetector
 
 # Skip for CI testing

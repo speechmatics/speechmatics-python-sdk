@@ -309,7 +309,7 @@ class VoiceAgentClient(AsyncClient):
         self._uses_fixed_eou: bool = self._eou_mode == EndOfUtteranceMode.FIXED and not self._silero_detector
 
         # Uses ForceEndOfUtterance message
-        self._uses_forced_eou: bool = self._uses_smart_turn or self._uses_silero_vad
+        self._uses_forced_eou: bool = not self._uses_fixed_eou
         self._forced_eou_active: bool = False
         self._last_forced_eou_latency: float = 0.0
 
@@ -705,17 +705,16 @@ class VoiceAgentClient(AsyncClient):
         # Current turn
         _turn_id = self._turn_handler.handler_id
 
-        # print("finalize() called")
-
         # Emit the finalize or use EndOfTurn on demand preview
         async def emit() -> None:
             """Wait for EndOfUtterance if needed, then emit segments."""
 
             # Forced end of utterance message (only when no speaker is detected)
-            if (self._current_view and self._current_view.fragments) and not (
-                self._current_view.fragments[-1].is_eos and self._current_view.fragments[-1].is_final
+            if (
+                self._config.end_of_turn_config.use_forced_eou
+                and (self._current_view and self._current_view.fragments)
+                and not (self._current_view.fragments[-1].is_eos and self._current_view.fragments[-1].is_final)
             ):
-                # print("Waiting for forced EOU...")
                 await self._await_forced_eou()
 
             # Check if the turn has changed
@@ -1408,9 +1407,6 @@ class VoiceAgentClient(AsyncClient):
     def _run_background_eot_calculation(self, fn: Callable, source: Optional[str] = None) -> None:
         """Run the calculation async."""
 
-        # Debug
-        # print(f">>> _run_background_eot_calculation() - {source}")
-
         # Existing task takes precedence
         if self._eot_calculation_task and not self._eot_calculation_task.done():
             return
@@ -1588,7 +1584,7 @@ class VoiceAgentClient(AsyncClient):
         # Return the prediction
         return prediction
 
-    async def _await_forced_eou(self, timeout: float = 2.0) -> None:
+    async def _await_forced_eou(self, timeout: float = 1.0) -> None:
         """Await the forced end of utterance."""
 
         # Received EOU
