@@ -138,6 +138,7 @@ class VoiceAgentConfigPreset:
                 end_of_utterance_silence_trigger=1.2,
                 end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL,
                 speech_segment_config=SpeechSegmentConfig(emit_sentences=True),
+                use_forced_eou_message=True,
             ),
             overlay,
         )
@@ -161,7 +162,7 @@ class VoiceAgentConfigPreset:
         try:
             config: VoiceAgentConfig = getattr(VoiceAgentConfigPreset, preset.upper())()
             if overlay_json is not None:
-                overlay = VoiceAgentConfig.model_validate_json(overlay_json)
+                overlay = VoiceAgentConfig.from_json(overlay_json)
                 config = VoiceAgentConfigPreset._merge_configs(config, overlay)
             return config
         except ValueError:
@@ -189,9 +190,9 @@ class VoiceAgentConfigPreset:
         if overlay is None:
             return base
 
-        # Merge overlay into base - use model_validate to properly reconstruct nested models
+        # Merge overlay into base
         merged_dict = {
             **base.model_dump(exclude_unset=True, exclude_none=True),
             **overlay.model_dump(exclude_unset=True, exclude_none=True),
         }
-        return VoiceAgentConfig.model_validate(merged_dict)  # type: ignore[no-any-return]
+        return VoiceAgentConfig.from_dict(merged_dict)

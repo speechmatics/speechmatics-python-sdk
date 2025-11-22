@@ -182,7 +182,7 @@ class VoiceAgentClient(AsyncClient):
             config=self._config,
             session_id="NOT_SET",
             base_time=datetime.datetime.now(datetime.timezone.utc),
-            language_pack_info=LanguagePackInfo.model_validate({}),
+            language_pack_info=LanguagePackInfo.from_dict({}),
         )
 
         # -------------------------------------
@@ -705,7 +705,7 @@ class VoiceAgentClient(AsyncClient):
                 config=self._config,
                 session_id=message.get("id", "UNKNOWN"),
                 base_time=datetime.datetime.now(datetime.timezone.utc),
-                language_pack_info=LanguagePackInfo.model_validate(message.get("language_pack_info", {})),
+                language_pack_info=LanguagePackInfo.from_dict(message.get("language_pack_info", {})),
             )
 
         # Partial transcript event
@@ -746,7 +746,7 @@ class VoiceAgentClient(AsyncClient):
         """
 
         # Forward to the emit() method
-        self.emit(message.message, message.model_dump())
+        self.emit(message.message, message.to_dict())
 
     def _emit_info_message(self, message: Union[str, dict[str, Any]]) -> None:
         """Emit an info message to the client."""

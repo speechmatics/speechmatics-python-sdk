@@ -364,7 +364,6 @@ def on_partial(message):
       "timestamp": "2025-11-11T23:18:37.189+00:00",
       "language": "en",
       "text": "Welcome to",
-      "annotation": ["has_partial"],
       "metadata": {
         "start_time": 1.28,
         "end_time": 1.6
@@ -384,7 +383,6 @@ def on_partial(message):
 - `speaker_id` - Speaker label (e.g., `"S1"`, `"S2"`)
 - `is_active` - `true` if speaker is in focus (based on `speaker_config`)
 - `text` - Current partial transcription text
-- `annotation` - Status flags (see annotation section below)
 - `metadata.start_time` - Segment start time (seconds since session start)
 - `metadata.end_time` - Segment end time (seconds since session start)
 
@@ -416,13 +414,6 @@ def on_segment(message):
       "timestamp": "2025-11-11T23:18:37.189+00:00",
       "language": "en",
       "text": "Welcome to Speechmatics.",
-      "annotation": [
-        "has_final",
-        "starts_with_final",
-        "ends_with_final",
-        "ends_with_eos",
-        "ends_with_punctuation"
-      ],
       "metadata": {
         "start_time": 1.28,
         "end_time": 8.04
@@ -436,17 +427,6 @@ def on_segment(message):
   }
 }
 ```
-
-**Annotation Flags:**
-
-- `has_final` - Contains finalized words
-- `has_partial` - Contains partial (interim) words
-- `starts_with_final` - First word is finalized
-- `ends_with_final` - Last word is finalized
-- `ends_with_eos` - Ends with end-of-sentence
-- `ends_with_punctuation` - Ends with punctuation
-- `fast_speaker` - Speaker is speaking quickly (may appear in some segments)
-- `has_disfluency` - Contains disfluencies like "um", "er" (may appear in some segments)
 
 #### END_OF_TURN
 

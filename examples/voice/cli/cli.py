@@ -141,7 +141,7 @@ async def main() -> None:
     # Use JSON config
     if args.config is not None:
         try:
-            config = VoiceAgentConfig.model_validate(args.config)
+            config = VoiceAgentConfig.from_dict(args.config)
         except Exception as e:
             print(f"Error validating config: {e}")
             return
@@ -182,7 +182,7 @@ async def main() -> None:
 
     # Handle config display
     if args.show:
-        print(config.model_dump_json(indent=2, exclude_unset=True, exclude_none=True))
+        print(config.to_json(indent=2, exclude_unset=True, exclude_none=True))
         return
 
     # Set the audio sample rate
@@ -482,10 +482,7 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
             _segs = []
             for segment in message["segments"]:
                 suffix = "" if segment["is_active"] else " (background)"
-                if args.verbose >= 3:
-                    _segs.append(f"@{segment['speaker_id']}{suffix}: `{segment['text']}` {segment['annotation']}")
-                else:
-                    _segs.append(f"@{segment['speaker_id']}{suffix}: `{segment['text']}`")
+                _segs.append(f"@{segment['speaker_id']}{suffix}: `{segment['text']}`")
             payload = {"segments": _segs}
 
         # Print to console
@@ -528,12 +525,12 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
             client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, log_message)
 
         # Metrics
-        if args.verbose >= 4:
+        if args.verbose >= 3:
             client.on(AgentServerMessageType.SESSION_METRICS, log_message)
             client.on(AgentServerMessageType.SPEAKER_METRICS, log_message)
 
         # Verbose STT events
-        if args.verbose >= 5:
+        if args.verbose >= 4:
             client.on(AgentServerMessageType.END_OF_UTTERANCE, log_message)
             client.on("ForcedEndOfUtterance", log_message)
             client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, log_message)
@@ -550,7 +547,7 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
         log_message(
             {
                 "message": "VoiceAgentClientConfig",
-                "config": client._config.model_dump(exclude_none=True, exclude_unset=True),
+                "config": client._config.to_dict(exclude_none=True, exclude_unset=True),
             }
         )
 

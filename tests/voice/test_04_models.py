@@ -4,9 +4,11 @@ import pytest
 
 from speechmatics.voice import VoiceAgentConfig
 from speechmatics.voice._models import AdditionalVocabEntry
+from speechmatics.voice._models import AgentServerMessageType
 from speechmatics.voice._models import AnnotationFlags
 from speechmatics.voice._models import AnnotationResult
 from speechmatics.voice._models import OperatingPoint
+from speechmatics.voice._models import SessionMetricsMessage
 from speechmatics.voice._models import SpeakerFocusConfig
 from speechmatics.voice._models import SpeakerFocusMode
 from speechmatics.voice._models import SpeakerIdentifier
@@ -28,7 +30,7 @@ async def test_voice_agent_config():
     )
 
     # Test JSON serialisation
-    config_dict = config.model_dump()
+    config_dict = config.to_dict()
     assert config_dict["language"] == "en"
     assert config_dict["max_delay"] == 1.5
     assert config_dict["enable_diarization"] is True
@@ -121,19 +123,19 @@ async def test_additional_vocab_entry():
     entry = AdditionalVocabEntry(content="hello", sounds_like=["helo", "hallo"])
 
     # Test JSON serialisation
-    json_data = entry.model_dump()
-    assert json_data["content"] == "hello"
-    assert json_data["sounds_like"] == ["helo", "hallo"]
+    json_dict = entry.to_dict()
+    assert json_dict["content"] == "hello"
+    assert json_dict["sounds_like"] == ["helo", "hallo"]
 
     # Test JSON deserialisation
-    entry_from_json = AdditionalVocabEntry.model_validate(json_data)
+    entry_from_json = AdditionalVocabEntry.from_dict(json_dict)
     assert entry_from_json.content == entry.content
     assert entry_from_json.sounds_like == entry.sounds_like
 
     # Test with defaults
     entry_minimal = AdditionalVocabEntry(content="test")
-    json_minimal = entry_minimal.model_dump()
-    assert json_minimal["sounds_like"] == []
+    json_minimal = entry_minimal.to_dict()
+    assert "sounds_like" not in json_minimal
 
 
 @pytest.mark.asyncio
@@ -153,23 +155,21 @@ async def test_speaker_focus_config():
     )
 
     # Test JSON serialisation
-    json_data = config.model_dump()
-    assert json_data["focus_speakers"] == ["S1", "S2"]
-    assert json_data["ignore_speakers"] == ["__ASSISTANT__", "__SYSTEM__"]
-    assert json_data["focus_mode"] == SpeakerFocusMode.IGNORE
+    json_dict = config.to_dict()
+    assert json_dict["focus_speakers"] == ["S1", "S2"]
+    assert json_dict["ignore_speakers"] == ["__ASSISTANT__", "__SYSTEM__"]
+    assert json_dict["focus_mode"] == SpeakerFocusMode.IGNORE
 
     # Test JSON deserialisation
-    config_from_json = SpeakerFocusConfig.model_validate(json_data)
+    config_from_json = SpeakerFocusConfig.from_dict(json_dict)
     assert config_from_json.focus_speakers == config.focus_speakers
     assert config_from_json.ignore_speakers == config.ignore_speakers
     assert config_from_json.focus_mode == config.focus_mode
 
     # Test with defaults
     config_default = SpeakerFocusConfig()
-    json_default = config_default.model_dump()
-    assert json_default["focus_speakers"] == []
-    assert json_default["ignore_speakers"] == []
-    assert json_default["focus_mode"] == SpeakerFocusMode.RETAIN
+    json_default = config_default.to_json(exclude_none=False)
+    assert json_default == '{"focus_speakers":[],"ignore_speakers":[],"focus_mode":"retain"}'
 
 
 @pytest.mark.asyncio
@@ -198,7 +198,7 @@ async def test_speech_fragment():
     )
 
     # Test JSON serialisation
-    json_data = fragment.model_dump()
+    json_data = fragment.to_dict()
     assert json_data["idx"] == 1
     assert json_data["start_time"] == 0.5
     assert json_data["end_time"] == 1.2
@@ -237,7 +237,7 @@ async def test_speaker_segment():
     )
 
     # Test model_dump() default behavior (should exclude fragments by default)
-    json_data = segment.model_dump()
+    json_data = segment.to_dict()
     assert json_data["speaker_id"] == "S1"
     assert json_data["is_active"] is True
     assert json_data["timestamp"] == "2025-01-01T12:00:00.500"
@@ -247,9 +247,38 @@ async def test_speaker_segment():
     assert isinstance(json_data["annotation"], list)
 
     # Test model_dump with include_results=True
-    dict_data_results = segment.model_dump(include_results=True)
+    dict_data_results = segment.to_dict(include_results=True)
     assert dict_data_results["speaker_id"] == "S1"
     assert dict_data_results["text"] == "Hello world"
     assert "results" in dict_data_results
     assert "fragments" not in dict_data_results
     assert len(dict_data_results["results"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_event_messages():
+    """Test event messages."""
+
+    # Create a new event message
+    event_message = SessionMetricsMessage(
+        total_time=1.0,
+        total_time_str="00:00:01",
+        total_bytes=1024,
+        processing_time=0.5,
+    )
+
+    # Test dict
+    dict_data = event_message.to_dict()
+    assert dict_data["message"] == AgentServerMessageType.SESSION_METRICS
+    assert dict_data["message"] == "SessionMetrics"
+    assert dict_data["total_time"] == 1.0
+    assert dict_data["total_time_str"] == "00:00:01"
+    assert dict_data["total_bytes"] == 1024
+    assert dict_data["processing_time"] == 0.5
+
+    # Test JSON
+    json_data = event_message.to_json()
+    assert (
+        json_data
+        == '{"message":"SessionMetrics","total_time":1.0,"total_time_str":"00:00:01","total_bytes":1024,"processing_time":0.5}'
+    )
