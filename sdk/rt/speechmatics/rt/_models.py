@@ -465,7 +465,7 @@ class ConnectionConfig:
         max_queue: Maximum number of messages in receive queue.
         read_limit: Maximum number of bytes to read from WebSocket (legacy websockets only).
         write_limit: Maximum number of bytes to write to WebSocket (legacy websockets only).
-        ssl_context: Optional custom SSL context for the WebSocket connection.
+        ssl_context: SSL context for the WebSocket connection.
     Returns:
         Websocket connection configuration as a dict while excluding None values.
     """
@@ -478,7 +478,7 @@ class ConnectionConfig:
     max_queue: Optional[int] = None
     read_limit: Optional[int] = None
     write_limit: Optional[int] = None
-    ssl_context: Optional[ssl.SSLContext] = None
+    ssl_context: ssl.SSLContext = field(default_factory=ssl.create_default_context)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dict, excluding ssl field to avoid pickle errors."""
