@@ -68,7 +68,7 @@ if __name__ == "__main__":
     load_models()
 ```
 
-And then include the following in tour `Dockerfile`:
+And then include the following in your `Dockerfile`:
 
 ```
 COPY ./models.py models.py
