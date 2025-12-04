@@ -45,7 +45,7 @@ pip install speechmatics-voice[smart]
 
 <details>
 
-<summary><strong>👉 Click to see how to install with Docker.</summary>
+<summary><strong>👉 Click to see how to install with Docker.</strong></summary>
 
 ### Use within Docker
 
