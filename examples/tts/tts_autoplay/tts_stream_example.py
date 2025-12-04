@@ -42,10 +42,10 @@ async def audio_generator(audio_queue: asyncio.Queue, text: str, voice: str, out
                     sample = int.from_bytes(buffer[:2], byteorder='little', signed=True)
                     await audio_queue.put(sample)
                     buffer = buffer[2:]
-
+            
             await audio_queue.put(END_OF_STREAM)
             print("Audio generated and put into queue.")
-
+                
     except Exception as e:
         print(f"[{'Generator'}] An error occurred in the audio generator: {e}")
         await audio_queue.put(END_OF_STREAM)
@@ -71,22 +71,22 @@ async def audio_player(play_queue: asyncio.Queue) -> None:
                             stream.write(audio_data)
                             buffer=[]
                         break
-
+                    
                     buffer.append(sample)
                     if len(buffer) >= CHUNK_SIZE:
                         audio_data=np.array(buffer[:CHUNK_SIZE], dtype=np.int16)
                         stream.write(audio_data)
                         buffer=buffer[CHUNK_SIZE:]
-
+                    
                     play_queue.task_done()
-
+                
                 except asyncio.TimeoutError:
                     if buffer:
                         audio_data=np.array(buffer, dtype=np.int16)
                         stream.write(audio_data)
                         buffer=[]
                     continue
-
+                
                 except Exception as e:
                     print(f"[{'Player'}] An error occurred playing audio chunk {e}")
                     raise
@@ -106,10 +106,10 @@ async def main() -> None:
         asyncio.create_task(audio_generator(play_queue, TEXT, VOICE, OUTPUT_FORMAT)),
         asyncio.create_task(audio_player(play_queue))
     ]
-
+    
     try:
         await asyncio.gather(*tasks)
-
+        
     except Exception as e:
         for task in tasks:
             task.cancel()
