@@ -199,7 +199,7 @@ async def send_silence(
         pass
 
 
-def log_client_messages(client: VoiceAgentClient, messages: list[AgentServerMessageType] | None = None) -> None:
+def log_client_messages(client: VoiceAgentClient, messages: Optional[list[AgentServerMessageType]] = None) -> None:
     """Register and log client messages."""
 
     # Start time
