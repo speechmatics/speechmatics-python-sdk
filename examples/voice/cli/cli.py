@@ -24,8 +24,6 @@ from speechmatics.rt import Microphone
 from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
-from speechmatics.voice import SpeakerFocusConfig
-from speechmatics.voice import SpeakerFocusMode
 from speechmatics.voice import SpeakerIdentifier
 from speechmatics.voice import VoiceAgentClient
 from speechmatics.voice import VoiceAgentConfig
@@ -35,8 +33,6 @@ from speechmatics.voice import VoiceAgentConfigPreset
 # CONSTANTS
 # ==============================================================================
 
-# Audio slice duration (seconds of audio to capture before speaker ends)
-AUDIO_SLICE_DURATION = 8.0
 
 # Default output directory
 DEFAULT_OUTPUT_DIR = "./output"
@@ -48,6 +44,7 @@ RECORDING_FILENAME = "recording.wav"
 # Console colors for message types
 COLORS = {
     # Segments
+    "Diagnostics": "\033[90m",
     "AddPartialSegment": "\033[93m",
     "AddSegment": "\033[1;92m",
     # Speaker events
@@ -59,6 +56,8 @@ COLORS = {
     "StartOfTurn": "\033[91m",
     "EndOfTurnPrediction": "\033[95m",
     "EndOfTurn": "\033[1;91m",
+    # VAD status
+    "VadStatus": "\033[41;97m",
     # Transcript events
     "AddPartialTranscript": "\033[90m",
     "AddTranscript": "\033[90m",
@@ -94,7 +93,7 @@ async def main() -> None:
         return
 
     # Setup audio source (microphone or file) - skip if just showing config
-    if not args.show:
+    if not args.show_compact and not args.show_complete:
         audio_source = setup_audio_source(args)
         if not audio_source:
             return
@@ -125,15 +124,10 @@ async def main() -> None:
     # Setup file paths
     log_file = output_dir / LOG_FILENAME
     record_file = output_dir / RECORDING_FILENAME if args.record else None
-    slices_dir = output_dir if args.save_slices else None
 
     # Store in args for easy access
     args.log_file = str(log_file)
     args.record_file = str(record_file) if record_file else None
-    args.slices_dir = str(slices_dir) if slices_dir else None
-
-    # Create speaker configuration
-    speaker_config = create_speaker_config(args)
 
     # Known speakers
     known_speakers: list[SpeakerIdentifier] = [SpeakerIdentifier(**s) for s in args.speakers] if args.speakers else []
@@ -162,27 +156,22 @@ async def main() -> None:
             ]
         )
 
-    # Copy in overrides
-    if args.language:
-        config.language = args.language
-    if args.end_of_utterance_silence_trigger:
-        config.end_of_utterance_silence_trigger = args.end_of_utterance_silence_trigger
-    if args.max_delay:
-        config.max_delay = args.max_delay
-    if args.end_of_utterance_mode:
-        config.end_of_utterance_mode = args.end_of_utterance_mode
-
-    # Copy speaker settings
-    config.speaker_config = speaker_config
+    # Copy speaker settings (only known_speakers can be overridden)
     config.known_speakers = known_speakers
     config.include_results = args.results
+
+    # Set chunk size
+    config.chunk_size = args.chunk_size
 
     # Set common items
     config.enable_diarization = True
 
     # Handle config display
-    if args.show:
+    if args.show_compact:
         print(config.to_json(indent=2, exclude_unset=True, exclude_none=True))
+        return
+    if args.show_complete:
+        print(config.to_json(indent=2, exclude_unset=False, exclude_none=False))
         return
 
     # Set the audio sample rate
@@ -363,31 +352,6 @@ def setup_audio_output(audio_source: dict, args) -> AudioPlayer | None:
 
 
 # ==============================================================================
-# SPEAKER CONFIGURATION
-# ==============================================================================
-
-
-def create_speaker_config(args) -> SpeakerFocusConfig:
-    """Create speaker diarization configuration from arguments.
-
-    Args:
-        args: Command-line arguments
-
-    Returns:
-        SpeakerFocusConfig instance.
-    """
-    if args.focus_speakers or args.ignore_speakers:
-        focus_mode = SpeakerFocusMode.IGNORE if args.ignore_mode else SpeakerFocusMode.RETAIN
-        return SpeakerFocusConfig(
-            focus_speakers=args.focus_speakers or [],
-            ignore_speakers=args.ignore_speakers or [],
-            focus_mode=focus_mode,
-        )
-    else:
-        return SpeakerFocusConfig()
-
-
-# ==============================================================================
 # EVENT HANDLERS
 # ==============================================================================
 
@@ -400,70 +364,6 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
         args: Command-line arguments
         start_time: Start time for timestamp calculation
     """
-
-    # Audio slice counter
-    slice_counter = {"count": 0}
-
-    async def async_save_audio_slice(message: dict) -> None:
-        """Save audio slice when speaker ends (SMART_TURN mode only)."""
-        if not args.slices_dir:
-            return
-
-        # Only save slices in SMART_TURN mode
-        if client._config.end_of_utterance_mode != "smart_turn":
-            return
-
-        # Get time from message
-        event_time = message.get("time")
-        if not event_time:
-            return
-
-        speaker_id = message.get("speaker_id", "unknown")
-
-        # Get audio slice from buffer
-        # Capture audio leading up to the speaker ending
-        start_time = event_time - AUDIO_SLICE_DURATION
-        end_time = event_time
-
-        try:
-            audio_data = await client._audio_buffer.get_frames(
-                start_time=start_time,
-                end_time=end_time,
-            )
-
-            if audio_data:
-                # Generate filenames
-                slice_counter["count"] += 1
-                base_filename = f"slice_{slice_counter['count']:04d}_{speaker_id}_{event_time:.2f}"
-                wav_filepath = Path(args.slices_dir) / f"{base_filename}.wav"
-                json_filepath = Path(args.slices_dir) / f"{base_filename}.json"
-
-                # Save audio file
-                async with AudioFileWriter(
-                    str(wav_filepath), client._audio_sample_rate, client._audio_sample_width
-                ) as writer:
-                    await writer.write(audio_data)
-
-                # Save JSON metadata
-                metadata = {
-                    "message": message,
-                    "speaker_id": speaker_id,
-                    "is_active": message.get("is_active"),
-                    "time": event_time,
-                    "slice_start_time": start_time,
-                    "slice_end_time": end_time,
-                    "slice_duration": end_time - start_time,
-                    "audio_file": f"{base_filename}.wav",
-                }
-                with open(json_filepath, "w") as f:
-                    json.dump(metadata, f, indent=2)
-
-        except Exception as e:
-            print(f"Error saving audio slice: {e}")
-
-    def save_audio_slice(message: dict) -> None:
-        """Save audio slice when speaker ends (SMART_TURN mode only)."""
-        asyncio.create_task(async_save_audio_slice(message))
 
     def console_print(ts: datetime.datetime, message: dict) -> None:
         """Print message to console with optional formatting."""
@@ -482,11 +382,11 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
             _segs = []
             for segment in message["segments"]:
                 suffix = "" if segment["is_active"] else " (background)"
-                _segs.append(f"@{segment['speaker_id']}{suffix}: `{segment['text']}`")
+                _segs.append(f"@{segment['speaker_id']}{suffix}: `{segment['text']}` {segment.get('annotation', '')}")
             payload = {"segments": _segs}
 
         # Print to console
-        print(f"{color}{ts_str} {msg_type:<24} {json.dumps(payload)}\033[0m")
+        print(f"{color}{ts_str} {client._total_time:>7.3f} {msg_type:<24} {json.dumps(payload)}\033[0m")
 
     def log_message(message: dict[str, Any]) -> None:
         """Log message to console and optional JSONL file."""
@@ -499,8 +399,8 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
 
     # Register standard handlers
     client.on(AgentServerMessageType.INFO, log_message)
-    client.on(AgentServerMessageType.RECOGNITION_STARTED, log_message)
-    client.on(AgentServerMessageType.END_OF_TRANSCRIPT, log_message)
+    client.once(AgentServerMessageType.RECOGNITION_STARTED, log_message)
+    client.once(AgentServerMessageType.END_OF_TRANSCRIPT, log_message)
 
     # Voice SDK messages
     if not args.legacy:
@@ -515,14 +415,13 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
         if args.verbose >= 1:
             client.on(AgentServerMessageType.SPEAKER_STARTED, log_message)
             client.on(AgentServerMessageType.SPEAKER_ENDED, log_message)
-
-        # Save audio slices on SPEAKER_ENDED (SMART_TURN mode only)
-        if args.slices_dir:
-            client.on(AgentServerMessageType.SPEAKER_ENDED, save_audio_slice)
+            client.on(AgentServerMessageType.VAD_STATUS, log_message)
+            client.on(AgentServerMessageType.DIAGNOSTICS, log_message)
 
         # Verbose turn prediction
         if args.verbose >= 2:
             client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, log_message)
+            client.on(AgentServerMessageType.SMART_TURN_RESULT, log_message)
 
         # Metrics
         if args.verbose >= 3:
@@ -532,7 +431,6 @@ def register_event_handlers(client: VoiceAgentClient, args, start_time: datetime
         # Verbose STT events
         if args.verbose >= 4:
             client.on(AgentServerMessageType.END_OF_UTTERANCE, log_message)
-            client.on("ForcedEndOfUtterance", log_message)
             client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, log_message)
             client.on(AgentServerMessageType.ADD_TRANSCRIPT, log_message)
 
@@ -748,7 +646,7 @@ def parse_args():
         "-P",
         "--preset",
         type=str,
-        help="Preset configuration name (e.g., scribe, low_latency, conversation_adaptive)",
+        help="Preset configuration name (e.g., scribe, fast, adaptive)",
     )
     parser.add_argument(
         "--list-presets",
@@ -756,10 +654,16 @@ def parse_args():
         help="List available preset configurations and exit",
     )
     parser.add_argument(
-        "-W",
-        "--show",
+        "-w",
+        "--show-compact",
         action="store_true",
-        help="Display the final configuration as JSON and exit (after applying preset/config and overrides)",
+        help="Display the compact configuration as JSON and exit (excludes unset and None values)",
+    )
+    parser.add_argument(
+        "-W",
+        "--show-complete",
+        action="store_true",
+        help="Display the complete configuration as JSON and exit (includes all defaults)",
     )
     parser.add_argument(
         "-c",
@@ -797,18 +701,16 @@ def parse_args():
     # ==============================================================================
 
     parser.add_argument(
-        "-R",
         "--sample-rate",
         type=int,
         default=16000,
         help="Audio sample rate in Hz (default: 16000)",
     )
     parser.add_argument(
-        "-C",
         "--chunk-size",
         type=int,
-        default=320,
-        help="Audio chunk size in bytes (default: 320)",
+        default=160,
+        help="Audio chunk size in bytes (default: 160)",
     )
     parser.add_argument(
         "-M",
@@ -821,12 +723,6 @@ def parse_args():
     # Output options
     # ==============================================================================
 
-    parser.add_argument(
-        "-S",
-        "--save-slices",
-        action="store_true",
-        help="Save audio slices to output directory on SPEAKER_ENDED events (SMART_TURN mode only)",
-    )
     parser.add_argument(
         "-p",
         "--pretty",
@@ -853,63 +749,9 @@ def parse_args():
         help="Use default device (default: False)",
     )
     parser.add_argument(
-        "-w",
         "--results",
         action="store_true",
         help="Include word-level transcription results in output (default: False)",
-    )
-
-    # ==============================================================================
-    # Voice Agent configuration overrides
-    # ==============================================================================
-
-    parser.add_argument(
-        "-l",
-        "--language",
-        type=str,
-        help="Language code (default: en)",
-    )
-    parser.add_argument(
-        "-d",
-        "--max-delay",
-        type=float,
-        help="Maximum delay for transcription results in seconds (default: 0.7)",
-    )
-    parser.add_argument(
-        "-t",
-        "--end-of-utterance-silence-trigger",
-        type=float,
-        help="Silence duration to trigger end of utterance in seconds (default: 0.5)",
-    )
-    parser.add_argument(
-        "-m",
-        "--end-of-utterance-mode",
-        type=lambda s: s.upper(),
-        choices=["FIXED", "ADAPTIVE", "EXTERNAL", "SMART_TURN"],
-        help="End of utterance detection mode (default: ADAPTIVE)",
-    )
-
-    # ==============================================================================
-    # Speaker management
-    # ==============================================================================
-
-    parser.add_argument(
-        "-f",
-        "--focus-speakers",
-        nargs="*",
-        help="Speakers to focus on (e.g., S1 S2). Use with --ignore-mode to ignore these speakers instead",
-    )
-    parser.add_argument(
-        "-I",
-        "--ignore-speakers",
-        nargs="*",
-        help="Specific speakers to ignore (e.g., S1 S2)",
-    )
-    parser.add_argument(
-        "-x",
-        "--ignore-mode",
-        action="store_true",
-        help="Use IGNORE mode instead of RETAIN mode for non-focus speakers",
     )
 
     # ==============================================================================
@@ -935,26 +777,21 @@ def parse_args():
 
     args = parser.parse_args()
 
-    mutually_excludive = [
-        "preset",
-        "end-of-utterance-mode",
-        "end-of-utterance-silence-trigger",
-        "focus-speakers",
-        "ignore-mode",
-        "ignore-speakers",
-        "language",
-        "max-delay",
-        "speakers",
-    ]
+    # Either preset or config must be provided
+    if (
+        args.config is None
+        and args.preset is None
+        and not args.list_presets
+        and not args.show_compact
+        and not args.show_complete
+    ):
+        print("**ERROR** -> You must provide either --preset or --config")
+        exit(1)
 
-    if args.config is not None:
-        conflicts: list[str] = []
-        for arg in mutually_excludive:
-            if getattr(args, arg.replace("-", "_")):
-                conflicts.append(arg)
-        if conflicts:
-            print(f"**ERROR** -> You cannot use {[f'--{arg}' for arg in conflicts]} in combination with -c/--config")
-            exit(1)
+    # Preset and config are mutually exclusive
+    if args.config is not None and args.preset is not None:
+        print("**ERROR** -> You cannot use both --preset and --config")
+        exit(1)
 
     # Return the parsed arguments
     return args

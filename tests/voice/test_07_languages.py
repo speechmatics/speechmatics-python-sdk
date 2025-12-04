@@ -1,4 +1,3 @@
-import asyncio
 import datetime
 import json
 import os
@@ -10,9 +9,11 @@ from typing import Optional
 import pytest
 from _utils import get_client
 from _utils import send_audio_file
+from _utils import send_silence
 
 from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
+from speechmatics.voice import EndOfTurnConfig
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import VoiceAgentConfig
 from speechmatics.voice._utils import TextUtils
@@ -119,6 +120,7 @@ async def test_transcribe_languages(sample: AudioSample):
             end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL,
             language=sample.language,
             additional_vocab=[AdditionalVocabEntry(content=vocab) for vocab in sample.vocab],
+            end_of_turn_config=EndOfTurnConfig(use_forced_eou=False),
         ),
     )
     assert client is not None
@@ -169,10 +171,8 @@ async def test_transcribe_languages(sample: AudioSample):
     # Individual payloads
     await send_audio_file(client, audio_file, progress_callback=log_bytes_sent)
 
-    # Send finalize
-    await asyncio.sleep(1.5)
-    client.finalize()
-    await asyncio.sleep(1.5)
+    # Send some audio silence
+    await send_silence(client, 4.0)
 
     # Extract the last message
     assert last_message.get("message") == AgentServerMessageType.ADD_SEGMENT

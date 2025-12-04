@@ -32,12 +32,16 @@ from ._models import SmartTurnConfig
 from ._models import SpeakerFocusConfig
 from ._models import SpeakerFocusMode
 from ._models import SpeakerMetricsMessage
+from ._models import SpeakerStatusMessage
 from ._models import SpeechSegmentConfig
 from ._models import TurnPredictionMessage
 from ._models import TurnStartEndResetMessage
 from ._models import VADStatusMessage
+from ._models import VoiceActivityConfig
 from ._models import VoiceAgentConfig
 from ._presets import VoiceAgentConfigPreset
+from ._smart_turn import SmartTurnDetector
+from ._vad import SileroVAD
 
 __all__ = [
     "__version__",
@@ -57,8 +61,12 @@ __all__ = [
     "SpeakerIdentifier",
     "SmartTurnConfig",
     "SpeechSegmentConfig",
+    "VoiceActivityConfig",
     "VoiceAgentConfig",
     "VoiceAgentConfigPreset",
+    # Models
+    "SmartTurnDetector",
+    "SileroVAD",
     # Client messages
     "AgentClientMessageType",
     # Server messages
@@ -66,6 +74,7 @@ __all__ = [
     "SegmentMessage",
     "SessionMetricsMessage",
     "SpeakerMetricsMessage",
+    "SpeakerStatusMessage",
     "TurnPredictionMessage",
     "TurnStartEndResetMessage",
     "VADStatusMessage",

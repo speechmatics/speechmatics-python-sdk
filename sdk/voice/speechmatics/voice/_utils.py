@@ -70,6 +70,7 @@ class FragmentUtils:
             **{
                 "speaker_id": segment.speaker_id,
                 "text": content,
+                "content": content,
                 "ts": segment.timestamp,
                 "lang": segment.language,
                 "start_time": fragments[0].start_time if fragments else 0,
@@ -294,7 +295,7 @@ class FragmentUtils:
             # Categorize the speaker
             if wpm < 80:
                 result.add(AnnotationFlags.VERY_SLOW_SPEAKER)
-            elif wpm < 120:
+            elif wpm < 110:
                 result.add(AnnotationFlags.SLOW_SPEAKER)
             elif wpm > 250:
                 result.add(AnnotationFlags.FAST_SPEAKER)

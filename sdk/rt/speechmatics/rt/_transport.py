@@ -24,12 +24,14 @@ try:
     from websockets.asyncio.client import connect
 
     WS_HEADERS_KEY = "additional_headers"
+    IS_LEGACY_WEBSOCKETS = False
 except ImportError:
     # Fall back to legacy websockets
     from websockets.legacy.client import WebSocketClientProtocol
     from websockets.legacy.client import connect  # type: ignore
 
     WS_HEADERS_KEY = "extra_headers"
+    IS_LEGACY_WEBSOCKETS = True
 
 
 class Transport:
@@ -116,7 +118,13 @@ class Transport:
             ws_kwargs: dict = {
                 WS_HEADERS_KEY: ws_headers,
                 **self._conn_config.to_dict(),
+                "ssl": self._conn_config.ssl_context,
             }
+
+            # Filter out parameters not supported by new websockets >=13.0
+            if not IS_LEGACY_WEBSOCKETS:
+                ws_kwargs.pop("read_limit", None)
+                ws_kwargs.pop("write_limit", None)
 
             self._websocket = await connect(
                 url_with_params,

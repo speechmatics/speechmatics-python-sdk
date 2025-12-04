@@ -103,13 +103,13 @@ client = VoiceAgentClient(api_key=api_key, preset="external")
 client = VoiceAgentClient(api_key=api_key, preset="scribe")
 
 # Low latency preset - for fast responses
-client = VoiceAgentClient(api_key=api_key, preset="low_latency")
+client = VoiceAgentClient(api_key=api_key, preset="fast")
 
 # Conversation preset - for natural dialogue
-client = VoiceAgentClient(api_key=api_key, preset="conversation_adaptive")
+client = VoiceAgentClient(api_key=api_key, preset="adaptive")
 
 # Advanced conversation with ML turn detection
-client = VoiceAgentClient(api_key=api_key, preset="conversation_smart_turn")
+client = VoiceAgentClient(api_key=api_key, preset="smart_turn")
 
 # Captions preset - for live captioning
 client = VoiceAgentClient(api_key=api_key, preset="captions")
@@ -284,7 +284,7 @@ config = VoiceAgentConfigPreset.SCRIBE(
 
 # Available presets
 presets = VoiceAgentConfigPreset.list_presets()
-# ['low_latency', 'conversation_adaptive', 'conversation_smart_turn', 'scribe', 'captions']
+# ['fast', 'adaptive', 'smart_turn', 'scribe', 'captions']
 ```
 
 ### Configuration Serialization
@@ -678,7 +678,7 @@ class VoiceAgentClient:
             url: Custom WebSocket URL (defaults to SPEECHMATICS_RT_URL env var)
             app: Optional application name for endpoint URL
             config: Voice Agent configuration (optional)
-            preset: Preset name ("scribe", "low_latency", etc.) (optional)
+            preset: Preset name ("scribe", "fast", etc.) (optional)
         """
 
     async def connect(self) -> None:

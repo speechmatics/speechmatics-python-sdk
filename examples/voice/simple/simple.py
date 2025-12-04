@@ -10,7 +10,10 @@ import os
 
 from speechmatics.rt import Microphone
 from speechmatics.voice import AgentServerMessageType
+from speechmatics.voice import SpeechSegmentConfig
 from speechmatics.voice import VoiceAgentClient
+from speechmatics.voice import VoiceAgentConfig
+from speechmatics.voice import VoiceAgentConfigPreset
 
 
 async def main() -> None:
@@ -28,15 +31,20 @@ async def main() -> None:
         print("Error: PyAudio not available - install with: pip install pyaudio")
         return
 
+    # Config
+    config = VoiceAgentConfigPreset.FAST(
+        VoiceAgentConfig(speech_segment_config=SpeechSegmentConfig(emit_sentences=False))
+    )
+
     # Create client
-    client = VoiceAgentClient(api_key=api_key, preset="scribe")
+    client = VoiceAgentClient(api_key=api_key, config=config)
 
     # Handle partial segments (interim results)
-    @client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT)
-    def on_partial_segment(message):
-        segments = message.get("segments", [])
-        for segment in segments:
-            print(f"[PARTIAL] {segment['speaker_id']}: {segment['text']}")
+    # @client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT)
+    # def on_partial_segment(message):
+    #     segments = message.get("segments", [])
+    #     for segment in segments:
+    #         print(f"[PARTIAL] {segment['speaker_id']}: {segment['text']}")
 
     # Handle final segments
     @client.on(AgentServerMessageType.ADD_SEGMENT)

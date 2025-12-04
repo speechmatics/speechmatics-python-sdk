@@ -44,9 +44,6 @@ class StaticKeyAuth(AuthBase):
     def __init__(self, api_key: Optional[str] = None):
         self._api_key = api_key or os.environ.get("SPEECHMATICS_API_KEY")
 
-        if not self._api_key:
-            raise ValueError("API key required: provide api_key or set SPEECHMATICS_API_KEY")
-
     async def get_auth_headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self._api_key}"}
 

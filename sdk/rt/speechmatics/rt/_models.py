@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ssl
 from dataclasses import asdict
 from dataclasses import dataclass
 from dataclasses import field
@@ -462,9 +463,9 @@ class ConnectionConfig:
         close_timeout: Timeout for closing WebSocket connection.
         max_size: Maximum message size in bytes.
         max_queue: Maximum number of messages in receive queue.
-        read_limit: Maximum number of bytes to read from WebSocket.
-        write_limit: Maximum number of bytes to write to WebSocket.
-
+        read_limit: Maximum number of bytes to read from WebSocket (legacy websockets only).
+        write_limit: Maximum number of bytes to write to WebSocket (legacy websockets only).
+        ssl_context: SSL context for the WebSocket connection.
     Returns:
         Websocket connection configuration as a dict while excluding None values.
     """
@@ -477,9 +478,29 @@ class ConnectionConfig:
     max_queue: Optional[int] = None
     read_limit: Optional[int] = None
     write_limit: Optional[int] = None
+    ssl_context: ssl.SSLContext = field(default_factory=ssl.create_default_context)
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self, dict_factory=lambda x: {k: v for (k, v) in x if v is not None})
+        """Convert to dict, excluding ssl field to avoid pickle errors."""
+        result = {}
+        if self.open_timeout is not None:
+            result["open_timeout"] = self.open_timeout
+        if self.ping_interval is not None:
+            result["ping_interval"] = self.ping_interval
+        if self.ping_timeout is not None:
+            result["ping_timeout"] = self.ping_timeout
+        if self.close_timeout is not None:
+            result["close_timeout"] = self.close_timeout
+        if self.max_size is not None:
+            result["max_size"] = self.max_size
+        if self.max_queue is not None:
+            result["max_queue"] = self.max_queue
+        if self.read_limit is not None:
+            result["read_limit"] = self.read_limit
+        if self.write_limit is not None:
+            result["write_limit"] = self.write_limit
+
+        return result
 
 
 @dataclass

@@ -13,6 +13,7 @@ from typing import Optional
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ConfigDict
 from pydantic import Field
+from pydantic import model_validator
 from typing_extensions import Self
 
 from speechmatics.rt import AudioEncoding
@@ -39,10 +40,6 @@ class EndOfUtteranceMode(str, Enum):
         based on the content of what the most recent speaker has said, such as
         rate of speech and whether they have any pauses or disfluencies.
 
-    - `SMART_TURN`: Smart turn end of turn delay. The STT engine will use a combination
-        of silence detection, adaptive delay and smart turn detection using machine learning
-        to determine the end of turn.
-
     Examples:
         Using fixed mode (default):
             >>> config = VoiceAgentConfig(
@@ -54,12 +51,6 @@ class EndOfUtteranceMode(str, Enum):
             >>> config = VoiceAgentConfig(
             ...     language="en",
             ...     end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE
-            ... )
-
-        Using smart turn detection:
-            >>> config = VoiceAgentConfig(
-            ...     language="en",
-            ...     end_of_utterance_mode=EndOfUtteranceMode.SMART_TURN,
             ... )
 
         External control (manual finalization):
@@ -74,7 +65,6 @@ class EndOfUtteranceMode(str, Enum):
     EXTERNAL = "external"
     FIXED = "fixed"
     ADAPTIVE = "adaptive"
-    SMART_TURN = "smart_turn"
 
 
 class TranscriptionUpdatePreset(str, Enum):
@@ -126,11 +116,15 @@ class AgentServerMessageType(str, Enum):
     Speechmatics RT API / Voice Agent SDK can send to the client.
 
     Attributes:
-        RecognitionStarted: The recognition session has started.
-        EndOfTranscript: The recognition session has ended.
-        Info: Informational message.
-        Warning: Warning message.
-        Error: Error message.
+        RecognitionStarted: Server response to 'StartRecognition',
+            acknowledging that a recognition session has started.
+        EndOfTranscript: Indicates the server has finished sending all messages.
+        Info: Informational messages from the server.
+        Warning: Warning messages that don't stop transcription.
+        Error: Error messages indicating transcription failure.
+        AudioAdded: Server response to 'AddAudio', indicating
+            that audio has been added successfully.
+        Diagnostics: Diagnostic messages for development and troubleshooting.
         AddPartialTranscript: Partial transcript has been added.
         AddTranscript: Transcript has been added.
         EndOfUtterance: End of utterance has been detected (from STT engine).
@@ -141,6 +135,7 @@ class AgentServerMessageType(str, Enum):
         StartOfTurn: Start of turn has been detected.
         EndOfTurnPrediction: End of turn prediction timing.
         EndOfTurn: End of turn has been detected.
+        SmartTurn: Smart turn metadata.
         SpeakersResult: Speakers result has been detected.
         Metrics: Metrics for the STT engine.
         SpeakerMetrics: Metrics relating to speakers.
@@ -172,6 +167,8 @@ class AgentServerMessageType(str, Enum):
     INFO = "Info"
     WARNING = "Warning"
     ERROR = "Error"
+    AUDIO_ADDED = "AudioAdded"
+    DIAGNOSTICS = "Diagnostics"
 
     # Raw transcription messages
     ADD_PARTIAL_TRANSCRIPT = "AddPartialTranscript"
@@ -187,10 +184,11 @@ class AgentServerMessageType(str, Enum):
     ADD_SEGMENT = "AddSegment"
 
     # Turn messages
+    VAD_STATUS = "VadStatus"
     START_OF_TURN = "StartOfTurn"
     END_OF_TURN_PREDICTION = "EndOfTurnPrediction"
     END_OF_TURN = "EndOfTurn"
-    SMART_TURN_AUDIO = "SmartTurnAudio"
+    SMART_TURN_RESULT = "SmartTurnResult"
 
     # Speaker messages
     SPEAKERS_RESULT = "SpeakersResult"
@@ -239,6 +237,8 @@ class AnnotationFlags(str, Enum):
     ONLY_PUNCTUATION = "only_punctuation"
     MULTIPLE_SPEAKERS = "multiple_speakers"
     NO_TEXT = "no_text"
+    HAS_PAUSE = "has_pause"
+    ENDS_WITH_PAUSE = "ends_with_pause"
 
     # End of utterance detection
     END_OF_UTTERANCE = "end_of_utterance"
@@ -390,13 +390,12 @@ class EndOfTurnConfig(BaseModel):
     Parameters:
         base_multiplier: Base multiplier for end of turn delay.
         min_end_of_turn_delay: Minimum end of turn delay.
-        end_of_turn_adjustment_factor: End of turn adjustment factor.
         penalties: List of end of turn penalty items.
+        use_forced_eou: Whether to use forced end of utterance detection.
     """
 
     base_multiplier: float = 1.0
-    min_end_of_turn_delay: float = 0.3
-    end_of_turn_adjustment_factor: float = 1.0
+    min_end_of_turn_delay: float = 0.01
     penalties: list[EndOfTurnPenaltyItem] = Field(
         default_factory=lambda: [
             # Increase delay
@@ -411,10 +410,25 @@ class EndOfTurnConfig(BaseModel):
             ),
             # Decrease delay
             EndOfTurnPenaltyItem(
-                penalty=0.25, annotation=[AnnotationFlags.ENDS_WITH_FINAL, AnnotationFlags.ENDS_WITH_EOS]
+                penalty=0.5, annotation=[AnnotationFlags.ENDS_WITH_FINAL, AnnotationFlags.ENDS_WITH_EOS]
             ),
         ]
     )
+    use_forced_eou: bool = False
+
+
+class VoiceActivityConfig(BaseModel):
+    """Configuration for voice activity detection.
+
+    Parameters:
+        enabled: Whether voice activity detection is enabled.
+        silence_duration: Duration of silence in seconds before considering speech ended.
+        threshold: Threshold for voice activity detection.
+    """
+
+    enabled: bool = False
+    silence_duration: float = 0.18
+    threshold: float = 0.35
 
 
 class SmartTurnConfig(BaseModel):
@@ -424,14 +438,11 @@ class SmartTurnConfig(BaseModel):
     extract slices of recent audio for post-processing by end of thought models.
 
     Parameters:
-        audio_buffer_length: Length of audio buffer to extract slices of recent audio for post-processing
-            by end of thought models. Defaults to 0.0 seconds.
+        enabled: Whether smart turn is enabled.
 
-        smart_turn_threshold: Smart turn threshold. This is used to determine when a turn has completed.
-            Only used when `end_of_utterance_mode` is `EndOfUtteranceMode.SMART_TURN`. Defaults to 0.5.
+        smart_turn_threshold: Smart turn threshold. Defaults to 0.5.
 
-        slice_margin: Margin to add to the audio buffer to ensure that the end of thought models have
-            enough audio to work with. Defaults to 0.05 seconds.
+        max_audio_length: Maximum length of audio to analyze in seconds. Defaults to 8.0.
 
         positive_penalty: Positive penalty for smart turn. Defaults to -1.0.
 
@@ -439,17 +450,17 @@ class SmartTurnConfig(BaseModel):
 
     Examples:
         >>> config = SmartTurnConfig(
-        ...     audio_buffer_length=0.5,
+        ...     audio_buffer_length=15.0,
         ...     smart_turn_threshold=0.5,
         ...     slice_margin=0.05
         ... )
     """
 
-    audio_buffer_length: float = 0.0
+    enabled: bool = False
     smart_turn_threshold: float = 0.5
-    slice_margin: float = 0.05
-    positive_penalty: float = 0.3
-    negative_penalty: float = 1.7
+    max_audio_length: float = 8.0
+    positive_penalty: float = 0.0
+    negative_penalty: float = 1.0
 
 
 class VoiceAgentConfig(BaseModel):
@@ -541,9 +552,6 @@ class VoiceAgentConfig(BaseModel):
         include_results: Include word data in the response. This is useful for debugging and
             understanding the STT engine's behavior. Defaults to False.
 
-        use_forced_eou_message: Use forced end of utterance message. This will force the STT engine to emit
-            end of utterance messages. Defaults to False.
-
         transcription_update_preset: Emit segments when the text content or word timings change.
             Options are: `COMPLETE` (emit on changes to text content), `COMPLETE_PLUS_TIMING`
             (emit on changes to text content and word timings), `WORDS` (emit on changes to word
@@ -553,14 +561,19 @@ class VoiceAgentConfig(BaseModel):
 
         end_of_turn_config: End of turn configuration for the Speechmatics Voice Agent.
 
+        vad_config: Voice activity detection configuration for the Speechmatics Voice Agent.
+
         smart_turn_config: Smart turn configuration for the Speechmatics Voice Agent.
 
         speech_segment_config: Speech segment configuration for the Speechmatics Voice Agent.
+
+        audio_buffer_length: Length of internal rolling audio buffer in seconds. Defaults to `0.0`.
 
         advanced_engine_control: Internal use only.
 
         sample_rate: Audio sample rate for streaming. Defaults to `16000`.
         audio_encoding: Audio encoding format. Defaults to `AudioEncoding.PCM_S16LE`.
+        chunk_size: Audio chunk size in frames. Defaults to `160`.
 
     Examples:
         Basic configuration:
@@ -614,9 +627,9 @@ class VoiceAgentConfig(BaseModel):
             ...     enable_diarization=True,
             ...     speaker_sensitivity=0.7,
             ...     max_speakers=3,
-            ...     end_of_utterance_mode=EndOfUtteranceMode.SMART_TURN,
+            ...     end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
             ...     smart_turn_config=SmartTurnConfig(
-            ...         smart_turn_threshold=0.5
+            ...         enabled=True
             ...     ),
             ...     additional_vocab=[
             ...         AdditionalVocabEntry(content="API"),
@@ -635,8 +648,8 @@ class VoiceAgentConfig(BaseModel):
     output_locale: Optional[str] = None
 
     # Features
-    max_delay: float = 0.7
-    end_of_utterance_silence_trigger: float = 0.2
+    max_delay: float = 1.0
+    end_of_utterance_silence_trigger: float = 0.5
     end_of_utterance_max_delay: float = 10.0
     end_of_utterance_mode: EndOfUtteranceMode = EndOfUtteranceMode.FIXED
     additional_vocab: list[AdditionalVocabEntry] = Field(default_factory=list)
@@ -653,11 +666,12 @@ class VoiceAgentConfig(BaseModel):
 
     # Advanced features
     include_results: bool = False
-    use_forced_eou_message: bool = False
     transcription_update_preset: TranscriptionUpdatePreset = TranscriptionUpdatePreset.COMPLETE
     end_of_turn_config: EndOfTurnConfig = Field(default_factory=EndOfTurnConfig)
-    smart_turn_config: SmartTurnConfig = Field(default_factory=SmartTurnConfig)
+    vad_config: Optional[VoiceActivityConfig] = None
+    smart_turn_config: Optional[SmartTurnConfig] = None
     speech_segment_config: SpeechSegmentConfig = Field(default_factory=SpeechSegmentConfig)
+    audio_buffer_length: float = 0.0
 
     # Advanced engine configuration
     advanced_engine_control: Optional[dict[str, Any]] = None
@@ -665,6 +679,54 @@ class VoiceAgentConfig(BaseModel):
     # Audio
     sample_rate: int = 16000
     audio_encoding: AudioEncoding = AudioEncoding.PCM_S16LE
+    chunk_size: int = 160
+
+    # Validation
+    @model_validator(mode="after")  # type: ignore[misc]
+    def validate_config(self) -> Self:
+        """Validate the configuration."""
+
+        # Validation errors
+        errors: list[str] = []
+
+        # End of utterance mode cannot be EXTERNAL if smart turn is enabled
+        if self.end_of_utterance_mode == EndOfUtteranceMode.EXTERNAL and self.smart_turn_config:
+            errors.append("EXTERNAL mode cannot be used in conjunction with SmartTurnConfig")
+
+        # Cannot have FIXED and forced end of utterance enabled without VAD being enabled
+        if (self.end_of_utterance_mode == EndOfUtteranceMode.FIXED and self.end_of_turn_config.use_forced_eou) and not (
+            self.vad_config and self.vad_config.enabled
+        ):
+            errors.append("FIXED mode cannot be used in conjunction with forced end of utterance without VAD enabled")
+
+        # Cannot use VAD with external end of utterance mode
+        if self.end_of_utterance_mode == EndOfUtteranceMode.EXTERNAL and (self.vad_config and self.vad_config.enabled):
+            errors.append("EXTERNAL mode cannot be used in conjunction with VAD being enabled")
+
+        # Check end_of_utterance_max_delay is greater than end_of_utterance_silence_trigger
+        if self.end_of_utterance_max_delay < self.end_of_utterance_silence_trigger:
+            errors.append("end_of_utterance_max_delay must be greater than end_of_utterance_silence_trigger")
+
+        # If diarization is not enabled, then max_speakers cannot be set
+        if not self.enable_diarization and self.max_speakers:
+            errors.append("max_speakers cannot be set when enable_diarization is False")
+
+        # If diarization is not enabled, then SpeakerFocusConfig.focus_speakers and SpeakerFocusConfig.ignore_speakers must be empty
+        if not self.enable_diarization and (self.speaker_config.focus_speakers or self.speaker_config.ignore_speakers):
+            errors.append(
+                "SpeakerFocusConfig.focus_speakers and SpeakerFocusConfig.ignore_speakers must be empty when enable_diarization is False"
+            )
+
+        # Check sample rate
+        if self.sample_rate not in [8000, 16000]:
+            errors.append("sample_rate must be 8000 or 16000")
+
+        # Raise error if any validation errors
+        if errors:
+            raise ValueError(f"{len(errors)} config error(s): {'; '.join(errors)}")
+
+        # Return validated config
+        return self
 
 
 # ==============================================================================
@@ -1055,6 +1117,22 @@ class BaseMessage(BaseModel):
         return cls.from_dict(data, **kwargs)
 
 
+class MessageTimeMetadata(BaseModel):
+    """Metadata for segment messages.
+
+    Parameters:
+        time: The time of the event.
+        start_time: The start time of the segment.
+        end_time: The end time of the segment.
+        processing_time: The processing time of the segment.
+    """
+
+    time: Optional[float] = None
+    start_time: Optional[float] = None
+    end_time: Optional[float] = None
+    processing_time: Optional[float] = None
+
+
 class ErrorMessage(BaseMessage):
     """Emitted when an error occurs.
 
@@ -1085,7 +1163,7 @@ class SessionMetricsMessage(BaseMessage):
     processing_time: float
 
 
-class VADStatusMessage(BaseMessage):
+class SpeakerStatusMessage(BaseMessage):
     """Emitted when a speaker starts or ends speaking.
 
     The speaker id is taken from the last word in the segment when
@@ -1104,20 +1182,22 @@ class VADStatusMessage(BaseMessage):
     time: Optional[float] = None
 
 
-class MessageTimeMetadata(BaseModel):
-    """Metadata for segment messages.
+class VADStatusMessage(BaseMessage):
+    """Emitted when voice activity detection status changes.
 
     Parameters:
-        time: The time of the event.
-        start_time: The start time of the segment.
-        end_time: The end time of the segment.
-        processing_time: The processing time of the segment.
+        message: The message type.
+        is_speech: Whether speech is detected.
+        probability: The probability of speech.
+        transition_duration_ms: The duration of the transition in milliseconds.
+        metadata: The time metadata.
     """
 
-    time: Optional[float] = None
-    start_time: Optional[float] = None
-    end_time: Optional[float] = None
-    processing_time: Optional[float] = None
+    message: AgentServerMessageType = AgentServerMessageType.VAD_STATUS
+    metadata: MessageTimeMetadata
+    is_speech: bool
+    probability: float
+    transition_duration_ms: float
 
 
 class TurnStartEndResetMessage(BaseMessage):
@@ -1144,6 +1224,7 @@ class TurnPredictionMetadata(BaseModel):
     """
 
     ttl: float
+    reasons: list[str]
 
     model_config = ConfigDict(extra="ignore")
 
@@ -1211,6 +1292,7 @@ class SegmentMessageSegment(BaseModel):
     language: Optional[str] = None
     text: Optional[str] = None
     fragments: Optional[list[SegmentMessageSegmentFragment]] = None
+    annotation: list[AnnotationFlags] = Field(default_factory=list, exclude=True)
     metadata: MessageTimeMetadata
 
     model_config = ConfigDict(extra="ignore")

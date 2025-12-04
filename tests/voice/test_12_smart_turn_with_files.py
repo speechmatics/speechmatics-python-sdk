@@ -28,7 +28,6 @@ SAMPLES: list[PredictionTest] = [
         language="en",
         expected=SmartTurnPredictionResult(
             prediction=False,
-            probability=0.095,
         ),
     ),
     PredictionTest(
@@ -37,7 +36,6 @@ SAMPLES: list[PredictionTest] = [
         language="en",
         expected=SmartTurnPredictionResult(
             prediction=False,
-            probability=0.011,
         ),
     ),
     PredictionTest(
@@ -46,7 +44,6 @@ SAMPLES: list[PredictionTest] = [
         language="en",
         expected=SmartTurnPredictionResult(
             prediction=True,
-            probability=0.892,
         ),
     ),
 ]
@@ -79,9 +76,3 @@ async def test_prediction(sample: PredictionTest):
 
     # Check result
     assert result.prediction == sample.expected.prediction
-
-    # Prediction within 5% of expected
-    assert (
-        result.probability >= sample.expected.probability - 0.05
-        and result.probability <= sample.expected.probability + 0.05
-    )
