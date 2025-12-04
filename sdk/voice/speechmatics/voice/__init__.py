@@ -26,6 +26,7 @@ from ._models import AgentServerMessageType
 from ._models import EndOfTurnConfig
 from ._models import EndOfTurnPenaltyItem
 from ._models import EndOfUtteranceMode
+from ._models import MaxDelayMode
 from ._models import SegmentMessage
 from ._models import SessionMetricsMessage
 from ._models import SmartTurnConfig
@@ -54,6 +55,7 @@ __all__ = [
     "EndOfTurnConfig",
     "EndOfTurnPenaltyItem",
     "EndOfUtteranceMode",
+    "MaxDelayMode",
     "OperatingPoint",
     "SpeakerDiarizationConfig",
     "SpeakerFocusConfig",

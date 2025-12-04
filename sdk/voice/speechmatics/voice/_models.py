@@ -67,6 +67,13 @@ class EndOfUtteranceMode(str, Enum):
     ADAPTIVE = "adaptive"
 
 
+class MaxDelayMode(str, Enum):
+    """Max delay mode options for transcription."""
+
+    FIXED = "fixed"
+    FLEXIBLE = "flexible"
+
+
 class TranscriptionUpdatePreset(str, Enum):
     """Filter options for when to emit changes to transcription.
 
@@ -512,10 +519,17 @@ class VoiceAgentConfig(BaseModel):
             than English. See documentation for more information.
             Defaults to `None`.
 
-        enable_diarization: Enable speaker diarization. When enabled, the STT engine will
-            determine and attribute words to unique speakers. The speaker_sensitivity
-            parameter can be used to adjust the sensitivity of diarization.
+        enable_entities: Enable entity detection. When enabled, the STT engine will
+            detect and attribute words to entities. This is useful for languages that use
+            different entities than English. See documentation for more information.
             Defaults to `False`.
+
+        max_delay_mode: Determines whether the threshold specified in max_delay can be exceeded
+            if a potential entity is detected. Flexible means if a potential entity
+            is detected, then the max_delay can be overriden until the end of that
+            entity. Fixed means that max_delay specified ignores any potential
+            entity that would not be completed within that threshold.
+            Defaults to `MaxDelayMode.FLEXIBLE`.
 
         include_partials: Include partial segment fragments (words) in the output of
             AddPartialSegment messages. Partial fragments from the STT will always be used for
@@ -523,6 +537,11 @@ class VoiceAgentConfig(BaseModel):
             always be included in the segment fragment list. This setting is used only for
             the formatted text output of individual segments.
             Defaults to `True`.
+
+        enable_diarization: Enable speaker diarization. When enabled, the STT engine will
+            determine and attribute words to unique speakers. The speaker_sensitivity
+            parameter can be used to adjust the sensitivity of diarization.
+            Defaults to `False`.
 
         speaker_sensitivity: Diarization sensitivity. A higher value increases the sensitivity
             of diarization and helps when two or more speakers have similar voices.
@@ -654,10 +673,12 @@ class VoiceAgentConfig(BaseModel):
     end_of_utterance_mode: EndOfUtteranceMode = EndOfUtteranceMode.FIXED
     additional_vocab: list[AdditionalVocabEntry] = Field(default_factory=list)
     punctuation_overrides: Optional[dict] = None
+    enable_entities: bool = False
+    max_delay_mode: MaxDelayMode = MaxDelayMode.FLEXIBLE
+    include_partials: bool = True
 
     # Diarization
     enable_diarization: bool = False
-    include_partials: bool = True
     speaker_sensitivity: float = 0.5
     max_speakers: Optional[int] = None
     prefer_current_speaker: bool = False
@@ -1224,7 +1245,7 @@ class TurnPredictionMetadata(BaseModel):
     """
 
     ttl: float
-    reasons: list[str]
+    reasons: list[str] = Field(default_factory=list, exclude=True)
 
     model_config = ConfigDict(extra="ignore")
 

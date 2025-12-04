@@ -26,7 +26,7 @@ class VoiceAgentConfigPreset:
         delay to finalizing the spoken sentences. It is not recommended for
         conversation, as it will not account for pauses, slow speech or disfluencies.
 
-        Use of this will requite `pip install speechmatics-voice[smart]` and may not
+        Use of this will require `pip install speechmatics-voice[smart]` and may not
         be suited to low-power devices.
         """
         return VoiceAgentConfigPreset._merge_configs(
@@ -71,7 +71,7 @@ class VoiceAgentConfigPreset:
         finalizing the spoken sentences will be adjusted based on the words and whether
         there are any pauses, slow speech or disfluencies.
 
-        Use of this will requite `pip install speechmatics-voice[smart]` and may not
+        Use of this will require `pip install speechmatics-voice[smart]` and may not
         be suited to low-power devices.
         """
         return VoiceAgentConfigPreset._merge_configs(
@@ -100,7 +100,7 @@ class VoiceAgentConfigPreset:
         This preset will use a model to detect for acoustic indicators from the
         speaker to determine when a turn has ended.
 
-        Use of this will requite `pip install speechmatics-voice[smart]` and may not
+        Use of this will require `pip install speechmatics-voice[smart]` and may not
         be suited to low-power devices.
         """
         return VoiceAgentConfigPreset._merge_configs(
@@ -127,7 +127,7 @@ class VoiceAgentConfigPreset:
         This mode will emit partial and final segments as they become available. The end of
         utterance is set to fixed. End of turn is not required for note-taking.
 
-        Use of this will requite `pip install speechmatics-voice[smart]` and may not
+        Use of this will require `pip install speechmatics-voice[smart]` and may not
         be suited to low-power devices.
         """
         return VoiceAgentConfigPreset._merge_configs(
@@ -143,6 +143,26 @@ class VoiceAgentConfigPreset:
                 ),
                 vad_config=VoiceActivityConfig(enabled=True, silence_duration=0.2),
                 end_of_turn_config=EndOfTurnConfig(use_forced_eou=True),
+            ),
+            overlay,
+        )
+
+    @staticmethod
+    def CAPTIONS(overlay: Optional[VoiceAgentConfig] = None) -> VoiceAgentConfig:  # noqa: N802
+        """Best suited for captioning.
+
+        This mode will emit final segments as they become available. The end of
+        utterance is set to fixed. End of turn is not required for captioning.
+        """
+        return VoiceAgentConfigPreset._merge_configs(
+            VoiceAgentConfig(
+                operating_point=OperatingPoint.ENHANCED,
+                enable_diarization=True,
+                max_delay=0.7,
+                end_of_utterance_silence_trigger=0.5,
+                end_of_utterance_mode=EndOfUtteranceMode.FIXED,
+                speech_segment_config=SpeechSegmentConfig(emit_sentences=True),
+                include_partials=False,
             ),
             overlay,
         )

@@ -27,10 +27,9 @@ The Voice SDK is a higher-level abstraction built on top of the Speechmatics Rea
 
 **Use Real-Time SDK when:**
 
-- You need raw word-level events
-- Building custom segmentation logic
+- You only need raw word-level events
+- Building custom segmentation / aggregation logic
 - You want fine-grained control over every event
-- Processing batch files or custom workflows
 
 ## Installation
 
@@ -38,15 +37,45 @@ The Voice SDK is a higher-level abstraction built on top of the Speechmatics Rea
 # Standard installation
 pip install speechmatics-voice
 
-# With SMART_TURN (ML-based turn detection)
+# With VAD and SMART_TURN (ML-based turn detection)
 pip install speechmatics-voice[smart]
 ```
 
-> **Note:** `SMART_TURN` requires additional ML dependencies (ONNX runtime, transformers). If not installed, it automatically falls back to `ADAPTIVE` mode.
+> **Note:** Some features require additional ML dependencies (ONNX runtime, transformers). If not installed, these features will be unavailable and a warning will be shown.
+
+### Use within Docker
+
+If you are using a Docker container with the Voice SDK installed and you require the smart features, then you can use the following in your `Dockerfile` to make sure the ML models are included and not downloaded at runtime.
+
+```python
+"""
+Download required models
+"""
+
+from speechmatics.voice import SileroVAD, SmartTurnDetector
+
+
+def load_models():
+    SileroVAD.download_model()
+    SmartTurnDetector.download_model()
+
+
+if __name__ == "__main__":
+    load_models()
+```
+
+And then include the following in tour `Dockerfile`:
+
+```
+COPY ./models.py models.py
+RUN uv run models.py
+```
 
 ## Quick Start
 
 ### Basic Example
+
+A simple example that will show complete sentences as they have been finalized. Different speakers will be shown with a different ID.
 
 ```python
 import asyncio
@@ -70,7 +99,7 @@ async def main():
             print(f"{speaker}: {text}")
 
     # Setup microphone
-    mic = Microphone(sample_rate=16000, chunk_size=320)
+    mic = Microphone(sample_rate=16000, chunk_size=160)
     if not mic.start():
         print("Error: Microphone not available")
         return
@@ -80,7 +109,7 @@ async def main():
 
     try:
         while True:
-            audio_chunk = await mic.read(320)
+            audio_chunk = await mic.read(160)
             await client.send_audio(audio_chunk)
     except KeyboardInterrupt:
         pass
@@ -96,13 +125,7 @@ if __name__ == "__main__":
 Presets provide optimized configurations for common use cases:
 
 ```python
-# External end of turn preset - endpointing handled by the client
-client = VoiceAgentClient(api_key=api_key, preset="external")
-
-# Scribe preset - for note-taking
-client = VoiceAgentClient(api_key=api_key, preset="scribe")
-
-# Low latency preset - for fast responses
+# Low latency preset - for fast responses (may split speech in to smaller segments)
 client = VoiceAgentClient(api_key=api_key, preset="fast")
 
 # Conversation preset - for natural dialogue
@@ -110,6 +133,12 @@ client = VoiceAgentClient(api_key=api_key, preset="adaptive")
 
 # Advanced conversation with ML turn detection
 client = VoiceAgentClient(api_key=api_key, preset="smart_turn")
+
+# External end of turn preset - endpointing handled by the client
+client = VoiceAgentClient(api_key=api_key, preset="external")
+
+# Scribe preset - for note-taking
+client = VoiceAgentClient(api_key=api_key, preset="scribe")
 
 # Captions preset - for live captioning
 client = VoiceAgentClient(api_key=api_key, preset="captions")
@@ -146,8 +175,8 @@ Domain-specific model (e.g., `"finance"`, `"medical"`). See [supported languages
 **`output_locale`** (str, default: `None`)
 Output locale for formatting (e.g., `"en-GB"`, `"en-US"`). See [supported languages and locales](https://docs.speechmatics.com/speech-to-text/languages).
 
-**`enable_diarization`** (bool, default: `False`)
-Enable speaker diarization to identify and label different speakers.
+**`max_delay`** (float, default: `0.7`)
+Maximum transcription delay for word emission.
 
 ### Turn Detection Parameters
 
@@ -156,19 +185,15 @@ Controls how turn endings are detected:
 
 - **`FIXED`** - Uses fixed silence threshold. Fast but may split slow speech.
 - **`ADAPTIVE`** - Adjusts delay based on speech rate, pauses, and disfluencies. Best for natural conversation.
-- **`SMART_TURN`** - Uses ML model to detect acoustic turn-taking cues. Requires `[smart]` extras.
 - **`EXTERNAL`** - Manual control via `client.finalize()`. For custom turn logic.
 
 **`end_of_utterance_silence_trigger`** (float, default: `0.2`)
-Silence duration in seconds to trigger turn end.
-
-**`end_of_utterance_max_delay`** (float, default: `10.0`)
-Maximum delay before forcing turn end.
-
-**`max_delay`** (float, default: `0.7`)
-Maximum transcription delay for word emission.
+Silence duration in seconds to trigger turn end (also used for the basis of adaptive delay).
 
 ### Speaker Configuration
+
+**`enable_diarization`** (bool, default: `False`)
+Enable speaker diarization to identify and label different speakers.
 
 **`speaker_sensitivity`** (float, default: `0.5`)
 Diarization sensitivity between 0.0 and 1.0. Higher values detect more speakers.
@@ -185,7 +210,7 @@ Configure speaker focus/ignore rules.
 ```python
 from speechmatics.voice import SpeakerFocusConfig, SpeakerFocusMode
 
-# Focus only on specific speakers
+# Focus only on specific speakers, but keep words from other speakers
 config = VoiceAgentConfig(
     enable_diarization=True,
     speaker_config=SpeakerFocusConfig(
@@ -198,8 +223,7 @@ config = VoiceAgentConfig(
 config = VoiceAgentConfig(
     enable_diarization=True,
     speaker_config=SpeakerFocusConfig(
-        ignore_speakers=["S3"],
-        focus_mode=SpeakerFocusMode.IGNORE
+        ignore_speakers=["S3"]
     )
 )
 ```
@@ -265,7 +289,7 @@ Configure SMART_TURN behavior (buffer length, threshold).
 Include word-level timing data in segments.
 
 **`include_partials`** (bool, default: `True`)
-Emit partial segments. Set to `False` for final-only output.
+Include interim (lower confidence) words in the emitted segments. Set to `False` for final-only output.
 
 ### Configuration with Overlays
 
@@ -284,7 +308,7 @@ config = VoiceAgentConfigPreset.SCRIBE(
 
 # Available presets
 presets = VoiceAgentConfigPreset.list_presets()
-# ['fast', 'adaptive', 'smart_turn', 'scribe', 'captions']
+# ['fast', 'adaptive', 'smart_turn', 'scribe', 'captions', '...']
 ```
 
 ### Configuration Serialization
@@ -502,23 +526,27 @@ def on_speaker_end(message):
 
 #### SPEAKERS_RESULT
 
-Emitted when speaker enrollment completes.
+Emitted when speaker enrolment completes.
 
 ```python
-# Request speaker IDs at end of session
-await client.send_message({"message": "GetSpeakers", "final": True})
-
+# Listen for the result
 @client.on(AgentServerMessageType.SPEAKERS_RESULT)
 def on_speakers(message):
     for speaker in message["speakers"]:
         print(f"Speaker {speaker['label']}: {speaker['speaker_identifiers']}")
+
+# Request speaker IDs at end of session
+await client.send_message({"message": AgentClientMessageType.GET_SPEAKERS, "final": True})
+
+# Request speaker IDs now
+await client.send_message({"message": AgentClientMessageType.GET_SPEAKERS})
 ```
 
 ### Additional Events
 
 **`START_OF_TURN`** - Emitted at the beginning of a new turn.
 
-**`END_OF_TURN_PREDICTION`** - Emitted during `ADAPTIVE` or `SMART_TURN` mode to predict turn completion (fires before `END_OF_TURN`).
+**`END_OF_TURN_PREDICTION`** - Emitted during `ADAPTIVE` mode to predict turn completion (fires before `END_OF_TURN`).
 
 **`END_OF_UTTERANCE`** - Low-level STT engine event (fires when silence threshold is reached).
 
@@ -655,7 +683,7 @@ See the `examples/voice/` directory for complete working examples:
 - **`scribe/`** - Note-taking with custom vocabulary
 - **`cli/`** - Full-featured CLI with all options
 
-## API Reference
+## SDK Class Reference
 
 ### VoiceAgentClient
 

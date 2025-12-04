@@ -400,6 +400,7 @@ class VoiceAgentClient(AsyncClient):
             operating_point=config.operating_point,
             diarization="speaker" if config.enable_diarization else None,
             enable_partials=True,
+            enable_entities=config.enable_entities,
             max_delay=config.max_delay,
             max_delay_mode="fixed",
             audio_filtering_config={
