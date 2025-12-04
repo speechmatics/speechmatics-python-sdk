@@ -8,6 +8,7 @@ from typing import Optional
 
 import pytest
 from _utils import get_client
+from _utils import log_client_messages
 from _utils import send_audio_file
 from _utils import send_silence
 
@@ -15,6 +16,7 @@ from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfTurnConfig
 from speechmatics.voice import EndOfUtteranceMode
+from speechmatics.voice import SpeechSegmentConfig
 from speechmatics.voice import VoiceAgentConfig
 from speechmatics.voice._utils import TextUtils
 
@@ -24,6 +26,7 @@ pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping lang
 # Constants
 API_KEY = os.getenv("SPEECHMATICS_API_KEY")
 URL = "wss://eu2.rt.speechmatics.com/v2"
+SHOW_LOG = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
 
 
 @dataclass
@@ -117,10 +120,14 @@ async def test_transcribe_languages(sample: AudioSample):
         connect=False,
         config=VoiceAgentConfig(
             max_delay=1.2,
-            end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL,
+            end_of_utterance_mode=EndOfUtteranceMode.FIXED,
+            end_of_utterance_silence_trigger=1.2,
             language=sample.language,
             additional_vocab=[AdditionalVocabEntry(content=vocab) for vocab in sample.vocab],
             end_of_turn_config=EndOfTurnConfig(use_forced_eou=False),
+            speech_segment_config=SpeechSegmentConfig(
+                emit_sentences=False,
+            ),
         ),
     )
     assert client is not None
@@ -135,6 +142,10 @@ async def test_transcribe_languages(sample: AudioSample):
 
     # Start time
     start_time = datetime.datetime.now()
+
+    # Log messages
+    if SHOW_LOG:
+        log_client_messages(client)
 
     # Bytes logger
     def log_bytes_sent(bytes):

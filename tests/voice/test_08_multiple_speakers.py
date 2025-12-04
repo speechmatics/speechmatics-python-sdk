@@ -8,7 +8,6 @@ from typing import Optional
 import pytest
 from _utils import get_client
 from _utils import send_audio_file
-from pydantic import BaseModel
 
 from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
@@ -17,6 +16,7 @@ from speechmatics.voice import SpeakerFocusConfig
 from speechmatics.voice import SpeakerFocusMode
 from speechmatics.voice import SpeechSegmentConfig
 from speechmatics.voice import VoiceAgentConfig
+from speechmatics.voice._models import BaseModel
 from speechmatics.voice._models import SpeakerSegment
 
 # Skip for CI testing
