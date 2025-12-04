@@ -43,6 +43,10 @@ pip install speechmatics-voice[smart]
 
 > **Note:** Some features require additional ML dependencies (ONNX runtime, transformers). If not installed, these features will be unavailable and a warning will be shown.
 
+<details>
+
+<summary><strong>👉 Click to see how to install with Docker.</summary>
+
 ### Use within Docker
 
 If you are using a Docker container with the Voice SDK installed and you require the smart features, then you can use the following in your `Dockerfile` to make sure the ML models are included and not downloaded at runtime.
@@ -70,6 +74,8 @@ And then include the following in tour `Dockerfile`:
 COPY ./models.py models.py
 RUN uv run models.py
 ```
+
+</details>
 
 ## Quick Start
 
