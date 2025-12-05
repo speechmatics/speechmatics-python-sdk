@@ -287,6 +287,7 @@ Using `known_speakers`, you can use pre-enrolled speaker identifiers to identify
 ```python
 from speechmatics.voice import SpeakerIdentifier
 
+# Use known speakers from previous session
 config = VoiceAgentConfig(
     enable_diarization=True,
     known_speakers=[
