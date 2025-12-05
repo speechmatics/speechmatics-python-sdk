@@ -26,6 +26,9 @@ class VoiceAgentConfigPreset:
         delay to finalizing the spoken sentences. It is not recommended for
         conversation, as it will not account for pauses, slow speech or disfluencies.
 
+        Note that this uses our standard operating point so will have marginally lower
+        accuracy that the enhanced operating point.
+
         Use of this will require `pip install speechmatics-voice[smart]` and may not
         be suited to low-power devices.
         """
