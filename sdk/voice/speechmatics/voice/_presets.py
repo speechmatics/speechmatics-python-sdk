@@ -33,11 +33,10 @@ class VoiceAgentConfigPreset:
             VoiceAgentConfig(
                 operating_point=OperatingPoint.STANDARD,
                 enable_diarization=True,
-                max_delay=0.7,
+                max_delay=2.0,
+                end_of_utterance_silence_trigger=0.25,
                 end_of_utterance_mode=EndOfUtteranceMode.FIXED,
-                speech_segment_config=SpeechSegmentConfig(emit_sentences=True),
-                vad_config=VoiceActivityConfig(enabled=True, silence_duration=0.18),
-                end_of_turn_config=EndOfTurnConfig(use_forced_eou=True),
+                speech_segment_config=SpeechSegmentConfig(emit_sentences=False),
             ),
             overlay,
         )
