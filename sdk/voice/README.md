@@ -9,7 +9,7 @@ Python SDK for building voice-enabled applications using Speechmatics Real-Time 
 ## Table of Contents
 - [What is the Voice SDK?](#what-is-the-voice-sdk)
 - [Installation](#installation)
-- [QuickStart](#quick-start)
+- [Quick Start](#quick-start)
 - [Configuration](#configuration)
 - [Event Messages](#event-messages)
 - [Common Usage Patterns](#common-usage-patterns)
@@ -210,6 +210,8 @@ config = VoiceAgentConfigPreset.SCRIBE(
 )
 ```
 
+> **Note:** If no config or preset is provided, the client will default to the `external` preset.
+
 ### Configuration Serialization
 It can also be useful to export and import configuration as JSON:
 
@@ -344,7 +346,7 @@ The Voice SDK emits real-time, structured events as a session progresses via `Ag
 These events fall into three main categories:
 1. **Core Events** - high-level session and transcription updates.
 2. **Speaker Events** - detected speech activity.
-3. **Additional / Low-Level Events** - detailed, low-level events.
+3. **Additional** - detailed, low-level events.
 
 To handle events, register a callback using `@client.on()` decorator or `client.on()` method.
 
@@ -368,7 +370,7 @@ To handle events, register a callback using `@client.on()` decorator or `client.
 | `SPEAKER_ENDED`   | Silence detected     | Marks end of speech             |
 | `SPEAKERS_RESULT` | Enrollment completes | Provides speaker IDs and labels |
 
-#### Additional / Low-Level Events
+#### Additional Events
 | Event                  | When it fires                 | Purpose                                     |
 | ---------------------- | ----------------------------- | ------------------------------------------- |
 | `START_OF_TURN`          | New turn begins               | Optional, low-level event for turn tracking |
