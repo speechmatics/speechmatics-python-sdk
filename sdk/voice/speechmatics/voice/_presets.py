@@ -28,9 +28,6 @@ class VoiceAgentConfigPreset:
 
         Note that this uses our standard operating point so will have marginally lower
         accuracy that the enhanced operating point.
-
-        Use of this will require `pip install speechmatics-voice[smart]` and may not
-        be suited to low-power devices.
         """
         return VoiceAgentConfigPreset._merge_configs(
             VoiceAgentConfig(
@@ -39,7 +36,7 @@ class VoiceAgentConfigPreset:
                 max_delay=2.0,
                 end_of_utterance_silence_trigger=0.25,
                 end_of_utterance_mode=EndOfUtteranceMode.FIXED,
-                speech_segment_config=SpeechSegmentConfig(emit_sentences=True),
+                speech_segment_config=SpeechSegmentConfig(emit_sentences=False),
             ),
             overlay,
         )
@@ -80,8 +77,8 @@ class VoiceAgentConfigPreset:
             VoiceAgentConfig(
                 operating_point=OperatingPoint.ENHANCED,
                 enable_diarization=True,
-                max_delay=0.7,
-                end_of_utterance_silence_trigger=0.6,
+                max_delay=2.0,
+                end_of_utterance_silence_trigger=0.7,
                 end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
                 speech_segment_config=SpeechSegmentConfig(emit_sentences=False),
                 vad_config=VoiceActivityConfig(enabled=True),

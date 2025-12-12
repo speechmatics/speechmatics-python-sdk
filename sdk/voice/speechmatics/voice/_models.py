@@ -250,6 +250,18 @@ class AnnotationFlags(str, Enum):
     # End of utterance detection
     END_OF_UTTERANCE = "end_of_utterance"
 
+    # VAD
+    VAD_ACTIVE = "vad_active"
+    VAD_INACTIVE = "vad_inactive"
+    VAD_STARTED = "vad_started"
+    VAD_STOPPED = "vad_stopped"
+
+    # Smart Turn
+    SMART_TURN_ACTIVE = "smart_turn_active"
+    SMART_TURN_INACTIVE = "smart_turn_inactive"
+    SMART_TURN_TRUE = "smart_turn_true"
+    SMART_TURN_FALSE = "smart_turn_false"
+
 
 # ==============================================================================
 # CONFIGURATION MODELS
@@ -419,6 +431,11 @@ class EndOfTurnConfig(BaseModel):
             EndOfTurnPenaltyItem(
                 penalty=0.5, annotation=[AnnotationFlags.ENDS_WITH_FINAL, AnnotationFlags.ENDS_WITH_EOS]
             ),
+            # Smart Turn + VAD
+            EndOfTurnPenaltyItem(penalty=0.2, annotation=[AnnotationFlags.SMART_TURN_TRUE]),
+            EndOfTurnPenaltyItem(
+                penalty=0.2, annotation=[AnnotationFlags.VAD_STOPPED, AnnotationFlags.SMART_TURN_INACTIVE]
+            ),
         ]
     )
     use_forced_eou: bool = False
@@ -446,14 +463,8 @@ class SmartTurnConfig(BaseModel):
 
     Parameters:
         enabled: Whether smart turn is enabled.
-
         smart_turn_threshold: Smart turn threshold. Defaults to 0.5.
-
         max_audio_length: Maximum length of audio to analyze in seconds. Defaults to 8.0.
-
-        positive_penalty: Positive penalty for smart turn. Defaults to -1.0.
-
-        negative_penalty: Negative penalty for smart turn. Defaults to 2.5.
 
     Examples:
         >>> config = SmartTurnConfig(
@@ -466,8 +477,6 @@ class SmartTurnConfig(BaseModel):
     enabled: bool = False
     smart_turn_threshold: float = 0.5
     max_audio_length: float = 8.0
-    positive_penalty: float = 0.0
-    negative_penalty: float = 1.0
 
 
 class VoiceAgentConfig(BaseModel):
@@ -1245,7 +1254,7 @@ class TurnPredictionMetadata(BaseModel):
     """
 
     ttl: float
-    reasons: list[str] = Field(default_factory=list, exclude=True)
+    reasons: list[str] = Field(default_factory=list, exclude=False)
 
     model_config = ConfigDict(extra="ignore")
 
@@ -1313,7 +1322,7 @@ class SegmentMessageSegment(BaseModel):
     language: Optional[str] = None
     text: Optional[str] = None
     fragments: Optional[list[SegmentMessageSegmentFragment]] = None
-    annotation: list[AnnotationFlags] = Field(default_factory=list, exclude=True)
+    annotation: list[AnnotationFlags] = Field(default_factory=list, exclude=False)
     metadata: MessageTimeMetadata
 
     model_config = ConfigDict(extra="ignore")

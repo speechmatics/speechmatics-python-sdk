@@ -1220,7 +1220,7 @@ class VoiceAgentClient(AsyncClient):
 
             async def fn() -> None:
                 ttl = await self._calculate_finalize_delay()
-                if ttl:
+                if ttl is not None:
                     self._turn_handler.update_timer(ttl)
 
             self._run_background_eot_calculation(fn, "speech_fragments")
@@ -1474,7 +1474,7 @@ class VoiceAgentClient(AsyncClient):
 
     async def _calculate_finalize_delay(
         self,
-        smart_turn_prediction: Optional[SmartTurnPredictionResult] = None,
+        annotation: Optional[AnnotationResult] = None,
     ) -> Optional[float]:
         """Calculate the delay before finalizing / end of turn.
 
@@ -1483,7 +1483,7 @@ class VoiceAgentClient(AsyncClient):
         and smart turn predictions to calculate appropriate delay.
 
         Args:
-            smart_turn_prediction: The smart turn prediction result to use for evaluation.
+            annotations: The annotations to include for evaluation.
 
         Returns:
             Optional[float]: The delay before finalizing / end of turn.
@@ -1510,23 +1510,32 @@ class VoiceAgentClient(AsyncClient):
 
         # Track penalty multipliers and reasons
         reasons: list[tuple[float, str]] = []
+        annotation = annotation or AnnotationResult()
+
+        # VAD enabled
+        if self._silero_detector:
+            annotation.add(AnnotationFlags.VAD_ACTIVE)
+        else:
+            annotation.add(AnnotationFlags.VAD_INACTIVE)
+
+        # Smart Turn enabled
+        if self._smart_turn_detector:
+            annotation.add(AnnotationFlags.SMART_TURN_ACTIVE)
+        else:
+            annotation.add(AnnotationFlags.SMART_TURN_INACTIVE)
+
+        # Result to validate against
+        if last_active_segment:
+            annotation.add(*[AnnotationFlags(flag) for flag in last_active_segment.annotation])
 
         # Apply penalties based on last active segment annotations
-        if last_active_segment:
+        if len(annotation) > 0:
             for p in self._config.end_of_turn_config.penalties:
                 description = "__".join(p.annotation)
-                has_annotation = last_active_segment.annotation.has(*p.annotation)
-
+                has_annotation = annotation.has(*p.annotation)
                 if (not p.is_not and has_annotation) or (p.is_not and not has_annotation):
                     reason = f"not__{description}" if p.is_not else description
                     reasons.append((p.penalty, reason))
-
-        # Apply smart turn prediction penalty
-        if smart_turn_prediction and self._config.smart_turn_config:
-            if smart_turn_prediction.prediction:
-                reasons.append((self._config.smart_turn_config.positive_penalty, "smart_turn_true"))
-            else:
-                reasons.append((self._config.smart_turn_config.negative_penalty, "smart_turn_false"))
 
         # Calculate final multiplier (compound multiplication)
         multiplier = self._config.end_of_turn_config.base_multiplier
@@ -1558,17 +1567,27 @@ class VoiceAgentClient(AsyncClient):
         # Return the calculated delay
         return finalize_delay
 
-    async def _eot_prediction(self, end_time: Optional[float] = None, speaker: Optional[str] = None) -> float:
+    async def _eot_prediction(
+        self,
+        end_time: Optional[float] = None,
+        speaker: Optional[str] = None,
+        annotation: Optional[AnnotationResult] = None,
+    ) -> float:
         """Handle end of turn prediction."""
+
+        # Initialize the annotation
+        annotation = annotation or AnnotationResult()
 
         # Wait for Smart Turn result
         if self._smart_turn_detector and end_time is not None:
             result = await self._smart_turn_prediction(end_time, self._config.language, speaker=speaker)
-        else:
-            result = None
+            if result.prediction:
+                annotation.add(AnnotationFlags.SMART_TURN_TRUE)
+            else:
+                annotation.add(AnnotationFlags.SMART_TURN_FALSE)
 
         # Create a new task to evaluate the finalize delay
-        delay = await self._calculate_finalize_delay(smart_turn_prediction=result)
+        delay = await self._calculate_finalize_delay(annotation=annotation)
 
         # Return the result
         return max(delay or 0, self._config.end_of_turn_config.min_end_of_turn_delay)
@@ -1797,22 +1816,29 @@ class VoiceAgentClient(AsyncClient):
         # Emit VAD status message
         self._emit_message(message)
 
+        # Create the annotation
+        annotation = AnnotationResult()
+
+        # VAD annotation
+        if result.speech_ended:
+            annotation.add(AnnotationFlags.VAD_STOPPED)
+        else:
+            annotation.add(AnnotationFlags.VAD_STARTED)
+
         # If speech has ended, we need to predict the end of turn
         if result.speech_ended and self._uses_eot_prediction:
             """VAD-based end of turn prediction."""
 
-            # Only proceed if there are fragments to finalize
-            has_fragments = bool(self._speech_fragments)
+            # Set cutoff to prevent late transcripts from cancelling finalization
+            self._smart_turn_pending_cutoff = event_time
 
-            if has_fragments:
-                # Set cutoff to prevent late transcripts from cancelling finalization
-                self._smart_turn_pending_cutoff = event_time
+            async def fn() -> None:
+                ttl = await self._eot_prediction(
+                    end_time=event_time, speaker=self._current_speaker, annotation=annotation
+                )
+                self._turn_handler.update_timer(ttl)
 
-                async def fn() -> None:
-                    ttl = await self._eot_prediction(end_time=event_time, speaker=self._current_speaker)
-                    self._turn_handler.update_timer(ttl)
-
-                self._run_background_eot_calculation(fn, "silero_vad")
+            self._run_background_eot_calculation(fn, "silero_vad")
 
     async def _handle_speaker_started(self, speaker: Optional[str], event_time: float) -> None:
         """Reset timers when a new speaker starts speaking after silence."""
