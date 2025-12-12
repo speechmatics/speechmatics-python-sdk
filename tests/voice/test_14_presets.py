@@ -13,7 +13,7 @@ async def test_presets():
     # Create a preset
     preset: VoiceAgentConfig = VoiceAgentConfigPreset.FAST()
     assert preset is not None
-    assert preset.speech_segment_config.emit_sentences is True
+    assert preset.speech_segment_config.emit_sentences is False
 
     # Overlay #1
     preset: VoiceAgentConfig = VoiceAgentConfigPreset.FAST(VoiceAgentConfig(max_delay=12.34, enable_diarization=False))
