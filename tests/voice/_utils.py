@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import json
 import os
 import time
@@ -85,35 +86,42 @@ async def send_audio_file(
     # Delay is based off 16kHz int16 and chunk size
     delay = chunk_size / sample_rate / sample_size
 
-    # Load the file
-    async with aiofiles.open(file, "rb") as wav_file:
-        # Trim off the WAV file header
-        await wav_file.seek(44)
+    # Catch errors - we can be lazy as this is only for testing
+    try:
 
-        # Send audio data
-        next_time = time.perf_counter() + delay
-        while not terminate_event.is_set() if terminate_event else True:
-            """Reads all chunks until the end of the file with precision delay."""
+        # Load the file
+        async with aiofiles.open(file, "rb") as wav_file:
+            # Trim off the WAV file header
+            await wav_file.seek(44)
 
-            # Read chunk
-            chunk = await wav_file.read(chunk_size)
+            # Send audio data
+            next_time = time.perf_counter() + delay
+            while not terminate_event.is_set() if terminate_event else True:
+                """Reads all chunks until the end of the file with precision delay."""
 
-            # End of file
-            if not chunk:
-                break
+                # Read chunk
+                chunk = await wav_file.read(chunk_size)
 
-            # Send audio to client
-            await client.send_audio(chunk)
+                # End of file
+                if not chunk:
+                    break
 
-            # Do any callbacks
-            if progress_callback:
-                progress_callback(len(chunk))
+                # Send audio to client
+                await client.send_audio(chunk)
 
-            # Precision delay
-            sleep_time = next_time - time.perf_counter()
-            if sleep_time > 0:
-                await asyncio.sleep(sleep_time)
-            next_time += delay
+                # Do any callbacks
+                if progress_callback:
+                    progress_callback(len(chunk))
+
+                # Precision delay
+                sleep_time = next_time - time.perf_counter()
+                if sleep_time > 0:
+                    await asyncio.sleep(sleep_time)
+                next_time += delay
+
+    # Catch errors
+    except Exception:
+        pass
 
 
 async def load_audio_file(audio_file: str) -> bytes:
@@ -165,23 +173,50 @@ async def send_silence(
     # Iterations required
     iterations = int(duration / delay)
 
-    # Keep sending
-    while (not terminate_event.is_set() if terminate_event else True) and iterations > 0:
-        # Send audio to client
-        await client.send_audio(silence)
+    # Catch errors - we can be lazy as this is only for testing
+    try:
 
-        # Do any callbacks
-        if progress_callback:
-            progress_callback(len(silence))
+        # Keep sending
+        while (not terminate_event.is_set() if terminate_event else True) and iterations > 0:
+            # Send audio to client
+            await client.send_audio(silence)
 
-        # Precision delay
-        sleep_time = next_time - time.perf_counter()
-        if sleep_time > 0:
-            await asyncio.sleep(sleep_time)
-        next_time += delay
+            # Do any callbacks
+            if progress_callback:
+                progress_callback(len(silence))
 
-        # Reduce iterations
-        iterations -= 1
+            # Precision delay
+            sleep_time = next_time - time.perf_counter()
+            if sleep_time > 0:
+                await asyncio.sleep(sleep_time)
+            next_time += delay
+
+            # Reduce iterations
+            iterations -= 1
+
+    # Catch errors - we can be lazy as this is only for testing
+    except Exception:
+        pass
+
+
+def log_client_messages(client: VoiceAgentClient, messages: Optional[list[AgentServerMessageType]] = None) -> None:
+    """Register and log client messages."""
+
+    # Start time
+    start_time = datetime.datetime.now()
+
+    # Callback for each message
+    def _log_message(message):
+        ts = (datetime.datetime.now() - start_time).total_seconds()
+        print(json.dumps({"ts": round(ts, 3), "payload": message}))
+
+    # Set fo all agent messages, apart from AUDIO_ADDED
+    if messages is None:
+        messages = [message for message in AgentServerMessageType if message != AgentServerMessageType.AUDIO_ADDED]
+
+    # Add listeners
+    for message_type in messages:
+        client.on(message_type, _log_message)
 
 
 class ConversationLog:

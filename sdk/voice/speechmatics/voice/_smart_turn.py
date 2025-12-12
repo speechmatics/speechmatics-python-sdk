@@ -14,7 +14,8 @@ from typing import Optional
 from urllib.parse import urlparse
 
 import numpy as np
-from pydantic import BaseModel
+
+from speechmatics.voice._models import BaseModel
 
 ort: Any
 WhisperFeatureExtractor: Any
@@ -44,9 +45,9 @@ except ModuleNotFoundError:
 
 # Base model from HuggingFace
 SMART_TURN_MODEL_URL = os.getenv(
-    "SMART_TURN_HF_URL", "https://huggingface.co/pipecat-ai/smart-turn-v3/resolve/main/smart-turn-v3.0.onnx"
+    "SMART_TURN_HF_URL", "https://huggingface.co/pipecat-ai/smart-turn-v3/resolve/main/smart-turn-v3.1-cpu.onnx"
 )
-SMART_TURN_MODEL_LOCAL_PATH = os.getenv("SMART_TURN_MODEL_PATH", ".models/smart-turn-v3.0.onnx")
+SMART_TURN_MODEL_LOCAL_PATH = os.getenv("SMART_TURN_MODEL_PATH", ".models/smart-turn-v3.1-cpu.onnx")
 
 # Hint for when dependencies are not available
 SMART_TURN_INSTALL_HINT = "SMART_TURN mode unavailable. Install `speechmatics-voice[smart]` to enable SMART_TURN mode."
@@ -187,13 +188,21 @@ class SmartTurnDetector:
         dtype = np.int16 if sample_width == 2 else np.int8
         int16_array: np.ndarray = np.frombuffer(audio_array, dtype=dtype).astype(np.int16)
 
+        # Truncate to last 8 seconds if needed (keep the tail/end of audio)
+        max_samples = 8 * sample_rate
+        if len(int16_array) > max_samples:
+            int16_array = int16_array[-max_samples:]
+
+        # Convert int16 to float32 in range [-1, 1] (same as reference implementation)
+        float32_array: np.ndarray = int16_array.astype(np.float32) / 32768.0
+
         # Process audio using Whisper's feature extractor
         inputs = self.feature_extractor(
-            int16_array,
+            float32_array,
             sampling_rate=sample_rate,
             return_tensors="np",
             padding="max_length",
-            max_length=8 * sample_rate,
+            max_length=max_samples,
             truncation=True,
             do_normalize=True,
         )
@@ -217,8 +226,8 @@ class SmartTurnDetector:
         # Return the result
         return SmartTurnPredictionResult(
             prediction=prediction,
-            probability=probability,
-            processing_time=float((end_time - start_time).total_seconds()),
+            probability=round(probability, 3),
+            processing_time=round(float((end_time - start_time).total_seconds()), 3),
         )
 
     @staticmethod

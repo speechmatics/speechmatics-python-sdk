@@ -43,7 +43,6 @@ async def test_finalize():
             end_of_utterance_silence_trigger=0.7,
             max_delay=1.2,
             end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL,
-            use_forced_eou_message=True,
         ),
     )
 
@@ -93,7 +92,7 @@ async def test_finalize():
         print()
         print()
         print("---")
-        log_message({"message": "VoiceAgentConfig", **client._config.model_dump()})
+        log_message({"message": "VoiceAgentConfig", **client._config.to_dict()})
         log_message({"message": "TranscriptionConfig", **client._transcription_config.to_dict()})
         log_message({"message": "AudioFormat", **client._audio_format.to_dict()})
 

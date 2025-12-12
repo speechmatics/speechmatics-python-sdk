@@ -14,6 +14,7 @@ from _utils import send_silence
 
 from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
+from speechmatics.voice import EndOfTurnConfig
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import SmartTurnConfig
 from speechmatics.voice import VoiceAgentConfig
@@ -54,9 +55,15 @@ async def test_buffer():
     assert buffer.total_time == 0.0
     assert buffer.size == 0
 
+    # Create 20 seconds worth of random bytes
+    random_data = bytes(random.getrandbits(8) for _ in range(int(20.0 * sample_rate * sample_width)))
+    assert len(random_data) == int(20.0 * sample_rate * sample_width)
+
     # Add in 20 seconds of data
-    for _ in range(int(20.0 * sample_rate / frame_size)):
-        await buffer.put_frame(b"\x00" * frame_bytes)
+    for i in range(int(20.0 * sample_rate / frame_size)):
+        start_idx = (i * frame_bytes) % len(random_data)
+        frame_data = random_data[start_idx : start_idx + frame_bytes]
+        await buffer.put_frame(frame_data)
 
     # Check values
     assert buffer.total_frames == int(20.0 * sample_rate / frame_size)
@@ -64,7 +71,9 @@ async def test_buffer():
     assert buffer.size == int(10.0 * sample_rate / frame_size)
 
     # Check frame >< time conversion
-    assert buffer._get_frame_from_time(buffer._get_time_from_frame(1234)) == 1234
+    tff = buffer._get_time_from_frame(1234)
+    tft = buffer._get_frame_from_time(tff)
+    assert tft == 1234
 
     # Get data from more than 10 seconds ago
     data = await buffer.get_frames(2.5, 7.5)
@@ -73,6 +82,11 @@ async def test_buffer():
     # Get a 5 second slice from 12.5 seconds in
     data = await buffer.get_frames(12.5, 17.5)
     assert len(data) == int(5.0 * sample_rate / frame_size) * frame_bytes
+
+    # Check the contents of the buffer
+    data = await buffer.get_frames(15.0, 20.0)
+    random_data_last_5_seconds = random_data[-int(5.0 * sample_rate * sample_width) :]
+    assert data == random_data_last_5_seconds
 
 
 @pytest.mark.asyncio
@@ -126,8 +140,8 @@ async def test_buffer_bytes():
     # Extract data
     data = await buffer.get_frames(start_time, end_time)
 
-    # Test
-    assert len(data) == int((end_time - start_time) * sample_rate / frame_size) * frame_bytes
+    # Test (two frames)
+    assert len(data) == int((end_time - start_time) * sample_rate / frame_size) * frame_bytes * 2
 
 
 @pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping in CI")
@@ -248,7 +262,8 @@ async def test_transcribe_and_slice():
             additional_vocab=[
                 AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"]),
             ],
-            smart_turn_config=SmartTurnConfig(audio_buffer_length=20.0),
+            smart_turn_config=SmartTurnConfig(enabled=True),
+            end_of_turn_config=EndOfTurnConfig(use_forced_eou=False),
         ),
     )
 
@@ -353,7 +368,8 @@ async def x_test_transcribe_and_slice_vad():
             additional_vocab=[
                 AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"]),
             ],
-            smart_turn_config=SmartTurnConfig(audio_buffer_length=20.0),
+            smart_turn_config=SmartTurnConfig(enabled=True),
+            end_of_turn_config=EndOfTurnConfig(use_forced_eou=False),
         ),
     )
 

@@ -12,6 +12,7 @@ from pydantic import Field
 from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice import EndOfUtteranceMode
+from speechmatics.voice import SmartTurnConfig
 from speechmatics.voice import SpeechSegmentConfig
 from speechmatics.voice import VoiceAgentConfig
 from speechmatics.voice._smart_turn import SmartTurnDetector
@@ -94,13 +95,13 @@ async def test_prediction(sample: TranscriptionTest):
         connect=False,
         config=VoiceAgentConfig(
             max_delay=0.7,
-            end_of_utterance_mode=EndOfUtteranceMode.SMART_TURN,
+            end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
             end_of_utterance_silence_trigger=0.5,
             enable_diarization=True,
             sample_rate=sample.sample_rate,
             additional_vocab=sample.additional_vocab,
-            use_forced_eou_message=True,
             speech_segment_config=SpeechSegmentConfig(emit_sentences=False),
+            smart_turn_config=SmartTurnConfig(enabled=True),
         ),
     )
 

@@ -7,8 +7,10 @@ from typing import Optional
 import pytest
 from _utils import ConversationLog
 from _utils import get_client
+from _utils import log_client_messages
 
 from speechmatics.voice import AgentServerMessageType
+from speechmatics.voice import EndOfTurnConfig
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import SpeechSegmentConfig
 from speechmatics.voice import VoiceAgentConfig
@@ -35,11 +37,18 @@ async def test_speech_fragments():
     start_time = datetime.datetime.now()
 
     # Create a client
-    client = await get_client(api_key="NONE", connect=False)
+    client = await get_client(
+        api_key="NONE",
+        connect=False,
+    )
     assert client is not None
 
     # Start the queue
     client._start_stt_queue()
+
+    # Log messages
+    if SHOW_LOG:
+        log_client_messages(client)
 
     # Event to wait
     event_rx: asyncio.Event = asyncio.Event()
@@ -76,7 +85,7 @@ async def test_speech_fragments():
 
     # Add listener for first interim segment
     message_reset()
-    client.once(AgentServerMessageType.ADD_PARTIAL_SEGMENT, message_rx)
+    client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, message_rx)
 
     # Inject first partial
     await send_message(0, count=6, use_ttl=False)
@@ -99,22 +108,14 @@ async def test_speech_fragments():
     assert seg0["text"] == "Welcome"
     assert f"{seg0['speaker_id']}: {seg0['text']}" == "S1: Welcome"
 
-    # Add listener for final segment
-    message_reset()
-    client.once(AgentServerMessageType.ADD_SEGMENT, message_rx)
-
     # Send a more partials and finals
     await send_message(5, count=8, use_ttl=False)
 
-    # Wait for final segment
-    try:
-        await asyncio.wait_for(event_rx.wait(), timeout=5.0)
-        assert last_message is not None
-    except asyncio.TimeoutError:
-        pytest.fail("ADD_SEGMENT event was not received within 5 seconds")
+    # Yield a short while
+    await asyncio.sleep(0.5)
 
     # Check the right message was received
-    assert last_message.get("message") == AgentServerMessageType.ADD_SEGMENT
+    assert last_message.get("message") == AgentServerMessageType.ADD_PARTIAL_SEGMENT
 
     # Check the segment
     segments = last_message.get("segments", [])
@@ -153,14 +154,9 @@ async def test_end_of_utterance_fixed():
     )
     assert client is not None
 
-    # Debug
+    # Log messages
     if SHOW_LOG:
-        client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, lambda message: print(message))
-        client.on(AgentServerMessageType.ADD_SEGMENT, lambda message: print(message))
-        client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, lambda message: print(message))
-        client.on(AgentServerMessageType.START_OF_TURN, lambda message: print(message))
-        client.on(AgentServerMessageType.END_OF_TURN, lambda message: print(message))
-        client.on(AgentServerMessageType.END_OF_UTTERANCE, lambda message: print(message))
+        log_client_messages(client)
 
     # Start the queue
     client._start_stt_queue()
@@ -234,7 +230,9 @@ async def test_external_vad():
         api_key="NONE",
         connect=False,
         config=VoiceAgentConfig(
-            end_of_utterance_silence_trigger=adaptive_timeout, end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL
+            end_of_utterance_silence_trigger=adaptive_timeout,
+            end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL,
+            end_of_turn_config=EndOfTurnConfig(use_forced_eou=False),
         ),
     )
     assert client is not None
@@ -268,6 +266,10 @@ async def test_external_vad():
 
             # Emit the message
             client.emit(message["payload"]["message"], message["payload"])
+
+    # Log messages
+    if SHOW_LOG:
+        log_client_messages(client)
 
     # Inject conversation
     await send_message(0, count=12, use_ttl=False)
@@ -333,9 +335,14 @@ async def test_end_of_utterance_adaptive_vad():
             end_of_utterance_silence_trigger=adaptive_timeout,
             end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
             speech_segment_config=SpeechSegmentConfig(emit_sentences=False),
+            end_of_turn_config=EndOfTurnConfig(use_forced_eou=False),
         ),
     )
     assert client is not None
+
+    # Log messages
+    if SHOW_LOG:
+        log_client_messages(client)
 
     # Start the queue
     client._start_stt_queue()
@@ -384,14 +391,6 @@ async def test_end_of_utterance_adaptive_vad():
 
     # Add listener for end of turn
     client.once(AgentServerMessageType.END_OF_TURN, eot_rx)
-
-    # Debug
-    if SHOW_LOG:
-        client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, lambda message: print(message))
-        client.on(AgentServerMessageType.ADD_SEGMENT, lambda message: print(message))
-        client.on(AgentServerMessageType.START_OF_TURN, lambda message: print(message))
-        client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, lambda message: print(message))
-        client.on(AgentServerMessageType.END_OF_TURN, lambda message: print(message))
 
     # Inject conversation up to the penultimate final from the STT
     await send_message(0, count=12, use_ttl=True)

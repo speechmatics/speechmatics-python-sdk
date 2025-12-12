@@ -42,6 +42,7 @@ class AudioBuffer:
         self._sample_width: int = sample_width
         self._frame_size: int = frame_size
         self._frame_bytes: int = frame_size * sample_width
+        self._frame_duration: float = round(frame_size / sample_rate, 3)
 
         # Queue
         self._frames: list[bytes] = []
@@ -63,7 +64,7 @@ class AudioBuffer:
         Returns:
             The time in seconds.
         """
-        return frame_index / (self._sample_rate / self._frame_size)
+        return frame_index * self._frame_duration
 
     def _get_frame_from_time(self, time: float) -> int:
         """Get the frame index from a time.
@@ -77,7 +78,7 @@ class AudioBuffer:
         Returns:
             The frame index.
         """
-        return int(time * (self._sample_rate / self._frame_size) + 1e-9)
+        return int(time / self._frame_duration)  #  + 1e-9)
 
     async def put_bytes(self, data: bytes) -> None:
         """Add data to the buffer.
@@ -230,7 +231,7 @@ class AudioBuffer:
     @property
     def total_time(self) -> float:
         """Get the total time added to the buffer."""
-        return self._get_time_from_frame(self._total_frames)
+        return self._total_frames * self._frame_duration
 
     @property
     def size(self) -> int:
