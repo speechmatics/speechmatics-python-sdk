@@ -118,8 +118,11 @@ class Transport:
             ws_kwargs: dict = {
                 WS_HEADERS_KEY: ws_headers,
                 **self._conn_config.to_dict(),
-                "ssl": self._conn_config.ssl_context,
             }
+
+            # SSL
+            if url_with_params.startswith("wss://"):
+                ws_kwargs["ssl"] = self._conn_config.ssl_context
 
             # Filter out parameters not supported by new websockets >=13.0
             if not IS_LEGACY_WEBSOCKETS:
