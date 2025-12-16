@@ -11,7 +11,7 @@ authors = [{ name = "Speechmatics", email = "support@speechmatics.com" }]
 license = "MIT"
 requires-python = ">=3.9"
 dependencies = [
-    "speechmatics-rt>=0.5.2",
+    "speechmatics-rt>=0.5.3",
     "pydantic>=2.10.6,<3",
     "numpy>=1.26.4,<3"
 ]
