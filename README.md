@@ -698,7 +698,7 @@ async def main():
 asyncio.run(main())
 ```
 
-📖 **Full Migration Guides:** [Batch Migration Guide](https://github.com/speechmatics/speechmatics-python-sdk/blob/main/sdk/batch/MIGRATION.md) • [Real-time Migration Guide](https://github.com/speechmatics/speechmatics-python-sdk/blob/main/sdk/rt/MIGRATION.md)
+**Full Migration Guides:** [Batch Migration Guide](https://github.com/speechmatics/speechmatics-python-sdk/blob/main/sdk/batch/MIGRATION.md) • [Real-time Migration Guide](https://github.com/speechmatics/speechmatics-python-sdk/blob/main/sdk/rt/MIGRATION.md)
 
 ---
 
