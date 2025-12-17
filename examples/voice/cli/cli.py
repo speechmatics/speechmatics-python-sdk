@@ -163,9 +163,6 @@ async def main() -> None:
     # Set chunk size
     config.chunk_size = args.chunk_size
 
-    # Set common items
-    config.enable_diarization = True
-
     # Handle config display
     if args.show_compact:
         print(config.to_json(indent=2, exclude_unset=True, exclude_none=True))
