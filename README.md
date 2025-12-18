@@ -108,35 +108,54 @@ pre-commit install
 
 ### Your First Transcription
 
-**5-line example** (simplest - start here):
+**Batch Transcription** (simplest - start here):
 ```python
 import asyncio
+import os
 from speechmatics.batch import AsyncClient
 
-async with AsyncClient(api_key="YOUR_API_KEY") as client:
-    result = await client.transcribe("audio.wav")
+async def main():
+    client = AsyncClient(api_key=os.getenv("SPEECHMATICS_API_KEY"))
+    result = await client.transcribe("sample.wav")
     print(result.transcript_text)
+    await client.close() 
+
+asyncio.run(main())
 ```
 
 **Real-time Streaming** (for live audio):
 ```python
 import asyncio
-from speechmatics.rt import AsyncClient, ServerMessageType, TranscriptResult
+import os
+from speechmatics.rt import (
+    AsyncClient, ServerMessageType, TranscriptResult, Microphone,
+    AudioFormat, AudioEncoding, TranscriptionConfig
+)
 
 async def main():
-    async with AsyncClient(api_key="YOUR_API_KEY") as client:
-        @client.on(ServerMessageType.ADD_TRANSCRIPT)
-        def handle_transcript(message):
-            result = TranscriptResult.from_message(message)
-            print(f"Transcript: {result.metadata.transcript}")
+    client = AsyncClient(api_key=os.getenv("SPEECHMATICS_API_KEY"))
+    mic = Microphone(sample_rate=16000, chunk_size=4096)
 
-        await client.start_session()
-        # Stream audio here...
+    @client.on(ServerMessageType.ADD_TRANSCRIPT)
+    def on_transcript(message):
+        result = TranscriptResult.from_message(message)
+        if result.metadata.transcript:
+            print(result.metadata.transcript)
+
+    mic.start()
+    await client.start_session(
+        transcription_config=TranscriptionConfig(language="en"),
+        audio_format=AudioFormat(encoding=AudioEncoding.PCM_S16LE, sample_rate=16000)
+    )
+
+    while True:
+        audio = await mic.read(4096)
+        await client.send_audio(audio)
 
 asyncio.run(main())
 ```
 
-**Simple and Pythonic!** Built with modern async/await patterns. Get your API key at [portal.speechmatics.com](https://portal.speechmatics.com/)
+**Simple and Pythonic!** Get your API key at [portal.speechmatics.com](https://portal.speechmatics.com/)
 
 > [!TIP]
 > **Ready for more?** Explore 20+ working examples at **[Speechmatics Academy](https://github.com/speechmatics/speechmatics-academy)** — voice agents, integrations, use cases, and migration guides.
@@ -284,7 +303,7 @@ async def main():
                 language="en",
                 diarization="speaker",
                 speaker_diarization_config={
-                    "max_speakers": 4
+                    "prefer_current_speaker": True
                 }
             )
         )
