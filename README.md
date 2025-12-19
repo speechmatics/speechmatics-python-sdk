@@ -20,7 +20,7 @@
 
 **Fully typed** with type definitions for all request params and response fields. **Modern Python** with async/await patterns, type hints, and context managers for production-ready code.
 
-**55+ Languages • Real-time & Batch • Custom Vocabularies • Speaker Diarization • Speaker ID**
+**55+ Languages • Realtime & Batch • Custom Vocabularies • Speaker diarization • Speaker ID**
 
 [Get API Key](https://portal.speechmatics.com/) • [Documentation](https://docs.speechmatics.com) • [Academy Examples](https://github.com/speechmatics/speechmatics-academy)
 
@@ -33,8 +33,9 @@
 
 - [Quick Start](#quick-start)
 - [Why Speechmatics?](#-why-speechmatics)
-- [Use Cases](#-use-cases)
 - [Key Features](#-key-features)
+- [Use Cases](#-use-cases)
+- [Documentation](#-documentation)
 - [Authentication](#authentication)
 - [Advanced Configuration](#advanced-configuration)
 - [Deployment Options](#deployment-options)
@@ -52,7 +53,7 @@
 # Batch transcription
 pip install speechmatics-batch
 
-# Real-time streaming
+# Realtime streaming
 pip install speechmatics-rt
 
 # Voice agents
@@ -72,7 +73,7 @@ pip install speechmatics-tts
 - Get transcripts with timestamps, speakers, entities
 - Supports all audio intelligence features
 
-**[speechmatics-rt](./sdk/rt/README.md)** - Real-time WebSocket streaming
+**[speechmatics-rt](./sdk/rt/README.md)** - Realtime WebSocket streaming
 - Stream audio for live transcription
 - Ultra-low latency (150ms p95)
 - Partial and final transcripts
@@ -108,51 +109,167 @@ pre-commit install
 
 ### Your First Transcription
 
-**Batch Transcription** (simplest - start here):
+**Batch Transcription** - transcribe audio files:
+
 ```python
 import asyncio
 import os
+from dotenv import load_dotenv
 from speechmatics.batch import AsyncClient
+
+load_dotenv()
 
 async def main():
     client = AsyncClient(api_key=os.getenv("SPEECHMATICS_API_KEY"))
-    result = await client.transcribe("sample.wav")
+    result = await client.transcribe("audio.wav")
     print(result.transcript_text)
-    await client.close() 
+    await client.close()
 
 asyncio.run(main())
 ```
 
-**Real-time Streaming** (for live audio):
+**Installation:**
+```bash
+pip install speechmatics-batch python-dotenv
+```
+
+**Realtime streaming** - live microphone transcription:
+
 ```python
 import asyncio
 import os
+from dotenv import load_dotenv
 from speechmatics.rt import (
-    AsyncClient, ServerMessageType, TranscriptResult, Microphone,
-    AudioFormat, AudioEncoding, TranscriptionConfig
+    AsyncClient,
+    ServerMessageType,
+    TranscriptionConfig,
+    TranscriptResult,
+    AudioFormat,
+    AudioEncoding,
+    Microphone,
 )
+
+load_dotenv()
 
 async def main():
     client = AsyncClient(api_key=os.getenv("SPEECHMATICS_API_KEY"))
     mic = Microphone(sample_rate=16000, chunk_size=4096)
 
     @client.on(ServerMessageType.ADD_TRANSCRIPT)
-    def on_transcript(message):
+    def on_final(message):
         result = TranscriptResult.from_message(message)
         if result.metadata.transcript:
-            print(result.metadata.transcript)
+            print(f"[final]: {result.metadata.transcript}")
+
+    @client.on(ServerMessageType.ADD_PARTIAL_TRANSCRIPT)
+    def on_partial(message):
+        result = TranscriptResult.from_message(message)
+        if result.metadata.transcript:
+            print(f"[partial]: {result.metadata.transcript}")
 
     mic.start()
-    await client.start_session(
-        transcription_config=TranscriptionConfig(language="en"),
-        audio_format=AudioFormat(encoding=AudioEncoding.PCM_S16LE, sample_rate=16000)
-    )
 
-    while True:
-        audio = await mic.read(4096)
-        await client.send_audio(audio)
+    try:
+        await client.start_session(
+            transcription_config=TranscriptionConfig(language="en", enable_partials=True),
+            audio_format=AudioFormat(encoding=AudioEncoding.PCM_S16LE, sample_rate=16000),
+        )
+        print("Speak now...")
+
+        while True:
+            await client.send_audio(await mic.read(4096))
+    finally:
+        mic.stop()
+        await client.close()
+
 
 asyncio.run(main())
+```
+
+**Installation:**
+```bash
+pip install speechmatics-rt python-dotenv pyaudio
+```
+
+**Text-to-Speech** - convert text to audio:
+
+```python
+import asyncio
+import os
+from dotenv import load_dotenv
+from speechmatics.tts import AsyncClient, Voice, OutputFormat
+
+load_dotenv()
+
+async def main():
+    client = AsyncClient(api_key=os.getenv("SPEECHMATICS_API_KEY"))
+
+    response = await client.generate(
+        text="Hello! Welcome to Speechmatics text to speech.",
+        voice=Voice.SARAH,
+        output_format=OutputFormat.WAV_16000
+    )
+
+    audio_data = await response.read()
+    with open("output.wav", "wb") as f:
+        f.write(audio_data)
+        print("Audio saved to output.wav")
+
+    await client.close()
+
+asyncio.run(main())
+```
+
+**Installation:**
+```bash
+pip install speechmatics-tts python-dotenv
+```
+
+**Voice agent** - real-time transcription with speaker diarization and turn detection:
+
+```python
+import asyncio
+import os
+from dotenv import load_dotenv
+from speechmatics.rt import Microphone
+from speechmatics.voice import VoiceAgentClient, VoiceAgentConfigPreset, AgentServerMessageType
+
+load_dotenv()
+
+async def main():
+    client = VoiceAgentClient(
+        api_key=os.getenv("SPEECHMATICS_API_KEY"),
+        config=VoiceAgentConfigPreset.load("adaptive")
+    )
+
+    @client.on(AgentServerMessageType.ADD_SEGMENT)
+    def on_segment(message):
+        for segment in message.get("segments", []):
+            print(f"[{segment.get('speaker_id', 'S1')}]: {segment.get('text', '')}")
+
+    @client.on(AgentServerMessageType.END_OF_TURN)
+    def on_turn_end(message):
+        print("[END OF TURN]")
+
+    mic = Microphone(sample_rate=16000, chunk_size=320)
+    mic.start()
+
+    try:
+        await client.connect()
+        print("Voice agent ready. Speak now...")
+
+        while True:
+            await client.send_audio(await mic.read(320))
+    finally:
+        mic.stop()
+        await client.disconnect()
+
+asyncio.run(main())
+```
+
+**Installation:**
+```bash
+pip install speechmatics-voice speechmatics-rt python-dotenv pyaudio
 ```
 
 **Simple and Pythonic!** Get your API key at [portal.speechmatics.com](https://portal.speechmatics.com/)
@@ -172,13 +289,13 @@ When 1% WER improvement translates to millions in revenue, you need the best.
 |--------|--------------|----------|
 | **Word Error Rate (WER)** | **6.8%** | 16.5% |
 | **Languages Supported** | **55+** | 30+ |
-| **Custom Dictionary** | **1,000 words** | 100 words |
-| **Speaker Diarization** | **Included** | Extra charge |
-| **Real-time Translation** | **30+ languages** | ❌ |
-| **Sentiment Analysis** | ✅ | ❌ |
-| **On-Premises** | ✅ | Limited |
-| **On-Device** | ✅ | ❌ |
-| **Air-Gapped Deployment** | ✅ | ❌ |
+| **Custom dictionary** | **1,000 words** | 100 words |
+| **Speaker diarization** | **Included** | Extra charge |
+| **Realtime translation** | **30+ languages** | ❌ |
+| **Sentiment analysis** | ✅ | ❌ |
+| **On-premises** | ✅ | Limited |
+| **On-device** | ✅ | ❌ |
+| **Air-gapped deployment** | ✅ | ❌ |
 
 
 
@@ -192,11 +309,13 @@ When 1% WER improvement translates to millions in revenue, you need the best.
 
 ## 🚀 Key Features
 
-### Real-time Transcription
+### Realtime transcription
 Stream audio and get instant transcriptions with ultra-low latency. Perfect for voice agents, live captioning, and conversational AI.
 
 ```python
 import asyncio
+import os
+from dotenv import load_dotenv
 from speechmatics.rt import (
     AsyncClient,
     ServerMessageType,
@@ -206,6 +325,8 @@ from speechmatics.rt import (
     AudioEncoding,
     Microphone,
 )
+
+load_dotenv()
 
 async def main():
     # Configure audio format for microphone input
@@ -221,40 +342,53 @@ async def main():
         enable_partials=True,
     )
 
-    async with AsyncClient(api_key="YOUR_API_KEY") as client:
-        # Handle final transcripts
-        @client.on(ServerMessageType.ADD_TRANSCRIPT)
-        def handle_transcript(message):
-            result = TranscriptResult.from_message(message)
+    # Create client
+    client = AsyncClient(api_key=os.getenv("SPEECHMATICS_API_KEY"))
+
+    # Handle final transcripts
+    @client.on(ServerMessageType.ADD_TRANSCRIPT)
+    def handle_transcript(message):
+        result = TranscriptResult.from_message(message)
+        if result.metadata.transcript:
             print(f"[final]: {result.metadata.transcript}")
 
-        # Handle partial transcripts (interim results)
-        @client.on(ServerMessageType.ADD_PARTIAL_TRANSCRIPT)
-        def handle_partial(message):
-            result = TranscriptResult.from_message(message)
+    # Handle partial transcripts (interim results)
+    @client.on(ServerMessageType.ADD_PARTIAL_TRANSCRIPT)
+    def handle_partial(message):
+        result = TranscriptResult.from_message(message)
+        if result.metadata.transcript:
             print(f"[partial]: {result.metadata.transcript}")
 
-        # Initialize microphone (requires: pip install pyaudio)
-        mic = Microphone(sample_rate=audio_format.sample_rate, chunk_size=audio_format.chunk_size)
-        if not mic.start():
-            print("PyAudio not available - install with: pip install pyaudio")
-            return
+    # Initialize microphone (requires: pip install pyaudio)
+    mic = Microphone(sample_rate=audio_format.sample_rate, chunk_size=audio_format.chunk_size)
+    if not mic.start():
+        print("PyAudio not available - install with: pip install pyaudio")
+        return
 
-        # Start transcription session
+    try:
+        # start_session() establishes WebSocket connection and starts transcription
         await client.start_session(
             transcription_config=transcription_config,
             audio_format=audio_format,
         )
+        print("Speak now...")
 
-        try:
-            # Stream audio continuously
-            while True:
-                frame = await mic.read(audio_format.chunk_size)
-                await client.send_audio(frame)
-        except KeyboardInterrupt:
-            mic.stop()
+        # Stream audio continuously
+        while True:
+            frame = await mic.read(audio_format.chunk_size)
+            await client.send_audio(frame)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        mic.stop()
+        await client.close()
 
 asyncio.run(main())
+```
+
+**Installation:**
+```bash
+pip install speechmatics-rt python-dotenv pyaudio
 ```
 
 ### Batch Transcription
@@ -262,89 +396,191 @@ Upload audio files and get accurate transcripts with speaker labels, timestamps,
 
 ```python
 import asyncio
+import os
+from dotenv import load_dotenv
 from speechmatics.batch import AsyncClient, TranscriptionConfig, FormatType
 
+load_dotenv()
+
 async def main():
-    async with AsyncClient(api_key="YOUR_API_KEY") as client:
-        # Submit job with advanced features
-        job = await client.submit_job(
-            "meeting.mp3",
-            transcription_config=TranscriptionConfig(
-                language="en",
-                diarization="speaker",
-                enable_entities=True,
-                punctuation_overrides={
-                    "permitted_marks": [".", "?", "!"]
-                }
-            )
+    client = AsyncClient(api_key=os.getenv("SPEECHMATICS_API_KEY"))
+
+    # Submit job with advanced features
+    job = await client.submit_job(
+        "example.wav",
+        transcription_config=TranscriptionConfig(
+            language="en",
+            diarization="speaker",
+            enable_entities=True,
+            punctuation_overrides={
+                "permitted_marks": [".", "?", "!"]
+            }
         )
+    )
 
-        # Wait for completion
-        result = await client.wait_for_completion(job.id, format_type=FormatType.JSON)
+    # Wait for completion
+    result = await client.wait_for_completion(job.id, format_type=FormatType.JSON)
 
-        # Access results
-        print(f"Transcript: {result.transcript_text}")
+    # Access results
+    print(f"Transcript: {result.transcript_text}")
+
+    await client.close()
 
 asyncio.run(main())
 ```
 
-### Speaker Diarization
+**Installation:**
+```bash
+pip install speechmatics-batch python-dotenv
+```
+
+### Speaker diarization
 Automatically detect and label different speakers in your audio.
 
 ```python
 import asyncio
+import os
+from dotenv import load_dotenv
 from speechmatics.batch import AsyncClient, TranscriptionConfig
 
+load_dotenv()
+
 async def main():
-    async with AsyncClient(api_key="YOUR_API_KEY") as client:
-        job = await client.submit_job(
-            "meeting.wav",
-            transcription_config=TranscriptionConfig(
-                language="en",
-                diarization="speaker",
-                speaker_diarization_config={
-                    "prefer_current_speaker": True
-                }
-            )
+    client = AsyncClient(api_key=os.getenv("SPEECHMATICS_API_KEY"))
+
+    job = await client.submit_job(
+        "example.wav",
+        transcription_config=TranscriptionConfig(
+            language="en",
+            diarization="speaker",
+            speaker_diarization_config={
+                "prefer_current_speaker": True
+            }
         )
-        result = await client.wait_for_completion(job.id)
+    )
+    result = await client.wait_for_completion(job.id)
 
-        # Access full transcript with speaker labels
-        print(f"Full transcript:\n{result.transcript_text}\n")
+    # Access full transcript with speaker labels
+    print(f"Full transcript:\n{result.transcript_text}\n")
 
-        # Access individual results with speaker information
-        for result_item in result.results:
-            if result_item.alternatives:
-                alt = result_item.alternatives[0]
-                speaker = alt.speaker or "Unknown"
-                content = alt.content
-                print(f"Speaker {speaker}: {content}")
+    # Access individual results with speaker information
+    for result_item in result.results:
+        if result_item.alternatives:
+            alt = result_item.alternatives[0]
+            speaker = alt.speaker or "Unknown"
+            content = alt.content
+            print(f"Speaker {speaker}: {content}")
+
+    await client.close()
 
 asyncio.run(main())
 ```
 
-### Custom Dictionary
+**Installation:**
+```bash
+pip install speechmatics-batch python-dotenv
+```
+
+### Custom dictionary
 Add domain-specific terms, names, and acronyms for perfect accuracy.
 
 ```python
 import asyncio
-from speechmatics.batch import AsyncClient, TranscriptionConfig
+import os
+from dotenv import load_dotenv
+from speechmatics.rt import (
+    AsyncClient,
+    ServerMessageType,
+    TranscriptionConfig,
+    TranscriptResult,
+    AudioFormat,
+    AudioEncoding,
+    Microphone,
+    ConversationConfig,
+)
+
+load_dotenv()
+
 
 async def main():
-    async with AsyncClient(api_key="YOUR_API_KEY") as client:
-        job = await client.submit_job(
-            "audio.wav",
-            transcription_config=TranscriptionConfig(
-                language="en",
-                additional_vocab=[
-                    {"content": "Speechmatics", "sounds_like": ["speech mat ics"]},
-                    {"content": "API", "sounds_like": ["A P I", "A. P. I."]},
-                    {"content": "kubernetes", "sounds_like": ["koo ber net ees"]}
-                ]
-            )
+    api_key = os.getenv("SPEECHMATICS_API_KEY")
+    if not api_key:
+        print("Error: SPEECHMATICS_API_KEY not set")
+        return
+
+    transcript_parts = []
+
+    audio_format = AudioFormat(
+        encoding=AudioEncoding.PCM_S16LE,
+        chunk_size=4096,
+        sample_rate=16000,
+    )
+
+    transcription_config = TranscriptionConfig(
+        language="en",
+        enable_partials=True,
+        additional_vocab=[
+            {"content": "Speechmatics", "sounds_like": ["speech mat ics"]},
+            {"content": "API", "sounds_like": ["A P I", "A. P. I."]},
+            {"content": "kubernetes", "sounds_like": ["koo ber net ees"]},
+            {"content": "Anthropic", "sounds_like": ["an throp ik", "an throw pick"]},
+            {"content": "OAuth", "sounds_like": ["oh auth", "O auth", "O. Auth"]},
+            {"content": "PostgreSQL", "sounds_like": ["post gres Q L", "post gres sequel"]},
+            {"content": "Nginx", "sounds_like": ["engine X", "N jinx"]},
+            {"content": "GraphQL", "sounds_like": ["graph Q L", "graph quel"]},
+        ],
+        conversation_config=ConversationConfig(
+            end_of_utterance_silence_trigger=0.5,  # seconds of silence to trigger end of utterance
+        ),
+    )
+
+    mic = Microphone(sample_rate=16000, chunk_size=4096)
+    if not mic.start():
+        print("PyAudio not installed")
+        return
+
+    client = AsyncClient(api_key=api_key)
+
+    @client.on(ServerMessageType.ADD_TRANSCRIPT)
+    def on_final(message):
+        result = TranscriptResult.from_message(message)
+        if result.metadata.transcript:
+            print(f"[final]: {result.metadata.transcript}")
+            transcript_parts.append(result.metadata.transcript)
+
+    @client.on(ServerMessageType.ADD_PARTIAL_TRANSCRIPT)
+    def on_partial(message):
+        result = TranscriptResult.from_message(message)
+        if result.metadata.transcript:
+            print(f"[partial]: {result.metadata.transcript}")
+
+    @client.on(ServerMessageType.END_OF_UTTERANCE)
+    def on_utterance_end(message):
+        print("[END OF UTTERANCE]\n")
+
+    try:
+        await client.start_session(
+            transcription_config=transcription_config,
+            audio_format=audio_format,
         )
+        print("Speak now...")
+
+        while True:
+            await client.send_audio(await mic.read(4096))
+    except KeyboardInterrupt:
+        pass
+    finally:
+        mic.stop()
+        await client.close()
+        print(f"\nFull transcript: {' '.join(transcript_parts)}")
+
 
 asyncio.run(main())
+```
+
+**Installation:**
+```bash
+pip install speechmatics-rt python-dotenv pyaudio
 ```
 
 ### 55+ Languages
@@ -352,25 +588,31 @@ Native models for major languages, not just multilingual Whisper.
 
 ```python
 import asyncio
+import os
+from dotenv import load_dotenv
 from speechmatics.batch import AsyncClient, TranscriptionConfig
 
-async def main():
-    async with AsyncClient(api_key="YOUR_API_KEY") as client:
-        # Automatic language detection
-        job = await client.submit_job(
-            "audio.wav",
-            transcription_config=TranscriptionConfig(
-                language="auto"
-            )
-        )
+load_dotenv()
 
-        # Or specify language directly (e.g., Japanese)
-        job = await client.submit_job(
-            "audio.wav",
-            transcription_config=TranscriptionConfig(language="ja")
-        )
+async def main():
+    client = AsyncClient(api_key=os.getenv("SPEECHMATICS_API_KEY"))
+
+    # Automatic language detection
+    job = await client.submit_job(
+        "audio.wav",
+        transcription_config=TranscriptionConfig(language="auto")
+    )
+    result = await client.wait_for_completion(job.id)
+    print(f"Detected language transcript: {result.transcript_text}")
+
+    await client.close()
 
 asyncio.run(main())
+```
+
+**Installation:**
+```bash
+pip install speechmatics-batch python-dotenv
 ```
 
 <details>
@@ -383,6 +625,8 @@ Get sentiment, topics, summaries, and more.
 
 ```python
 import asyncio
+import os
+from dotenv import load_dotenv
 from speechmatics.batch import (
     AsyncClient,
     JobConfig,
@@ -394,33 +638,43 @@ from speechmatics.batch import (
     AutoChaptersConfig
 )
 
+load_dotenv()
+
 async def main():
-    async with AsyncClient(api_key="YOUR_API_KEY") as client:
-        # Configure job with all audio intelligence features
-        config = JobConfig(
-            type=JobType.TRANSCRIPTION,
-            transcription_config=TranscriptionConfig(language="en"),
-            sentiment_analysis_config=SentimentAnalysisConfig(),
-            topic_detection_config=TopicDetectionConfig(),
-            summarization_config=SummarizationConfig(),
-            auto_chapters_config=AutoChaptersConfig()
-        )
+    client = AsyncClient(api_key=os.getenv("SPEECHMATICS_API_KEY"))
 
-        job = await client.submit_job("podcast.mp3", config=config)
-        result = await client.wait_for_completion(job.id)
+    # Configure job with all audio intelligence features
+    config = JobConfig(
+        type=JobType.TRANSCRIPTION,
+        transcription_config=TranscriptionConfig(language="en"),
+        sentiment_analysis_config=SentimentAnalysisConfig(),
+        topic_detection_config=TopicDetectionConfig(),
+        summarization_config=SummarizationConfig(),
+        auto_chapters_config=AutoChaptersConfig()
+    )
 
-        # Access all results
-        print(f"Transcript: {result.transcript_text}")
-        if result.sentiment_analysis:
-            print(f"Sentiment: {result.sentiment_analysis}")
-        if result.topics:
-            print(f"Topics: {result.topics}")
-        if result.summary:
-            print(f"Summary: {result.summary}")
-        if result.chapters:
-            print(f"Chapters: {result.chapters}")
+    job = await client.submit_job("example.wav", config=config)
+    result = await client.wait_for_completion(job.id)
+
+    # Access all results
+    print(f"Transcript: {result.transcript_text}")
+    if result.sentiment_analysis:
+        print(f"Sentiment: {result.sentiment_analysis}")
+    if result.topics:
+        print(f"Topics: {result.topics}")
+    if result.summary:
+        print(f"Summary: {result.summary}")
+    if result.chapters:
+        print(f"Chapters: {result.chapters}")
+
+    await client.close()
 
 asyncio.run(main())
+```
+
+**Installation:**
+```bash
+pip install speechmatics-batch python-dotenv
 ```
 
 ### Translation
@@ -428,6 +682,8 @@ Transcribe and translate simultaneously to 50+ languages.
 
 ```python
 import asyncio
+import os
+from dotenv import load_dotenv
 from speechmatics.batch import (
     AsyncClient,
     JobConfig,
@@ -436,27 +692,37 @@ from speechmatics.batch import (
     TranslationConfig
 )
 
+load_dotenv()
+
 async def main():
-    async with AsyncClient(api_key="YOUR_API_KEY") as client:
-        config = JobConfig(
-            type=JobType.TRANSCRIPTION,
-            transcription_config=TranscriptionConfig(language="en"),
-            translation_config=TranslationConfig(target_languages=["es", "fr", "de"])
-        )
+    client = AsyncClient(api_key=os.getenv("SPEECHMATICS_API_KEY"))
 
-        job = await client.submit_job("video.mp4", config=config)
-        result = await client.wait_for_completion(job.id)
+    config = JobConfig(
+        type=JobType.TRANSCRIPTION,
+        transcription_config=TranscriptionConfig(language="en"),
+        translation_config=TranslationConfig(target_languages=["es", "fr", "de"])
+    )
 
-        # Access original transcript
-        print(f"Original (English): {result.transcript_text}\n")
+    job = await client.submit_job("sample.mp4", config=config)
+    result = await client.wait_for_completion(job.id)
 
-        # Access translations
-        if result.translations:
-            for lang_code, translation_data in result.translations.items():
-                translated_text = translation_data.get("content", "")
-                print(f"Translated ({lang_code}): {translated_text}")
+    # Access original transcript
+    print(f"Original (English): {result.transcript_text}\n")
+
+    # Access translations
+    if result.translations:
+        for lang_code, segments in result.translations.items():
+            translated_text = " ".join(seg.get("content", "") for seg in segments)
+            print(f"Translated ({lang_code}): {translated_text}")
+
+    await client.close()
 
 asyncio.run(main())
+```
+
+**Installation:**
+```bash
+pip install speechmatics-batch python-dotenv
 ```
 
 </details>
@@ -493,7 +759,7 @@ async def entrypoint(ctx: agents.JobContext):
     """
     await ctx.connect()
 
-    # Speech-to-Text: Speechmatics with speaker diarization
+    # Speech to text: Speechmatics with speaker diarization
     stt = speechmatics.STT(
         enable_diarization=True,
         speaker_active_format="<{speaker_id}>{text}</{speaker_id}>",
@@ -531,7 +797,7 @@ pip install livekit-agents livekit-plugins-speechmatics livekit-plugins-openai l
 ```
 
 **Key Features:**
-- Real-time WebRTC audio streaming
+- real-time WebRTC audio streaming
 - Speechmatics STT with speaker diarization
 - Configurable LLM and TTS providers
 - Voice Activity Detection (VAD)
@@ -543,6 +809,7 @@ Build real-time voice bots with [Pipecat](https://github.com/pipecat-ai/pipecat)
 ```python
 import asyncio
 import os
+from dotenv import load_dotenv
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineTask
@@ -550,6 +817,8 @@ from pipecat.services.openai.llm import OpenAILLMService, OpenAILLMContext
 from pipecat.services.speechmatics.stt import SpeechmaticsSTTService, Language
 from pipecat.services.speechmatics.tts import SpeechmaticsTTSService
 from pipecat.transports.local.audio import LocalAudioTransport
+
+load_dotenv()
 
 async def main():
     # Configure Speechmatics STT with speaker diarization
@@ -609,7 +878,7 @@ pip install pipecat-ai[speechmatics, openai] pyaudio
 ```
 
 **Key Features:**
-- Real-time STT with speaker diarization
+- real-time STT with speaker diarization
 - Natural-sounding TTS with multiple voices
 - Interruption handling (users can interrupt bot responses)
 - Works with any LLM provider (OpenAI, Anthropic, etc.)
@@ -627,7 +896,7 @@ Each SDK package includes detailed documentation:
 | Package | Documentation | Description |
 |---------|---------------|-------------|
 | **speechmatics-batch** | [README](./sdk/batch/README.md) • [Migration Guide](./sdk/batch/MIGRATION.md) | Async batch transcription |
-| **speechmatics-rt** | [README](./sdk/rt/README.md) • [Migration Guide](./sdk/rt/MIGRATION.md) | Real-time streaming |
+| **speechmatics-rt** | [README](./sdk/rt/README.md) • [Migration Guide](./sdk/rt/MIGRATION.md) | Realtime streaming |
 | **speechmatics-voice** | [README](./sdk/voice/README.md) | Voice agent SDK |
 | **speechmatics-tts** | [README](./sdk/tts/README.md) | Text-to-speech |
 
@@ -639,7 +908,7 @@ Comprehensive collection of working examples, integrations, and templates: [gith
 | Example | Description | Package |
 |---------|-------------|---------|
 | [Hello World](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/01-hello-world) | Simplest transcription example | Batch |
-| [Batch vs Real-time](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/02-batch-vs-realtime) | Learn the difference between API modes | Batch, RT |
+| [Batch vs Realtime](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/02-batch-vs-realtime) | Learn the difference between API modes | Batch, RT |
 | [Configuration Guide](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/03-configuration-guide) | Common configuration options | Batch |
 | [Audio Intelligence](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/04-audio-intelligence) | Sentiment, topics, and summaries | Batch |
 | [Multilingual & Translation](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/05-multilingual-translation) | 50+ languages and real-time translation | RT |
@@ -662,10 +931,11 @@ Comprehensive collection of working examples, integrations, and templates: [gith
 #### Use Cases
 | Industry | Example | Features |
 |----------|---------|----------|
-| **Healthcare** | [Medical Transcription](https://github.com/speechmatics/speechmatics-academy/tree/main/use-cases/01-medical-transcription-realtime) | Real-time, custom medical vocabulary |
+| **Healthcare** | [Medical Transcription](https://github.com/speechmatics/speechmatics-academy/tree/main/use-cases/01-medical-transcription-realtime) | Realtime, custom medical vocabulary |
 | **Media** | [Video Captioning](https://github.com/speechmatics/speechmatics-academy/tree/main/use-cases/02-video-captioning) | SRT generation, batch processing |
 | **Contact Center** | [Call Analytics](https://github.com/speechmatics/speechmatics-academy/tree/main/use-cases/03-call-center-analytics) | Channel diarization, sentiment, topics |
 | **Business** | [AI Receptionist](https://github.com/speechmatics/speechmatics-academy/tree/main/use-cases/04-voice-agent-calendar) | LiveKit, Twilio SIP, Google Calendar |
+| **Seasonal** | [Santa Voice Agent](https://github.com/speechmatics/speechmatics-academy/tree/main/use-cases/05-santa-voice-agent) | LiveKit, Twilio SIP, ElevenLabs TTS, custom voice |
 
 #### Migration Guides
 | From | Guide | Status |
@@ -706,18 +976,21 @@ import asyncio
 from speechmatics.batch import AsyncClient, TranscriptionConfig, FormatType
 
 async def main():
-    async with AsyncClient(api_key="API_KEY") as client:
-        job = await client.submit_job(
-            "audio.wav",
-            transcription_config=TranscriptionConfig(language="en")
-        )
-        result = await client.wait_for_completion(job.id, format_type=FormatType.TXT)
-        print(result)
+    client = AsyncClient(api_key="API_KEY")
+
+    job = await client.submit_job(
+        "audio.wav",
+        transcription_config=TranscriptionConfig(language="en")
+    )
+    result = await client.wait_for_completion(job.id, format_type=FormatType.TXT)
+    print(result)
+
+    await client.close()
 
 asyncio.run(main())
 ```
 
-**Full Migration Guides:** [Batch Migration Guide](https://github.com/speechmatics/speechmatics-python-sdk/blob/main/sdk/batch/MIGRATION.md) • [Real-time Migration Guide](https://github.com/speechmatics/speechmatics-python-sdk/blob/main/sdk/rt/MIGRATION.md)
+**Full Migration Guides:** [Batch Migration Guide](https://github.com/speechmatics/speechmatics-python-sdk/blob/main/sdk/batch/MIGRATION.md) • [Realtime Migration Guide](https://github.com/speechmatics/speechmatics-python-sdk/blob/main/sdk/rt/MIGRATION.md)
 
 ---
 
@@ -737,27 +1010,35 @@ load_dotenv()
 
 async def main():
     api_key = os.getenv("SPEECHMATICS_API_KEY")
+    client = AsyncClient(api_key=api_key)
 
-    async with AsyncClient(api_key=api_key) as client:
-        # Add medical terminology for better accuracy
-        job = await client.submit_job(
-            "patient_interview.wav",
-            transcription_config=TranscriptionConfig(
-                language="en",
-                additional_vocab=[
-                    {"content": "hypertension"},
-                    {"content": "metformin"},
-                    {"content": "echocardiogram"},
-                    {"content": "MRI", "sounds_like": ["M R I"]},
-                    {"content": "CT scan", "sounds_like": ["C T scan"]}
-                ]
-            )
+    # Use medical domain for better accuracy with clinical terminology
+    job = await client.submit_job(
+        "patient_interview.wav",
+        transcription_config=TranscriptionConfig(
+            language="en",
+            domain="medical",
+            additional_vocab=[
+                {"content": "hypertension"},
+                {"content": "metformin"},
+                {"content": "echocardiogram"},
+                {"content": "MRI", "sounds_like": ["M R I"]},
+                {"content": "CT scan", "sounds_like": ["C T scan"]}
+            ]
         )
+    )
 
-        result = await client.wait_for_completion(job.id)
-        print(f"Transcript:\n{result.transcript_text}")
+    result = await client.wait_for_completion(job.id)
+    print(f"Transcript:\n{result.transcript_text}")
+
+    await client.close()
 
 asyncio.run(main())
+```
+
+**Installation:**
+```bash
+pip install speechmatics-batch python-dotenv
 ```
 
 ### Voice Agents & Conversational AI
@@ -819,6 +1100,16 @@ async def main():
 asyncio.run(main())
 ```
 
+**Installation:**
+```bash
+pip install speechmatics-voice speechmatics-rt python-dotenv pyaudio
+```
+
+<details>
+<summary><strong>📂 More Use Cases</strong> • Click to explore Call Center, Healthcare, Media & Entertainment, Education, and Meetings examples</summary>
+
+<br/>
+
 ### Call Center Analytics
 Transcribe calls with speaker diarization, sentiment analysis, and topic detection.
 
@@ -840,48 +1131,56 @@ load_dotenv()
 
 async def main():
     api_key = os.getenv("SPEECHMATICS_API_KEY")
+    client = AsyncClient(api_key=api_key)
 
-    async with AsyncClient(api_key=api_key) as client:
-        config = JobConfig(
-            type=JobType.TRANSCRIPTION,
-            transcription_config=TranscriptionConfig(
-                language="en",
-                diarization="speaker"
-            ),
-            sentiment_analysis_config=SentimentAnalysisConfig(),
-            topic_detection_config=TopicDetectionConfig(),
-            summarization_config=SummarizationConfig(
-                content_type="conversational",
-                summary_length="brief"
-            )
+    config = JobConfig(
+        type=JobType.TRANSCRIPTION,
+        transcription_config=TranscriptionConfig(
+            language="en",
+            diarization="speaker"
+        ),
+        sentiment_analysis_config=SentimentAnalysisConfig(),
+        topic_detection_config=TopicDetectionConfig(),
+        summarization_config=SummarizationConfig(
+            content_type="conversational",
+            summary_length="brief"
         )
+    )
 
-        job = await client.submit_job("call_recording.wav", config=config)
-        result = await client.wait_for_completion(job.id)
+    job = await client.submit_job("call_recording.wav", config=config)
+    result = await client.wait_for_completion(job.id)
 
-        # Print results
-        print(f"Transcript:\n{result.transcript_text}\n")
+    # Print results
+    print(f"Transcript:\n{result.transcript_text}\n")
 
-        if result.sentiment_analysis:
-            sentiment = result.sentiment_analysis.get('sentiment', 'neutral')
-            score = result.sentiment_analysis.get('score', 0)
-            print(f"Sentiment: {sentiment} (score: {score})")
+    if result.sentiment_analysis:
+        segments = result.sentiment_analysis.get("segments", [])
+        counts = {"positive": 0, "negative": 0, "neutral": 0}
+        for seg in segments:
+            sentiment = seg.get("sentiment", "").lower()
+            if sentiment in counts:
+                counts[sentiment] += 1
+        overall = max(counts, key=counts.get)
+        print(f"Sentiment: {overall.capitalize()}")
+        print(f"Breakdown: {counts['positive']} positive, {counts['neutral']} neutral, {counts['negative']} negative")
 
-        if result.topics and 'summary' in result.topics:
-            overall = result.topics['summary']['overall']
-            topics = [topic for topic, count in overall.items() if count > 0]
-            print(f"Topics: {', '.join(topics)}")
+    if result.topics and 'summary' in result.topics:
+        overall = result.topics['summary']['overall']
+        topics = [topic for topic, count in overall.items() if count > 0]
+        print(f"Topics: {', '.join(topics)}")
 
-        if result.summary:
-            print(f"Summary: {result.summary.get('content')}")
+    if result.summary:
+        print(f"Summary: {result.summary.get('content')}")
+
+    await client.close()
 
 asyncio.run(main())
 ```
 
-<details>
-<summary><strong>📂 More Use Cases</strong> • Click to explore Healthcare, Media & Entertainment, Education, and Meetings examples</summary>
-
-<br/>
+**Installation:**
+```bash
+pip install speechmatics-batch python-dotenv
+```
 
 ### Media & Entertainment
 Add captions, create searchable archives, generate clips from keywords.
@@ -896,23 +1195,30 @@ load_dotenv()
 
 async def main():
     api_key = os.getenv("SPEECHMATICS_API_KEY")
+    client = AsyncClient(api_key=api_key)
 
-    async with AsyncClient(api_key=api_key) as client:
-        job = await client.submit_job(
-            "movie.mp4",
-            transcription_config=TranscriptionConfig(language="en")
-        )
+    job = await client.submit_job(
+        "movie.mp4",
+        transcription_config=TranscriptionConfig(language="en")
+    )
 
-        # Get SRT captions
-        captions = await client.wait_for_completion(job.id, format_type=FormatType.SRT)
+    # Get SRT captions
+    captions = await client.wait_for_completion(job.id, format_type=FormatType.SRT)
 
-        # Save captions
-        with open("movie.srt", "w", encoding="utf-8") as f:
-            f.write(captions)
+    # Save captions
+    with open("movie.srt", "w", encoding="utf-8") as f:
+        f.write(captions)
 
-        print("Captions saved to movie.srt")
+    print("Captions saved to movie.srt")
+
+    await client.close()
 
 asyncio.run(main())
+```
+
+**Installation:**
+```bash
+pip install speechmatics-batch python-dotenv
 ```
 
 ### Education & E-Learning
@@ -928,31 +1234,38 @@ load_dotenv()
 
 async def main():
     api_key = os.getenv("SPEECHMATICS_API_KEY")
+    client = AsyncClient(api_key=api_key)
 
-    async with AsyncClient(api_key=api_key) as client:
-        job = await client.submit_job(
-            "lecture_recording.wav",
-            transcription_config=TranscriptionConfig(
-                language="en",
-                diarization="speaker",
-                enable_entities=True
-            )
+    job = await client.submit_job(
+        "lecture_recording.wav",
+        transcription_config=TranscriptionConfig(
+            language="en",
+            diarization="speaker",
+            enable_entities=True
         )
+    )
 
-        result = await client.wait_for_completion(job.id)
+    result = await client.wait_for_completion(job.id)
 
-        # Save transcript
-        with open("lecture_transcript.txt", "w", encoding="utf-8") as f:
-            f.write(result.transcript_text)
+    # Save transcript
+    with open("lecture_transcript.txt", "w", encoding="utf-8") as f:
+        f.write(result.transcript_text)
 
-        # Save SRT captions for accessibility
-        captions = await client.wait_for_completion(job.id, format_type=FormatType.SRT)
-        with open("lecture_captions.srt", "w", encoding="utf-8") as f:
-            f.write(captions)
+    # Save SRT captions for accessibility
+    captions = await client.wait_for_completion(job.id, format_type=FormatType.SRT)
+    with open("lecture_captions.srt", "w", encoding="utf-8") as f:
+        f.write(captions)
 
-        print("Transcript and captions saved")
+    print("Transcript and captions saved")
+
+    await client.close()
 
 asyncio.run(main())
+```
+
+**Installation:**
+```bash
+pip install speechmatics-batch python-dotenv
 ```
 
 ### Meetings
@@ -975,34 +1288,41 @@ load_dotenv()
 
 async def main():
     api_key = os.getenv("SPEECHMATICS_API_KEY")
+    client = AsyncClient(api_key=api_key)
 
-    async with AsyncClient(api_key=api_key) as client:
-        config = JobConfig(
-            type=JobType.TRANSCRIPTION,
-            transcription_config=TranscriptionConfig(
-                language="en",
-                diarization="speaker"
-            ),
-            summarization_config=SummarizationConfig(),
-            auto_chapters_config=AutoChaptersConfig()
-        )
+    config = JobConfig(
+        type=JobType.TRANSCRIPTION,
+        transcription_config=TranscriptionConfig(
+            language="en",
+            diarization="speaker"
+        ),
+        summarization_config=SummarizationConfig(),
+        auto_chapters_config=AutoChaptersConfig()
+    )
 
-        job = await client.submit_job("board_meeting.mp4", config=config)
-        result = await client.wait_for_completion(job.id)
+    job = await client.submit_job("board_meeting.mp4", config=config)
+    result = await client.wait_for_completion(job.id)
 
-        # Display results
-        print(f"Transcript:\n{result.transcript_text}\n")
+    # Display results
+    print(f"Transcript:\n{result.transcript_text}\n")
 
-        if result.summary:
-            summary = result.summary.get('content', 'N/A')
-            print(f"Summary:\n{summary}\n")
+    if result.summary:
+        summary = result.summary.get('content', 'N/A')
+        print(f"Summary:\n{summary}\n")
 
-        if result.chapters:
-            print("Chapters:")
-            for i, chapter in enumerate(result.chapters, 1):
-                print(f"{i}. {chapter}")
+    if result.chapters:
+        print("Chapters:")
+        for i, chapter in enumerate(result.chapters, 1):
+            print(f"{i}. {chapter}")
+
+    await client.close()
 
 asyncio.run(main())
+```
+
+**Installation:**
+```bash
+pip install speechmatics-batch python-dotenv
 ```
 
 </details>
@@ -1011,7 +1331,7 @@ asyncio.run(main())
 
 ## Architecture
 
-### Real-time Flow
+### Realtime flow
 
 ```mermaid
 sequenceDiagram
@@ -1074,12 +1394,15 @@ export SPEECHMATICS_API_KEY="your_api_key_here"
 ```python
 import asyncio
 import os
+from dotenv import load_dotenv
 from speechmatics.batch import AsyncClient
 
+load_dotenv()
+
 async def main():
-    async with AsyncClient(api_key=os.getenv("SPEECHMATICS_API_KEY")) as client:
-        # Use client here
-        pass
+    client = AsyncClient(api_key=os.getenv("SPEECHMATICS_API_KEY"))
+    # Use client here
+    await client.close()
 
 asyncio.run(main())
 ```
@@ -1096,9 +1419,9 @@ from speechmatics.batch import AsyncClient, JWTAuth
 async def main():
     # Generate temporary token (expires after ttl seconds)
     auth = JWTAuth(api_key="your_api_key", ttl=3600)
-    async with AsyncClient(auth=auth) as client:
-        # Use client here
-        pass
+    client = AsyncClient(auth=auth)
+    # Use client here
+    await client.close()
 
 asyncio.run(main())
 ```
@@ -1122,13 +1445,13 @@ async def main():
         close_timeout=10.0      # Timeout for closing connection (seconds)
     )
 
-    async with AsyncClient(
+    client = AsyncClient(
         api_key="KEY",
         url="wss://eu2.rt.speechmatics.com/v2",
         conn_config=conn_config
-    ) as client:
-        # Use client here
-        pass
+    )
+    # Use client here
+    await client.close()
 
 asyncio.run(main())
 ```
@@ -1146,19 +1469,21 @@ from tenacity import retry, stop_after_attempt, wait_exponential
     wait=wait_exponential(multiplier=1, min=2, max=10)
 )
 async def transcribe_with_retry(audio_file):
-    async with AsyncClient(api_key="YOUR_API_KEY") as client:
-        try:
-            job = await client.submit_job(
-                audio_file,
-                transcription_config=TranscriptionConfig(language="en")
-            )
-            return await client.wait_for_completion(job.id)
-        except AuthenticationError:
-            print("Authentication failed")
-            raise
-        except (BatchError, JobError) as e:
-            print(f"Transcription failed: {e}")
-            raise
+    client = AsyncClient(api_key="YOUR_API_KEY")
+    try:
+        job = await client.submit_job(
+            audio_file,
+            transcription_config=TranscriptionConfig(language="en")
+        )
+        return await client.wait_for_completion(job.id)
+    except AuthenticationError:
+        print("Authentication failed")
+        raise
+    except (BatchError, JobError) as e:
+        print(f"Transcription failed: {e}")
+        raise
+    finally:
+        await client.close()
 
 asyncio.run(transcribe_with_retry("audio.wav"))
 ```
@@ -1176,12 +1501,12 @@ async def main():
         operation_timeout=300.0    # Default timeout for API operations
     )
 
-    async with AsyncClient(
+    client = AsyncClient(
         api_key="KEY",
         conn_config=conn_config
-    ) as client:
-        # Use client here
-        pass
+    )
+    # Use client here
+    await client.close()
 
 asyncio.run(main())
 ```
@@ -1198,9 +1523,9 @@ import asyncio
 from speechmatics.batch import AsyncClient
 
 async def main():
-    async with AsyncClient(api_key="YOUR_API_KEY") as client:
-        # Uses global SaaS endpoints automatically
-        pass
+    client = AsyncClient(api_key="YOUR_API_KEY")
+    # Uses global SaaS endpoints automatically
+    await client.close()
 
 asyncio.run(main())
 ```
@@ -1218,12 +1543,12 @@ import asyncio
 from speechmatics.batch import AsyncClient
 
 async def main():
-    async with AsyncClient(
+    client = AsyncClient(
         api_key="YOUR_LICENSE_KEY",
         url="http://localhost:9000/v2"
-    ) as client:
-        # Use on-premises instance
-        pass
+    )
+    # Use on-premises instance
+    await client.close()
 
 asyncio.run(main())
 ```
@@ -1269,20 +1594,22 @@ async def test():
     # Replace with your audio file path
     audio_file = "your_audio_file.wav"
 
+    client = AsyncClient(api_key=api_key)
     try:
-        async with AsyncClient(api_key=api_key) as client:
-            print("Submitting transcription job...")
-            job = await client.submit_job(audio_file, transcription_config=TranscriptionConfig(language="en"))
-            print(f"Job submitted: {job.id}")
+        print("Submitting transcription job...")
+        job = await client.submit_job(audio_file, transcription_config=TranscriptionConfig(language="en"))
+        print(f"Job submitted: {job.id}")
 
-            print("Waiting for completion...")
-            result = await client.wait_for_completion(job.id)
+        print("Waiting for completion...")
+        result = await client.wait_for_completion(job.id)
 
-            print(f"\nTranscript: {result.transcript_text}")
-            print("\nTest completed successfully!")
+        print(f"\nTranscript: {result.transcript_text}")
+        print("\nTest completed successfully!")
 
     except AuthenticationError as e:
         print(f"\nAuthentication Error: {e}")
+    finally:
+        await client.close()
 
 asyncio.run(test())
 EOF
