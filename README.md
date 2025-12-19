@@ -1626,6 +1626,7 @@ If this fails, [open an issue](https://github.com/speechmatics/speechmatics-pyth
 - **GitHub Discussions**: [Ask questions, share projects](https://github.com/speechmatics/speechmatics-python-sdk/discussions)
 - **Stack Overflow**: Tag with `speechmatics`
 - **Email Support**: devrel@speechmatics.com
+- **Status Page**: [status.speechmatics.com](https://status.speechmatics.com/)
 
 
 ### Show Your Support
@@ -1647,7 +1648,7 @@ This project is licensed under the MIT License - see the [LICENSE](https://githu
 - **Website**: [speechmatics.com](https://www.speechmatics.com)
 - **Documentation**: [docs.speechmatics.com](https://docs.speechmatics.com)
 - **Portal**: [portal.speechmatics.com](https://portal.speechmatics.com)
-- **Status Page**: [status.speechmatics.com](https://status.speechmatics.com)
+- **Status Page**: [status.speechmatics.com](https://status.speechmatics.com/)
 - **Blog**: [speechmatics.com/blog](https://www.speechmatics.com/blog)
 - **GitHub**: [@speechmatics](https://github.com/speechmatics)
 
