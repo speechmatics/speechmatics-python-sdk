@@ -165,11 +165,11 @@ class VoiceAgentClient(AsyncClient):
         # -------------------------------------
 
         # Default to EXTERNAL if no config or preset string provided
-        if config is None and not preset:
+        if config is None and preset is None:
             config = VoiceAgentConfigPreset.EXTERNAL()
 
         # Check for preset
-        elif preset:
+        elif preset is not None:
             preset_config = VoiceAgentConfigPreset.load(preset)
             config = VoiceAgentConfigPreset._merge_configs(preset_config, config)
 
@@ -1085,7 +1085,7 @@ class VoiceAgentClient(AsyncClient):
                         is_final=is_final,
                         attaches_to=result.get("attaches_to", ""),
                         content=alt.get("content", ""),
-                        speaker=alt.get("speaker", None),
+                        speaker=alt.get("speaker", "UU"),
                         confidence=alt.get("confidence", 1.0),
                         volume=result.get("volume", None),
                         result={"final": is_final, **result},
@@ -1382,8 +1382,7 @@ class VoiceAgentClient(AsyncClient):
                 self._turn_start_time = self._current_view.start_time
 
             # Send updated speaker metrics
-            if self._dz_enabled:
-                self._calculate_speaker_metrics(partial_segments, final_segments)
+            self._calculate_speaker_metrics(partial_segments, final_segments)
 
         # Emit end of turn
         if finalize:
