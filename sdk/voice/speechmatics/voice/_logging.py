@@ -46,6 +46,11 @@ def get_logger(name: str) -> logging.Logger:
             # Or for specific components:
             logging.getLogger('speechmatics.batch').setLevel(logging.DEBUG)
     """
+
+    # Lower RT logging to INFO to reduce noise
+    logging.getLogger("speechmatics.rt").setLevel(logging.INFO)
+
+    # Logging for Voice SDK
     module_logger = logging.getLogger(name)
     module_logger.addHandler(logging.NullHandler())
     return module_logger

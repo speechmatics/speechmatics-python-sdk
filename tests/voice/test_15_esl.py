@@ -1,13 +1,22 @@
+import asyncio
 import os
 
 import pytest
-from _utils import get_client, log_client_messages, send_audio_file
-import asyncio
+from _utils import get_client
+from _utils import log_client_messages
+from _utils import send_audio_file
+
 from speechmatics.voice._presets import VoiceAgentConfigPreset
+
+# Skip for CI testing
+pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping transcription tests in CI")
+
+# Skip if ESL tests is not enabled
+pytestmark = pytest.mark.skipif(os.getenv("TEST_ESL", "0").lower() not in ["1", "true"], reason="Skipping ESL tests")
 
 # Constants
 API_KEY = os.getenv("SPEECHMATICS_API_KEY")
-URL = "ws://localhost:8080/v2"
+URL = os.getenv("TEST_ESL_URL", "ws://localhost:8080/v2")
 SHOW_LOG = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
 
 
