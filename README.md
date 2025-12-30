@@ -300,7 +300,10 @@ asyncio.run(main())
 pip install speechmatics-voice speechmatics-rt python-dotenv pyaudio
 ```
 
-[!TIP] **Ready for more?** Explore 20+ working examples at **[Speechmatics Academy](https://github.com/speechmatics/speechmatics-academy)** — voice agents, integrations, use cases, and migration guides.
+<!-- prettier-ignore-start -->
+> [!TIP]
+> **Ready for more?** Explore 20+ working examples at **[Speechmatics Academy](https://github.com/speechmatics/speechmatics-academy)** — voice agents, integrations, use cases, and migration guides.
+<!-- prettier-ignore-end -->
 
 ---
 
@@ -1434,7 +1437,10 @@ sequenceDiagram
 
 ## Authentication
 
-> [!CAUTION] > **Security Best Practice**: Never hardcode API keys in your source code. Always use environment variables or secure secret management systems.
+<!-- prettier-ignore-start -->
+> [!CAUTION]
+> **Security Best Practice**: Never hardcode API keys in your source code. Always use environment variables or secure secret management systems.
+<!-- prettier-ignore-end -->
 
 ### Environment Variable (Recommended)
 
@@ -1461,7 +1467,10 @@ asyncio.run(main())
 
 ### JWT Token (Temporary Keys)
 
-> [!WARNING] > **Browser Security**: For browser-based transcription, always use temporary JWT tokens to avoid exposing your long-lived API key. Pass the token as a query parameter: `wss://eu2.rt.speechmatics.com/v2?jwt=<token>`
+<!-- prettier-ignore-start -->
+> [!WARNING]
+> **Browser Security**: For browser-based transcription, always use temporary JWT tokens to avoid exposing your long-lived API key. Pass the token as a query parameter: `wss://eu2.rt.speechmatics.com/v2?jwt=<token>`
+<!-- prettier-ignore-end -->
 
 ```python
 import asyncio
@@ -1682,7 +1691,7 @@ If this fails, [open an issue](https://github.com/speechmatics/speechmatics-pyth
 
 - **GitHub Discussions**: [Ask questions, share projects](https://github.com/speechmatics/speechmatics-python-sdk/discussions)
 - **Stack Overflow**: Tag with `speechmatics`
-- **Email Support**: devrel@speechmatics.com
+- **Email Support**: <devrel@speechmatics.com>
 - **Status Page**: [status.speechmatics.com](https://status.speechmatics.com/)
 
 ### Show Your Support
