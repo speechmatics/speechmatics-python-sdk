@@ -17,13 +17,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/speechmatics/speechmatics-python-sdk/blob/main/LICENSE)
 [![Build Status](https://github.com/speechmatics/speechmatics-python-sdk/actions/workflows/test.yaml/badge.svg)](https://github.com/speechmatics/speechmatics-python-sdk/actions/workflows/test.yaml)
 
-
 **Fully typed** with type definitions for all request params and response fields. **Modern Python** with async/await patterns, type hints, and context managers for production-ready code.
 
 **55+ Languages • Realtime & Batch • Custom vocabularies • Speaker diarization • Speaker ID**
 
 [Get API Key](https://portal.speechmatics.com/) • [Documentation](https://docs.speechmatics.com) • [Academy Examples](https://github.com/speechmatics/speechmatics-academy)
-
 
 </div>
 
@@ -69,21 +67,25 @@ pip install speechmatics-tts
 <br/>
 
 **[speechmatics-batch](./sdk/batch/README.md)** - Async batch transcription API
+
 - Upload audio files for processing
 - Get transcripts with timestamps, speakers, entities
 - Supports all audio intelligence features
 
 **[speechmatics-rt](./sdk/rt/README.md)** - Realtime WebSocket streaming
+
 - Stream audio for live transcription
 - Ultra-low latency (150ms p95)
 - Partial and final transcripts
 
 **[speechmatics-voice](./sdk/voice/README.md)** - Voice agent SDK
+
 - Build conversational AI applications
 - Speaker diarization and turn detection
 - Optional ML-based smart turn: `pip install speechmatics-voice[smart]`
 
 **[speechmatics-tts](./sdk/tts/README.md)** - Text-to-speech
+
 - Convert text to natural-sounding speech
 - Multiple voices and languages
 - Streaming and batch modes
@@ -143,6 +145,7 @@ asyncio.run(main())
 ```
 
 **Installation:**
+
 ```bash
 pip install speechmatics-batch python-dotenv
 ```
@@ -205,6 +208,7 @@ asyncio.run(main())
 ```
 
 **Installation:**
+
 ```bash
 pip install speechmatics-rt python-dotenv pyaudio
 ```
@@ -241,6 +245,7 @@ asyncio.run(main())
 ```
 
 **Installation:**
+
 ```bash
 pip install speechmatics-tts python-dotenv
 ```
@@ -290,12 +295,15 @@ asyncio.run(main())
 ```
 
 **Installation:**
+
 ```bash
 pip install speechmatics-voice speechmatics-rt python-dotenv pyaudio
 ```
 
+<!-- prettier-ignore-start -->
 > [!TIP]
 > **Ready for more?** Explore 20+ working examples at **[Speechmatics Academy](https://github.com/speechmatics/speechmatics-academy)** — voice agents, integrations, use cases, and migration guides.
+<!-- prettier-ignore-end -->
 
 ---
 
@@ -311,25 +319,24 @@ pip install speechmatics-voice speechmatics-rt python-dotenv pyaudio
 
 When 1% WER improvement translates to millions in revenue, you need the best.
 
-| Metric | Speechmatics | Deepgram |
-|--------|--------------|----------|
-| **Word Error Rate (WER)** | **6.8%** | 16.5% |
-| **Languages Supported** | **55+** | 30+ |
-| **Custom dictionary** | **1,000 words** | 100 words |
-| **Speaker diarization** | **Included** | Extra charge |
-| **Realtime translation** | **30+ languages** | ❌ |
-| **Sentiment analysis** | ✅ | ❌ |
-| **On-premises** | ✅ | Limited |
-| **On-device** | ✅ | ❌ |
-| **Air-gapped deployment** | ✅ | ❌ |
-
-
+| Metric                    | Speechmatics      | Deepgram     |
+| ------------------------- | ----------------- | ------------ |
+| **Word Error Rate (WER)** | **6.8%**          | 16.5%        |
+| **Languages Supported**   | **55+**           | 30+          |
+| **Custom dictionary**     | **1,000 words**   | 100 words    |
+| **Speaker diarization**   | **Included**      | Extra charge |
+| **Realtime translation**  | **30+ languages** | ❌           |
+| **Sentiment analysis**    | ✅                | ❌           |
+| **On-premises**           | ✅                | Limited      |
+| **On-device**             | ✅                | ❌           |
+| **Air-gapped deployment** | ✅                | ❌           |
 
 ---
 
 ## 🚀 Key Features
 
 ### Realtime Transcription
+
 Stream audio and get instant transcriptions with ultra-low latency. Perfect for voice agents, live captioning, and conversational AI.
 
 <details>
@@ -379,6 +386,7 @@ asyncio.run(main())
 ```
 
 **Installation:**
+
 ```bash
 pip install speechmatics-voice speechmatics-rt python-dotenv pyaudio
 ```
@@ -386,6 +394,7 @@ pip install speechmatics-voice speechmatics-rt python-dotenv pyaudio
 </details>
 
 ### Batch Transcription
+
 Upload audio files and get accurate transcripts with speaker labels, timestamps, and more.
 
 <details>
@@ -427,6 +436,7 @@ asyncio.run(main())
 ```
 
 **Installation:**
+
 ```bash
 pip install speechmatics-batch python-dotenv
 ```
@@ -434,6 +444,7 @@ pip install speechmatics-batch python-dotenv
 </details>
 
 ### Speaker Diarization
+
 Automatically detect and label different speakers in your audio.
 
 <details>
@@ -479,6 +490,7 @@ asyncio.run(main())
 ```
 
 **Installation:**
+
 ```bash
 pip install speechmatics-batch python-dotenv
 ```
@@ -486,6 +498,7 @@ pip install speechmatics-batch python-dotenv
 </details>
 
 ### Custom Dictionary
+
 Add domain-specific terms, names, and acronyms for perfect accuracy.
 
 <details>
@@ -586,6 +599,7 @@ asyncio.run(main())
 ```
 
 **Installation:**
+
 ```bash
 pip install speechmatics-rt python-dotenv pyaudio
 ```
@@ -593,6 +607,7 @@ pip install speechmatics-rt python-dotenv pyaudio
 </details>
 
 ### 55+ Languages
+
 Native models for major languages, not just multilingual Whisper.
 
 <details>
@@ -623,6 +638,7 @@ asyncio.run(main())
 ```
 
 **Installation:**
+
 ```bash
 pip install speechmatics-batch python-dotenv
 ```
@@ -630,6 +646,7 @@ pip install speechmatics-batch python-dotenv
 </details>
 
 ### Audio Intelligence
+
 Get sentiment, topics, summaries, and chapters from your audio.
 
 <details>
@@ -685,6 +702,7 @@ asyncio.run(main())
 ```
 
 **Installation:**
+
 ```bash
 pip install speechmatics-batch python-dotenv
 ```
@@ -692,6 +710,7 @@ pip install speechmatics-batch python-dotenv
 </details>
 
 ### Translation
+
 Transcribe and translate simultaneously to multiple languages.
 
 <details>
@@ -738,6 +757,7 @@ asyncio.run(main())
 ```
 
 **Installation:**
+
 ```bash
 pip install speechmatics-batch python-dotenv
 ```
@@ -780,7 +800,7 @@ async def entrypoint(ctx: agents.JobContext):
 
     # Speech to text: Speechmatics with speaker diarization
     stt = speechmatics.STT(
-        enable_diarization=True,
+        language="en",
         speaker_active_format="<{speaker_id}>{text}</{speaker_id}>",
         focus_speakers=["S1"],
     )
@@ -811,11 +831,13 @@ if __name__ == "__main__":
 ```
 
 **Installation:**
+
 ```bash
 pip install livekit-agents livekit-plugins-speechmatics livekit-plugins-openai livekit-plugins-elevenlabs livekit-plugins-silero
 ```
 
 **Key Features:**
+
 - Realtime WebRTC audio streaming
 - Speechmatics STT with speaker diarization
 - Configurable LLM and TTS providers
@@ -845,8 +867,6 @@ async def main():
         api_key=os.getenv("SPEECHMATICS_API_KEY"),
         params=SpeechmaticsSTTService.InputParams(
             language=Language.EN,
-            enable_partials=True,
-            enable_diarization=True,
             speaker_active_format="@{speaker_id}: {text}"
         )
     )
@@ -892,11 +912,13 @@ asyncio.run(main())
 ```
 
 **Installation:**
+
 ```bash
 pip install pipecat-ai[speechmatics, openai] pyaudio
 ```
 
 **Key Features:**
+
 - Real-time STT with speaker diarization
 - Natural-sounding TTS with multiple voices
 - Interruption handling (users can interrupt bot responses)
@@ -910,56 +932,61 @@ pip install pipecat-ai[speechmatics, openai] pyaudio
 
 Each SDK package includes detailed documentation:
 
-| Package | Documentation | Description |
-|---------|---------------|-------------|
+| Package                | Documentation                                                                 | Description               |
+| ---------------------- | ----------------------------------------------------------------------------- | ------------------------- |
 | **speechmatics-batch** | [README](./sdk/batch/README.md) • [Migration Guide](./sdk/batch/MIGRATION.md) | Async batch transcription |
-| **speechmatics-rt** | [README](./sdk/rt/README.md) • [Migration Guide](./sdk/rt/MIGRATION.md) | Realtime Streaming |
-| **speechmatics-voice** | [README](./sdk/voice/README.md) | Voice agent SDK |
-| **speechmatics-tts** | [README](./sdk/tts/README.md) | Text-to-speech |
+| **speechmatics-rt**    | [README](./sdk/rt/README.md) • [Migration Guide](./sdk/rt/MIGRATION.md)       | Realtime Streaming        |
+| **speechmatics-voice** | [README](./sdk/voice/README.md)                                               | Voice agent SDK           |
+| **speechmatics-tts**   | [README](./sdk/tts/README.md)                                                 | Text-to-speech            |
 
 ### Speechmatics Academy
 
 Comprehensive collection of working examples, integrations, and templates: [github.com/speechmatics/speechmatics-academy](https://github.com/speechmatics/speechmatics-academy)
 
 #### Fundamentals
-| Example | Description | Package |
-|---------|-------------|---------|
-| [Hello World](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/01-hello-world) | Simplest transcription example | Batch |
-| [Batch vs Realtime](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/02-batch-vs-realtime) | Learn the difference between API modes | Batch, RT |
-| [Configuration Guide](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/03-configuration-guide) | Common configuration options | Batch |
-| [Audio Intelligence](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/04-audio-intelligence) | Sentiment, topics, and summaries | Batch |
-| [Multilingual & Translation](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/05-multilingual-translation) | 50+ languages and real-time translation | RT |
-| [Text-to-Speech](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/06-text-to-speech) | Convert text to natural-sounding speech | TTS |
-| [Turn Detection](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/07-turn-detection) | Silence-based turn detection | RT |
-| [Voice Agent Turn Detection](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/08-voice-agent-turn-detection) | Smart turn detection with presets | Voice |
-| [Speaker ID & Focus](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/09-voice-agent-speaker-id) | Speaker identification and focus control | Voice |
-| [Channel Diarization](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/10-channel-diarization) | Multi-channel transcription | Voice, RT |
+
+| Example                                                                                                                           | Description                              | Package   |
+| --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- | --------- |
+| [Hello World](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/01-hello-world)                               | Simplest transcription example           | Batch     |
+| [Batch vs Realtime](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/02-batch-vs-realtime)                   | Learn the difference between API modes   | Batch, RT |
+| [Configuration Guide](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/03-configuration-guide)               | Common configuration options             | Batch     |
+| [Audio Intelligence](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/04-audio-intelligence)                 | Sentiment, topics, and summaries         | Batch     |
+| [Multilingual & Translation](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/05-multilingual-translation)   | 50+ languages and real-time translation  | RT        |
+| [Text-to-Speech](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/06-text-to-speech)                         | Convert text to natural-sounding speech  | TTS       |
+| [Turn Detection](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/07-turn-detection)                         | Silence-based turn detection             | RT        |
+| [Voice Agent Turn Detection](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/08-voice-agent-turn-detection) | Smart turn detection with presets        | Voice     |
+| [Speaker ID & Focus](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/09-voice-agent-speaker-id)             | Speaker identification and focus control | Voice     |
+| [Channel Diarization](https://github.com/speechmatics/speechmatics-academy/tree/main/basics/10-channel-diarization)               | Multi-channel transcription              | Voice, RT |
 
 #### Integrations
-| Integration | Example | Features |
-|-------------|---------|----------|
-| **LiveKit** | [Simple Voice Assistant](https://github.com/speechmatics/speechmatics-academy/tree/main/integrations/livekit/01-simple-voice-assistant) | WebRTC, VAD, diarization, LLM, TTS |
-| **LiveKit** | [Telephony with Twilio](https://github.com/speechmatics/speechmatics-academy/tree/main/integrations/livekit/02-telephony-twilio) | Phone calls via SIP, Krisp noise cancellation |
-| **Pipecat** | [Simple Voice Bot](https://github.com/speechmatics/speechmatics-academy/tree/main/integrations/pipecat/01-simple-voice-bot) | Local audio, VAD, LLM, TTS |
-| **Pipecat** | [Voice Bot (Web)](https://github.com/speechmatics/speechmatics-academy/tree/main/integrations/pipecat/02-simple-voice-bot-web) | Browser-based WebRTC |
-| **Twilio** | [Outbound Dialer](https://github.com/speechmatics/speechmatics-academy/tree/main/integrations/twilio/01-outbound-dialer) | Media Streams, ElevenLabs TTS |
-| **VAPI** | [Voice Assistant](https://github.com/speechmatics/speechmatics-academy/tree/main/integrations/vapi/01-voice-assistant) | Voice AI platform integration |
+
+| Integration | Example                                                                                                                                 | Features                                      |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| **LiveKit** | [Simple Voice Assistant](https://github.com/speechmatics/speechmatics-academy/tree/main/integrations/livekit/01-simple-voice-assistant) | WebRTC, VAD, diarization, LLM, TTS            |
+| **LiveKit** | [Telephony with Twilio](https://github.com/speechmatics/speechmatics-academy/tree/main/integrations/livekit/02-telephony-twilio)        | Phone calls via SIP, Krisp noise cancellation |
+| **Pipecat** | [Simple Voice Bot](https://github.com/speechmatics/speechmatics-academy/tree/main/integrations/pipecat/01-simple-voice-bot)             | Local audio, VAD, LLM, TTS                    |
+| **Pipecat** | [Voice Bot (Web)](https://github.com/speechmatics/speechmatics-academy/tree/main/integrations/pipecat/02-simple-voice-bot-web)          | Browser-based WebRTC                          |
+| **Twilio**  | [Outbound Dialer](https://github.com/speechmatics/speechmatics-academy/tree/main/integrations/twilio/01-outbound-dialer)                | Media Streams, ElevenLabs TTS                 |
+| **VAPI**    | [Voice Assistant](https://github.com/speechmatics/speechmatics-academy/tree/main/integrations/vapi/01-voice-assistant)                  | Voice AI platform integration                 |
 
 #### Use Cases
-| Industry | Example | Features |
-|----------|---------|----------|
-| **Healthcare** | [Medical Transcription](https://github.com/speechmatics/speechmatics-academy/tree/main/use-cases/01-medical-transcription-realtime) | Realtime, custom medical vocabulary |
-| **Media** | [Video Captioning](https://github.com/speechmatics/speechmatics-academy/tree/main/use-cases/02-video-captioning) | SRT generation, batch processing |
-| **Contact Center** | [Call Analytics](https://github.com/speechmatics/speechmatics-academy/tree/main/use-cases/03-call-center-analytics) | Channel diarization, sentiment, topics |
-| **Business** | [AI Receptionist](https://github.com/speechmatics/speechmatics-academy/tree/main/use-cases/04-voice-agent-calendar) | LiveKit, Twilio SIP, Google Calendar |
-| **Seasonal** | [Santa Voice Agent](https://github.com/speechmatics/speechmatics-academy/tree/main/use-cases/05-santa-voice-agent) | LiveKit, Twilio SIP, ElevenLabs TTS, custom voice |
+
+| Industry           | Example                                                                                                                             | Features                                          |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| **Healthcare**     | [Medical Transcription](https://github.com/speechmatics/speechmatics-academy/tree/main/use-cases/01-medical-transcription-realtime) | Realtime, custom medical vocabulary               |
+| **Media**          | [Video Captioning](https://github.com/speechmatics/speechmatics-academy/tree/main/use-cases/02-video-captioning)                    | SRT generation, batch processing                  |
+| **Contact Center** | [Call Analytics](https://github.com/speechmatics/speechmatics-academy/tree/main/use-cases/03-call-center-analytics)                 | Channel diarization, sentiment, topics            |
+| **Business**       | [AI Receptionist](https://github.com/speechmatics/speechmatics-academy/tree/main/use-cases/04-voice-agent-calendar)                 | LiveKit, Twilio SIP, Google Calendar              |
+| **Seasonal**       | [Santa Voice Agent](https://github.com/speechmatics/speechmatics-academy/tree/main/use-cases/05-santa-voice-agent)                  | LiveKit, Twilio SIP, ElevenLabs TTS, custom voice |
 
 #### Migration Guides
-| From | Guide | Status |
-|------|-------|--------|
+
+| From         | Guide                                                                                                              | Status    |
+| ------------ | ------------------------------------------------------------------------------------------------------------------ | --------- |
 | **Deepgram** | [Migration Guide](https://github.com/speechmatics/speechmatics-academy/tree/main/guides/migration-guides/deepgram) | Available |
 
 ### Official Documentation
+
 - [API Reference](https://docs.speechmatics.com/api-ref/) - Complete API documentation
 - [SDK Repository](https://github.com/speechmatics/speechmatics-python-sdk) - Python SDK source code
 - [Developer Portal](https://portal.speechmatics.com) - Get your API key
@@ -977,6 +1004,7 @@ The legacy `speechmatics-python` package has been deprecated. This new SDK offer
 ### Migration Guide
 
 **speechmatics-python:**
+
 ```python
 from speechmatics.models import BatchTranscriptionConfig
 from speechmatics.batch_client import BatchClient
@@ -988,6 +1016,7 @@ with BatchClient("API_KEY") as client:
 ```
 
 **speechmatics-python-sdk:**
+
 ```python
 import asyncio
 from speechmatics.batch import AsyncClient, TranscriptionConfig, FormatType
@@ -1013,8 +1042,8 @@ asyncio.run(main())
 
 ## 💡 Use Cases
 
-
 ### Healthcare & Medical
+
 HIPAA-compliant transcription for clinical notes, patient interviews, and telemedicine.
 
 ```python
@@ -1054,11 +1083,13 @@ asyncio.run(main())
 ```
 
 **Installation:**
+
 ```bash
 pip install speechmatics-batch python-dotenv
 ```
 
 ### Voice Agents & Conversational AI
+
 Build Alexa-like experiences with real-time transcription and speaker detection.
 
 ```python
@@ -1118,6 +1149,7 @@ asyncio.run(main())
 ```
 
 **Installation:**
+
 ```bash
 pip install speechmatics-voice speechmatics-rt python-dotenv pyaudio
 ```
@@ -1128,6 +1160,7 @@ pip install speechmatics-voice speechmatics-rt python-dotenv pyaudio
 <br/>
 
 ### Call Center Analytics
+
 Transcribe calls with speaker diarization, sentiment analysis, and topic detection.
 
 ```python
@@ -1194,11 +1227,13 @@ asyncio.run(main())
 ```
 
 **Installation:**
+
 ```bash
 pip install speechmatics-batch python-dotenv
 ```
 
 ### Media & Entertainment
+
 Add captions, create searchable archives, generate clips from keywords.
 
 ```python
@@ -1233,11 +1268,13 @@ asyncio.run(main())
 ```
 
 **Installation:**
+
 ```bash
 pip install speechmatics-batch python-dotenv
 ```
 
 ### Education & E-Learning
+
 Auto-generate lecture transcripts, searchable course content, and accessibility captions.
 
 ```python
@@ -1280,11 +1317,13 @@ asyncio.run(main())
 ```
 
 **Installation:**
+
 ```bash
 pip install speechmatics-batch python-dotenv
 ```
 
 ### Meetings
+
 Turn meetings into searchable, actionable summaries with action items and key decisions.
 
 ```python
@@ -1336,6 +1375,7 @@ asyncio.run(main())
 ```
 
 **Installation:**
+
 ```bash
 pip install speechmatics-batch python-dotenv
 ```
@@ -1397,8 +1437,10 @@ sequenceDiagram
 
 ## Authentication
 
+<!-- prettier-ignore-start -->
 > [!CAUTION]
 > **Security Best Practice**: Never hardcode API keys in your source code. Always use environment variables or secure secret management systems.
+<!-- prettier-ignore-end -->
 
 ### Environment Variable (Recommended)
 
@@ -1425,8 +1467,10 @@ asyncio.run(main())
 
 ### JWT Token (Temporary Keys)
 
+<!-- prettier-ignore-start -->
 > [!WARNING]
 > **Browser Security**: For browser-based transcription, always use temporary JWT tokens to avoid exposing your long-lived API key. Pass the token as a query parameter: `wss://eu2.rt.speechmatics.com/v2?jwt=<token>`
+<!-- prettier-ignore-end -->
 
 ```python
 import asyncio
@@ -1535,6 +1579,7 @@ asyncio.run(main())
 ## Deployment Options
 
 ### Cloud (SaaS)
+
 Zero infrastructure - just sign up and start transcribing.
 
 ```python
@@ -1550,6 +1595,7 @@ asyncio.run(main())
 ```
 
 ### Docker Container
+
 Run Speechmatics on your own hardware.
 
 ```bash
@@ -1573,6 +1619,7 @@ asyncio.run(main())
 ```
 
 ### Kubernetes
+
 Scale transcription with k8s orchestration.
 
 ```bash
@@ -1644,13 +1691,13 @@ If this fails, [open an issue](https://github.com/speechmatics/speechmatics-pyth
 
 - **GitHub Discussions**: [Ask questions, share projects](https://github.com/speechmatics/speechmatics-python-sdk/discussions)
 - **Stack Overflow**: Tag with `speechmatics`
-- **Email Support**: devrel@speechmatics.com
+- **Email Support**: <devrel@speechmatics.com>
 - **Status Page**: [status.speechmatics.com](https://status.speechmatics.com/)
-
 
 ### Show Your Support
 
 Share what you built:
+
 - Tweet with [@Speechmatics](https://twitter.com/speechmatics)
 - Post in [Show & Tell](https://github.com/speechmatics/speechmatics-python-sdk/discussions/categories/show-and-tell)
 
@@ -1679,7 +1726,6 @@ This project is licensed under the MIT License - see the [LICENSE](https://githu
 2. **[Try the quickstart ↑](#quick-start)**
 3. **[Explore examples →](https://github.com/speechmatics/speechmatics-academy)**
 4. **[Read the docs →](https://docs.speechmatics.com)**
-
 
 ---
 
