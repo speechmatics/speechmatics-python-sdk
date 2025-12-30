@@ -300,7 +300,7 @@ asyncio.run(main())
 pip install speechmatics-voice speechmatics-rt python-dotenv pyaudio
 ```
 
-> [!TIP] > **Ready for more?** Explore 20+ working examples at **[Speechmatics Academy](https://github.com/speechmatics/speechmatics-academy)** — voice agents, integrations, use cases, and migration guides.
+[!TIP] **Ready for more?** Explore 20+ working examples at **[Speechmatics Academy](https://github.com/speechmatics/speechmatics-academy)** — voice agents, integrations, use cases, and migration guides.
 
 ---
 
