@@ -196,7 +196,6 @@ class VoiceAgentClient(AsyncClient):
         # Change filter to emit segments
         self._change_filter: list[AnnotationFlags] = [
             AnnotationFlags.NEW,
-            # AnnotationFlags.UPDATED_PARTIALS,
             AnnotationFlags.UPDATED_FINALS,
         ]
 
