@@ -197,7 +197,7 @@ class VoiceAgentClient(AsyncClient):
         self._change_filter: list[AnnotationFlags] = [
             AnnotationFlags.NEW,
             # AnnotationFlags.UPDATED_PARTIALS,
-            # AnnotationFlags.UPDATED_FINALS,
+            AnnotationFlags.UPDATED_FINALS,
         ]
 
         # Full text has changed
@@ -402,7 +402,7 @@ class VoiceAgentClient(AsyncClient):
             enable_partials=True,
             enable_entities=config.enable_entities,
             max_delay=config.max_delay,
-            max_delay_mode="fixed",
+            max_delay_mode=config.max_delay_mode.value,
             audio_filtering_config={
                 "volume_threshold": 0.0,
             },
