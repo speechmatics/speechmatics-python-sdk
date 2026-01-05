@@ -90,7 +90,8 @@ class AudioBuffer:
             data: The data frame to add to the buffer.
         """
 
-        # If the right length and buffer zero
+        # If data is exactly one frame and there's no buffered remainder,
+        # put the frame directly into the buffer.
         if len(data) // self._sample_width == self._frame_size and len(self._buffer) == 0:
             return await self.put_frame(data)
 
@@ -109,19 +110,23 @@ class AudioBuffer:
             await self.put_frame(frame)
 
     async def put_frame(self, data: bytes) -> None:
-        """Add data to the buffer.
+        """Add data frame to the buffer.
 
-        New data added to the end of the buffer. The oldest data is removed
-        to maintain the total number of seconds in the buffer.
+        New data frame is added to the end of the buffer. The oldest data is removed
+        to maintain the total number of seconds in the buffer.`
 
         Args:
             data: The data frame to add to the buffer.
         """
+        # Verify number of bytes matches frame size
+        if len(data) != self._frame_bytes:
+            raise ValueError(f"Invalid frame size: {len(data)} bytes, expected {self._frame_bytes} bytes")
 
         # Add data to the buffer
         async with self._lock:
             self._frames.append(data)
             self._total_frames += 1
+            # Trim to rolling window, keep last _max_frames frames
             if len(self._frames) > self._max_frames:
                 self._frames = self._frames[-self._max_frames :]
 
