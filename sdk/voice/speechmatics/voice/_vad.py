@@ -316,24 +316,27 @@ class SileroVAD:
 
         # Check if state changed
         state_changed = self._last_is_speech != is_speech
-        if state_changed:
-            self._dispatch_vad_event(is_speech, weighted_avg)
 
-            # Update state after emitting
-            self._last_is_speech = is_speech
+        if not state_changed:
+            # No change, exit early
+            return
 
-    def _dispatch_vad_event(self, is_speech: bool, probability: float) -> None:
+        # Trigger callback function for state change
+        if self._on_state_change:
+            self._trigger_on_state_change(is_speech, weighted_avg)
+
+        # Update state
+        self._last_is_speech = is_speech
+
+    def _trigger_on_state_change(self, is_speech: bool, probability: float) -> None:
         """
         Constructs the result object and executes the on_state_change callback
-        function if set.
+        function.
 
         Args:
             is_speech: True if speech is detected, False otherwise.
             probability: Speech probability (0.0-1.0).
         """
-        if not self._on_state_change:
-            return
-        
         # Calculate how many milliseconds of audio the window represents
         duration_ms = len(self._prediction_window) * SILERO_CHUNK_DURATION_MS
 
@@ -351,7 +354,6 @@ class SileroVAD:
         # Trigger callback with result
         self._on_state_change(result)
         
-
     async def process_audio(self, audio_bytes: bytes, sample_rate: int = 16000, sample_width: int = 2) -> None:
         """Process incoming audio bytes and invoke callback on state changes.
 
