@@ -110,7 +110,7 @@ class FragmentUtils:
                     speaker_groups.append([])
             speaker_groups[-1].append(frag)
 
-        # Create SpeakerFragments objects
+        # Create SpeakerSegment objects
         segments: list[SpeakerSegment] = []
         for group in speaker_groups:
             # Skip if the group is empty
@@ -143,7 +143,7 @@ class FragmentUtils:
                     FragmentUtils.update_segment_text(session=session, segment=segment)
                     segments.append(segment)
 
-        # Return the grouped SpeakerFragments objects
+        # Return the grouped SpeakerSegment objects
         return segments
 
     @staticmethod
