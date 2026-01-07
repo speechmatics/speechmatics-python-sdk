@@ -142,9 +142,9 @@ class AgentServerMessageType(str, Enum):
         StartOfTurn: Start of turn has been detected.
         EndOfTurnPrediction: End of turn prediction timing.
         EndOfTurn: End of turn has been detected.
-        SmartTurn: Smart turn metadata.
+        SmartTurnResult: Smart turn metadata.
         SpeakersResult: Speakers result has been detected.
-        Metrics: Metrics for the STT engine.
+        SessionMetrics: Metrics for the STT engine.
         SpeakerMetrics: Metrics relating to speakers.
 
     Examples:
