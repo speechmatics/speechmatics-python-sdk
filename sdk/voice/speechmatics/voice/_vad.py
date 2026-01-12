@@ -225,7 +225,7 @@ class SileroVAD:
 
         # Return probability (out shape is (1, 1))
         return float(out[0][0])
-    
+
     def _validate_input(self, sample_rate: int) -> bool:
         """
         Ensures the VAD is ready and the incoming audio format
@@ -244,7 +244,7 @@ class SileroVAD:
         if sample_rate != SILERO_SAMPLE_RATE:
             logger.error(f"Sample rate must be {SILERO_SAMPLE_RATE}Hz, got {sample_rate}Hz")
             return False
-        
+
         return True
 
     def _get_audio_chunks(self, sample_width: int):
@@ -282,17 +282,17 @@ class SileroVAD:
         """
         if sample_width == 2:
             dtype = np.int16
-            divisor = 32768.0 
+            divisor = 32768.0
         elif sample_width == 1:
             dtype = np.int8
             divisor = 128.0
         else:
             raise ValueError(f"Unsupported sample_width {sample_width}")
 
-        # Decode and normalize the chunk data 
+        # Decode and normalize the chunk data
         int_array = np.frombuffer(chunk_bytes, dtype=dtype)
         float32_array: np.ndarray = int_array.astype(np.float32) / divisor
-        
+
         return float32_array
 
     def _evaluate_activity_change(self) -> None:
@@ -353,7 +353,7 @@ class SileroVAD:
 
         # Trigger callback with result
         self._on_state_change(result)
-        
+
     async def process_audio(self, audio_bytes: bytes, sample_rate: int = 16000, sample_width: int = 2) -> None:
         """Process incoming audio bytes and invoke callback on state changes.
 
@@ -367,21 +367,21 @@ class SileroVAD:
         """
         if not self._validate_input(sample_rate):
             return
-        
+
         # Add new bytes to the buffer
         self._audio_buffer += audio_bytes
-        
+
         # Process all complete chunks in the buffer
         for chunk in self._get_audio_chunks(sample_width):
             audio_f32 = self._prepare_chunk(chunk, sample_width)
-            
+
             try:
                 probability = self.process_chunk(audio_f32)
                 self._prediction_window.append(probability)
             except Exception as e:
                 logger.error(f"Error processing VAD chunk: {e}")
                 continue
-        
+
         # Check if VAD state has changed
         self._evaluate_activity_change()
 
