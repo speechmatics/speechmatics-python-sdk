@@ -31,3 +31,7 @@ async def test_url_endpoints():
     # URL test #5 - http endpoint (not actually possible, but a good test)
     url = client._get_endpoint_url("http://dummy/ep/v1/", "dummy-0.1.2")
     assert url == "http://dummy/ep/v1/?sm-app=dummy-0.1.2&sm-voice-sdk=0.0.0"
+
+    # URL test #6 - no app
+    url = client._get_endpoint_url("wss://dummy/ep")
+    assert url == "wss://dummy/ep?sm-app=voice-sdk%2F0.0.0&sm-voice-sdk=0.0.0"
