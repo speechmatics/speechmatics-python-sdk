@@ -1928,7 +1928,7 @@ class VoiceAgentClient(AsyncClient):
         flattened_params = {k: v[0] if len(v) == 1 else v for k, v in existing_params.items()}
 
         # Add/update with new SDK parameters
-        flattened_params["sm-app"] = app or f"voice-sdk/{__version__}"
+        flattened_params["sm-app"] = app or flattened_params.get("sm-app", f"voice-sdk/{__version__}")
         flattened_params["sm-voice-sdk"] = f"{__version__}"
 
         # Encode all parameters
