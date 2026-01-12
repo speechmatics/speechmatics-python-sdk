@@ -73,9 +73,12 @@ async def test_url_endpoints(test: URLExample):
     assert parsed_url.path == input_parsed.path
 
     # Validate `sm-app`
-    assert parsed_params["sm-app"] == [
-        test.input_app or input_params.get("sm-app", [None])[0] or f"voice-sdk/{__version__}"
-    ]
+    if test.input_app:
+        assert parsed_params["sm-app"] == [test.input_app]
+    elif "sm-app" in input_params:
+        assert parsed_params["sm-app"] == [input_params["sm-app"][0]]
+    else:
+        assert parsed_params["sm-app"] == [f"voice-sdk/{__version__}"]
 
     # Validate `sm-voice-sdk`
     assert parsed_params["sm-voice-sdk"] == [__version__]
