@@ -62,6 +62,6 @@ async def test_url_endpoints(test: URLExample):
         connect=False,
     )
 
-    # URL test #1 - no extra params
+    # URL test
     url = client._get_endpoint_url(test.input_url, test.input_app)
     assert url == test.expected_url.format(v=__version__)
