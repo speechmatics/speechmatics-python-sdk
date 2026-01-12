@@ -29,5 +29,5 @@ async def test_esl():
     assert url == "ws://localhost:8080/ep?sm-app=dummy-0.1.2&sm-voice-sdk=0.0.0"
 
     # URL test #5 - http endpoint (not actually possible, but a good test)
-    url = client._get_endpoint_url("http://dummy/ep", "dummy-0.1.2")
-    assert url == "http://dummy/ep?sm-app=dummy-0.1.2&sm-voice-sdk=0.0.0"
+    url = client._get_endpoint_url("http://dummy/ep/v1/", "dummy-0.1.2")
+    assert url == "http://dummy/ep/v1/?sm-app=dummy-0.1.2&sm-voice-sdk=0.0.0"
