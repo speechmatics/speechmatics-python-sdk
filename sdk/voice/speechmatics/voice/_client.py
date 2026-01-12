@@ -14,7 +14,10 @@ from typing import Any
 from typing import Callable
 from typing import Optional
 from typing import Union
+from urllib.parse import parse_qs
 from urllib.parse import urlencode
+from urllib.parse import urlparse
+from urllib.parse import urlunparse
 
 from speechmatics.rt import AsyncClient
 from speechmatics.rt import AudioEncoding
@@ -1914,12 +1917,21 @@ class VoiceAgentClient(AsyncClient):
             app: The application name to use in the endpoint URL.
 
         Returns:
-        str: The formatted endpoint URL.
+            str: The formatted endpoint URL.
         """
 
-        query_params = {}
-        query_params["sm-app"] = app or f"voice-sdk/{__version__}"
-        query_params["sm-voice-sdk"] = f"{__version__}"
-        query = urlencode(query_params)
+        # Parse the URL to extract existing query parameters
+        parsed = urlparse(url)
 
-        return f"{url}?{query}"
+        # Extract existing params into a dict of lists, keeping params without values
+        params = parse_qs(parsed.query, keep_blank_values=True)
+
+        # Use the provided app name, or fallback to existing value, or use the default string
+        existing_app = params.get("sm-app", [None])[0]
+        app_name = app or existing_app or f"voice-sdk/{__version__}"
+        params["sm-app"] = [app_name]
+        params["sm-voice-sdk"] = [__version__]
+
+        # Re-encode the query string and reconstruct
+        updated_query = urlencode(params, doseq=True)
+        return urlunparse(parsed._replace(query=updated_query))
