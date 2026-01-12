@@ -14,7 +14,10 @@ from typing import Any
 from typing import Callable
 from typing import Optional
 from typing import Union
+from urllib.parse import parse_qs
 from urllib.parse import urlencode
+from urllib.parse import urlparse
+from urllib.parse import urlunparse
 
 from speechmatics.rt import AsyncClient
 from speechmatics.rt import AudioEncoding
@@ -1917,9 +1920,19 @@ class VoiceAgentClient(AsyncClient):
         str: The formatted endpoint URL.
         """
 
-        query_params = {}
-        query_params["sm-app"] = app or f"voice-sdk/{__version__}"
-        query_params["sm-voice-sdk"] = f"{__version__}"
-        query = urlencode(query_params)
+        # Parse the URL to extract existing query parameters
+        parsed = urlparse(url)
+        existing_params = parse_qs(parsed.query, keep_blank_values=True)
 
-        return f"{url}?{query}"
+        # Flatten existing params (parse_qs returns lists)
+        flattened_params = {k: v[0] if len(v) == 1 else v for k, v in existing_params.items()}
+
+        # Add/update with new SDK parameters
+        flattened_params["sm-app"] = app or f"voice-sdk/{__version__}"
+        flattened_params["sm-voice-sdk"] = f"{__version__}"
+
+        # Encode all parameters
+        query = urlencode(flattened_params)
+
+        # Reconstruct the URL with merged parameters
+        return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, query, parsed.fragment))
