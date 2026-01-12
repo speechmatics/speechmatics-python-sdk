@@ -1917,22 +1917,21 @@ class VoiceAgentClient(AsyncClient):
             app: The application name to use in the endpoint URL.
 
         Returns:
-        str: The formatted endpoint URL.
+            str: The formatted endpoint URL.
         """
 
         # Parse the URL to extract existing query parameters
         parsed = urlparse(url)
-        existing_params = parse_qs(parsed.query, keep_blank_values=True)
 
-        # Flatten existing params (parse_qs returns lists)
-        flattened_params = {k: v[0] if len(v) == 1 else v for k, v in existing_params.items()}
+        # Extract existing params into a dict of lists, keeping params without values
+        params = parse_qs(parsed.query, keep_blank_values=True)
 
-        # Add/update with new SDK parameters
-        flattened_params["sm-app"] = app or flattened_params.get("sm-app", f"voice-sdk/{__version__}")
-        flattened_params["sm-voice-sdk"] = f"{__version__}"
+        # Use the provided app name, or fallback to existing value, or use the default string
+        existing_app = params.get("sm-app", [None])[0]
+        app_name = app or existing_app or f"voice-sdk/{__version__}"
+        params["sm-app"] = [app_name]
+        params["sm-voice-sdk"] = [__version__]
 
-        # Encode all parameters
-        query = urlencode(flattened_params)
-
-        # Reconstruct the URL with merged parameters
-        return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, query, parsed.fragment))
+        # Re-encode the query string and reconstruct
+        new_query = urlencode(params, doseq=True)
+        return urlunparse(parsed._replace(query=new_query))
