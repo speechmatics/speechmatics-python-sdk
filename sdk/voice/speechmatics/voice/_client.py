@@ -1933,5 +1933,5 @@ class VoiceAgentClient(AsyncClient):
         params["sm-voice-sdk"] = [__version__]
 
         # Re-encode the query string and reconstruct
-        new_query = urlencode(params, doseq=True)
-        return urlunparse(parsed._replace(query=new_query))
+        updated_query = urlencode(params, doseq=True)
+        return urlunparse(parsed._replace(query=updated_query))
