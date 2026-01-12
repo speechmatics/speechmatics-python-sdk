@@ -3,8 +3,8 @@ from _utils import get_client
 
 
 @pytest.mark.asyncio
-async def test_esl():
-    """Local ESL inference."""
+async def test_url_endpoints():
+    """Test URL endpoint construction."""
 
     # Client
     client = await get_client(
