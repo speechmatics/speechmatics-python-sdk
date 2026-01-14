@@ -1730,7 +1730,7 @@ class VoiceAgentClient(AsyncClient):
             """
 
             # Check if transcript went straight to finals (typical with forced end of utterance)
-            if has_words and self._last_valid_partial_word_count == 0:
+            if not self._is_speaking and has_words and self._last_valid_partial_word_count == 0:
                 # Track the current speaker
                 self._current_speaker = words[0].speaker
                 self._is_speaking = True
