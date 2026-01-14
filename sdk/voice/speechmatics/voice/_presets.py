@@ -135,13 +135,8 @@ class VoiceAgentConfigPreset:
                 enable_diarization=True,
                 max_delay=2.0,
                 end_of_utterance_silence_trigger=1.0,
-                end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
+                end_of_utterance_mode=EndOfUtteranceMode.FIXED,
                 speech_segment_config=SpeechSegmentConfig(emit_sentences=True),
-                smart_turn_config=SmartTurnConfig(
-                    enabled=True,
-                ),
-                vad_config=VoiceActivityConfig(enabled=True, silence_duration=0.2),
-                end_of_turn_config=EndOfTurnConfig(use_forced_eou=True),
             ),
             overlay,
         )
