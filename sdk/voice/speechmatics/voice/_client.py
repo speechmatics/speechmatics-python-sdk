@@ -335,6 +335,7 @@ class VoiceAgentClient(AsyncClient):
         self._session_speakers: dict[str, SessionSpeaker] = {}
         self._is_speaking: bool = False
         self._current_speaker: Optional[str] = None
+        self._last_valid_partial_word_count: int = 0
         self._dz_enabled: bool = self._config.enable_diarization
         self._dz_config = self._config.speaker_config
         self._last_speak_start_time: Optional[float] = None
@@ -1122,8 +1123,7 @@ class VoiceAgentClient(AsyncClient):
                     self._last_fragment_end_time = max(self._last_fragment_end_time, fragment.end_time)
 
             # Evaluate for VAD (only done on partials)
-            if not is_final:
-                await self._vad_evaluation(fragments)
+            await self._vad_evaluation(fragments, is_final=is_final)
 
             # Fragments to retain
             retained_fragments = [
@@ -1698,52 +1698,71 @@ class VoiceAgentClient(AsyncClient):
     # VAD (VOICE ACTIVITY DETECTION) / SPEAKER DETECTION
     # ============================================================================
 
-    async def _vad_evaluation(self, fragments: list[SpeechFragment]) -> None:
+    async def _vad_evaluation(self, fragments: list[SpeechFragment], is_final: bool) -> None:
         """Emit a VAD event.
 
         This will emit `SPEAKER_STARTED` and `SPEAKER_ENDED` events to the client and is
         based on valid transcription for active speakers. Ignored or speakers not in
         focus will not be considered an active participant.
 
-        This should only run on partial / non-final words.
-
         Args:
             fragments: The list of fragments to use for evaluation.
+            is_final: Whether the fragments are final.
         """
 
-        # Find the valid list of partial words
+        # Filter fragments for valid speakers, if required
         if self._dz_enabled and self._dz_config.focus_speakers:
-            new_partials = [
-                frag
-                for frag in fragments
-                if frag.speaker in self._dz_config.focus_speakers and frag.type_ == "word" and not frag.is_final
-            ]
-        else:
-            new_partials = [frag for frag in fragments if frag.type_ == "word" and not frag.is_final]
+            fragments = [f for f in fragments if f.speaker in self._dz_config.focus_speakers]
 
-        # Check if we have new partials
-        has_valid_partial = len(new_partials) > 0
+        # Find partial and final words
+        words = [f for f in fragments if f.type_ == "word"]
+
+        # Check if we have any new words
+        has_words = len(words) > 0
+
+        # Handle finals
+        if is_final:
+            """Check for finals without partials.
+
+            When a forced end of utterance is used, the transcription may skip partials
+            and go straight to finals. In this case, we need to check if we had any partials
+            last time and if not, we need to assume we have a new speaker.
+            """
+
+            # Check if transcript went straight to finals (typical with forced end of utterance)
+            if has_words and self._last_valid_partial_word_count == 0:
+                # Track the current speaker
+                self._current_speaker = words[0].speaker
+                self._is_speaking = True
+
+                # Emit speaker started event
+                await self._handle_speaker_started(self._current_speaker, words[0].start_time)
+
+            # No further processing needed
+            return
+
+        # Track partial count
+        self._last_valid_partial_word_count = len(words)
 
         # Current states
         current_is_speaking = self._is_speaking
         current_speaker = self._current_speaker
 
         # Establish the speaker from latest partials
-        latest_speaker = new_partials[-1].speaker if has_valid_partial else current_speaker
+        latest_speaker = words[-1].speaker if has_words else current_speaker
 
         # Determine if the speaker has changed (and we have a speaker)
         speaker_changed = latest_speaker != current_speaker and current_speaker is not None
 
         # Start / end times (earliest and latest)
-        speaker_start_time = new_partials[0].start_time if has_valid_partial else None
+        speaker_start_time = words[0].start_time if has_words else None
         speaker_end_time = self._last_fragment_end_time
 
         # If diarization is enabled, indicate speaker switching
         if self._dz_enabled and latest_speaker is not None:
             """When enabled, we send a speech events if the speaker has changed.
 
-            This
-            will emit a SPEAKER_ENDED for the previous speaker and a SPEAKER_STARTED
+            This will emit a SPEAKER_ENDED for the previous speaker and a SPEAKER_STARTED
             for the new speaker.
 
             For any client that wishes to show _which_ speaker is speaking, this will
@@ -1774,7 +1793,7 @@ class VoiceAgentClient(AsyncClient):
         self._current_speaker = latest_speaker
 
         # No further processing if we have no new fragments and we are not speaking
-        if has_valid_partial == current_is_speaking:
+        if has_words == current_is_speaking:
             return
 
         # Update speaking state
