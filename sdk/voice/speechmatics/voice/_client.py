@@ -455,7 +455,7 @@ class VoiceAgentClient(AsyncClient):
             )
 
         # Punctuation overrides
-        if config.punctuation_overrides:
+        if config.punctuation_overrides is not None:
             transcription_config.punctuation_overrides = config.punctuation_overrides
 
         # Configure the audio
