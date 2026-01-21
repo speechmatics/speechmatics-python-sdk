@@ -109,48 +109,38 @@ async def test_turn_feou(sample: TranscriptionTest):
         config=VoiceAgentConfigPreset.ADAPTIVE(),
     )
 
-    # SOT detected
-    def sot_detected(message):
-        if SHOW_LOG:
-            print("✅ START_OF_TURN: {turn_id}".format(**message))
-
     # Finalized segment
     def add_segments(message):
         segments = message["segments"]
         for s in segments:
             segments_received.append(s)
-            if SHOW_LOG:
-                print('🚀 ADD_SEGMENT: {speaker_id} @ "{text}"'.format(**s))
 
     # EOT detected
     def eot_detected(message):
         nonlocal eot_count
         eot_count += 1
-        if SHOW_LOG:
-            print("🏁 END_OF_TURN: {turn_id}\n".format(**message))
 
     # Callback for each message
     def log_message(message):
         ts = (datetime.datetime.now() - start_time).total_seconds()
         log = json.dumps({"ts": round(ts, 3), "payload": message})
-        if SHOW_LOG:
-            print(log)
+        print(log)
 
-    # # Add listeners
-    # for message_type in AgentServerMessageType:
-    #     if message_type not in [AgentServerMessageType.AUDIO_ADDED]:
-    #         client.on(message_type, log_message)
+    # Add listeners
+    if SHOW_LOG:
+        for message_type in AgentServerMessageType:
+            if message_type not in [AgentServerMessageType.AUDIO_ADDED]:
+                client.on(message_type, log_message)
 
     # Custom listeners
-    client.on(AgentServerMessageType.START_OF_TURN, sot_detected)
     client.on(AgentServerMessageType.END_OF_TURN, eot_detected)
     client.on(AgentServerMessageType.ADD_SEGMENT, add_segments)
 
     # HEADER
     if SHOW_LOG:
         print()
+        print("--- AUDIO START ---")
         print()
-        print("---")
 
     # Connect
     try:
@@ -166,8 +156,8 @@ async def test_turn_feou(sample: TranscriptionTest):
 
     # FOOTER
     if SHOW_LOG:
-        print("---")
         print()
+        print("--- AUDIO END ---")
         print()
 
     # Close session
