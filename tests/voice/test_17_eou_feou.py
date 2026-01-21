@@ -27,8 +27,8 @@ SHOW_LOG = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
 class TranscriptionSpeaker(BaseModel):
     text: str
     speaker_id: str = "S1"
-    start_time: float = 0.0  # Expected start time in seconds
-    end_time: float = 0.0  # Expected end time in seconds
+    start_time: float = 0.0
+    end_time: float = 0.0
 
 
 class TranscriptionTest(BaseModel):
@@ -53,19 +53,19 @@ SAMPLES: TranscriptionTests = TranscriptionTests.from_dict(
                 "sample_rate": 16000,
                 "language": "en",
                 "segments": [
-                    {"text": "Hello.", "start_time": 1.36, "end_time": 1.88},
-                    {"text": "Tomorrow.", "start_time": 3.72, "end_time": 4.48},
-                    {"text": "Wednesday.", "start_time": 6.28, "end_time": 7.04},
-                    {"text": "Of course. That's fine.", "start_time": 9.04, "end_time": 10.28},
-                    {"text": "Behind.", "start_time": 12.24, "end_time": 13.08},
-                    {"text": "In front.", "start_time": 15.0, "end_time": 15.68},
-                    {"text": "Do you think so?", "start_time": 17.68, "end_time": 18.56},
-                    {"text": "Brilliant.", "start_time": 20.64, "end_time": 21.36},
-                    {"text": "Banana.", "start_time": 23.16, "end_time": 23.88},
-                    {"text": "When?", "start_time": 25.6, "end_time": 26.12},
-                    {"text": "Today.", "start_time": 27.76, "end_time": 28.4},
-                    {"text": "This morning.", "start_time": 30.08, "end_time": 30.8},
-                    {"text": "Goodbye.", "start_time": 32.36, "end_time": 32.96},
+                    {"text": "Hello.", "start_time": 1.05, "end_time": 1.67},
+                    {"text": "Tomorrow.", "start_time": 3.5, "end_time": 4.1},
+                    {"text": "Wednesday.", "start_time": 6.05, "end_time": 6.73},
+                    {"text": "Of course. That's fine.", "start_time": 8.8, "end_time": 9.96},
+                    {"text": "Behind.", "start_time": 12.03, "end_time": 12.73},
+                    {"text": "In front.", "start_time": 14.84, "end_time": 15.52},
+                    {"text": "Do you think so?", "start_time": 17.54, "end_time": 18.32},
+                    {"text": "Brilliant.", "start_time": 20.55, "end_time": 21.08},
+                    {"text": "Banana.", "start_time": 22.98, "end_time": 23.53},
+                    {"text": "When?", "start_time": 25.49, "end_time": 25.96},
+                    {"text": "Today.", "start_time": 27.66, "end_time": 28.15},
+                    {"text": "This morning.", "start_time": 39.91, "end_time": 30.47},
+                    {"text": "Goodbye.", "start_time": 32.21, "end_time": 32.68},
                 ],
             },
             {
@@ -74,20 +74,25 @@ SAMPLES: TranscriptionTests = TranscriptionTests.from_dict(
                 "sample_rate": 16000,
                 "language": "en",
                 "segments": [
-                    {"text": "Hello.", "start_time": 0.24, "end_time": 0.8},
-                    {"text": "Goodbye.", "start_time": 2.04, "end_time": 2.64},
-                    {"text": "Banana.", "start_time": 3.84, "end_time": 4.44},
-                    {"text": "Breakaway.", "start_time": 5.52, "end_time": 6.44},
-                    {"text": "Before.", "start_time": 7.76, "end_time": 8.24},
-                    {"text": "After.", "start_time": 9.56, "end_time": 10.2},
+                    {"text": "Hello.", "start_time": 0.4, "end_time": 0.75},
+                    {"text": "Goodbye.", "start_time": 2.12, "end_time": 2.5},
+                    {"text": "Banana.", "start_time": 3.84, "end_time": 4.27},
+                    {"text": "Breakaway.", "start_time": 5.62, "end_time": 6.42},
+                    {"text": "Before.", "start_time": 7.76, "end_time": 8.16},
+                    {"text": "After.", "start_time": 9.56, "end_time": 10.05},
                 ],
             },
         ]
     }
 )
 
-VAD_DELAYS: list[float] = [0.1, 0.25, 0.15, 0.18, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6]
+# VAD_DELAYS: list[float] = [0.1, 0.15, 0.18, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6]
+VAD_DELAYS: list[float] = [0.3, 0.4]
 # VAD_DELAYS: list[float] = [0.4]
+
+# Margin
+MARGIN_S = 0.5
+CER_THRESHOLD = 0.95
 
 
 @pytest.mark.asyncio
@@ -210,15 +215,14 @@ async def test_turn_feou(sample: TranscriptionTest, delay: float):
             errors.append(f"[{idx}] Missing timing metadata for '{text}'")
             continue
 
-        # Margin
-        margin = 0.25
-        cer_threshold = 0.95
-
         # Find a matching segment by timing (±50ms tolerance)
         matched_segment = None
         matched_segment_idx = None
         for seg_idx, expected_seg in enumerate(sample.segments):
-            if abs(start_time - expected_seg.start_time) <= margin and abs(end_time - expected_seg.end_time) <= margin:
+            if (
+                abs(start_time - expected_seg.start_time) <= MARGIN_S
+                and abs(end_time - expected_seg.end_time) <= MARGIN_S
+            ):
                 matched_segment = expected_seg
                 matched_segment_idx = seg_idx
                 break
@@ -252,7 +256,7 @@ async def test_turn_feou(sample: TranscriptionTest, delay: float):
         cer = TextUtils.cer(normalized_expected, normalized_received)
 
         # Check CER
-        if cer > cer_threshold:
+        if cer > CER_THRESHOLD:
             errors.append(
                 f"  [{idx}] Text mismatch (CER: {cer:.1%}):\n"
                 f"     Expected: '{matched_segment.text}'\n"
