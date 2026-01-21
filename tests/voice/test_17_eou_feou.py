@@ -86,8 +86,8 @@ SAMPLES: TranscriptionTests = TranscriptionTests.from_dict(
     }
 )
 
-# VAD_DELAYS: list[float] = [0.1, 0.25, 0.15, 0.18, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6]
-VAD_DELAYS: list[float] = [0.4]
+VAD_DELAYS: list[float] = [0.1, 0.25, 0.15, 0.18, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6]
+# VAD_DELAYS: list[float] = [0.4]
 
 
 @pytest.mark.asyncio
