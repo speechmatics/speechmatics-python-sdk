@@ -10,6 +10,7 @@ from pydantic import Field
 from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice._models import BaseModel
+from speechmatics.voice._models import EndOfTurnConfig
 from speechmatics.voice._models import VoiceActivityConfig
 from speechmatics.voice._models import VoiceAgentConfig
 from speechmatics.voice._presets import VoiceAgentConfigPreset
@@ -87,8 +88,10 @@ SAMPLES: TranscriptionTests = TranscriptionTests.from_dict(
 )
 
 # VAD_DELAYS: list[float] = [0.1, 0.15, 0.18, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6]
-VAD_DELAYS: list[float] = [0.3, 0.4]
-# VAD_DELAYS: list[float] = [0.4]
+# VAD_DELAYS: list[float] = [0.3, 0.4]
+# VAD_DELAYS: list[float] = [0.4]# VAD_DELAYS: list[float] = [0.4]
+# VAD_DELAYS: list[float] = [0.18]
+VAD_DELAYS: list[float] = [0.18]
 
 # Margin
 MARGIN_S = 0.5
@@ -115,8 +118,13 @@ async def test_turn_feou(sample: TranscriptionTest, delay: float):
 
     # Config
     config = VoiceAgentConfigPreset.ADAPTIVE(
-        VoiceAgentConfig(vad_config=VoiceActivityConfig(enabled=True, silence_duration=delay))
+        VoiceAgentConfig(
+            vad_config=VoiceActivityConfig(enabled=True, silence_duration=delay),
+            end_of_turn_config=EndOfTurnConfig(min_end_of_turn_delay=0.025, use_forced_eou=True),
+        )
     )
+    # config = VoiceAgentConfigPreset.FIXED()
+    # config = VoiceAgentConfigPreset.ADAPTIVE()
 
     # Dump config
     if SHOW_LOG:
@@ -149,8 +157,8 @@ async def test_turn_feou(sample: TranscriptionTest, delay: float):
 
     # Add listeners
     if SHOW_LOG:
-        # message_types = [m for m in AgentServerMessageType if m != AgentServerMessageType.AUDIO_ADDED]
-        message_types = [AgentServerMessageType.ADD_SEGMENT]
+        message_types = [m for m in AgentServerMessageType if m != AgentServerMessageType.AUDIO_ADDED]
+        # message_types = [AgentServerMessageType.ADD_SEGMENT]
         for message_type in message_types:
             client.on(message_type, log_message)
 
@@ -176,15 +184,15 @@ async def test_turn_feou(sample: TranscriptionTest, delay: float):
     # Individual payloads
     await send_audio_file(client, sample.path)
 
+    # Close session
+    await client.disconnect()
+    assert not client._is_connected
+
     # FOOTER
     if SHOW_LOG:
         print()
         print("--- AUDIO END ---")
         print()
-
-    # Close session
-    await client.disconnect()
-    assert not client._is_connected
 
     # Check segment count
     expected_count = len(sample.segments)
