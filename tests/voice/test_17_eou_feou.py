@@ -10,19 +10,18 @@ from pydantic import Field
 from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice._models import BaseModel
-from speechmatics.voice._models import EndOfTurnConfig
 from speechmatics.voice._models import VoiceActivityConfig
 from speechmatics.voice._models import VoiceAgentConfig
 from speechmatics.voice._presets import VoiceAgentConfigPreset
 from speechmatics.voice._utils import TextUtils
 
-# Skip for CI testing
-pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping smart turn tests in CI")
-
-
 # Constants
 API_KEY = os.getenv("SPEECHMATICS_API_KEY")
 SHOW_LOG = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
+
+# Skip for CI testing
+pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping smart turn tests in CI")
+pytestmark = pytest.mark.skipif(API_KEY is None, reason="Skipping when no API key is provided")
 
 
 class TranscriptionSpeaker(BaseModel):
@@ -45,6 +44,7 @@ class TranscriptionTests(BaseModel):
     samples: list[TranscriptionTest]
 
 
+# Audio files and expected segments
 SAMPLES: TranscriptionTests = TranscriptionTests.from_dict(
     {
         "samples": [
@@ -65,7 +65,7 @@ SAMPLES: TranscriptionTests = TranscriptionTests.from_dict(
                     {"text": "Banana.", "start_time": 22.98, "end_time": 23.53},
                     {"text": "When?", "start_time": 25.49, "end_time": 25.96},
                     {"text": "Today.", "start_time": 27.66, "end_time": 28.15},
-                    {"text": "This morning.", "start_time": 39.91, "end_time": 30.47},
+                    {"text": "This morning.", "start_time": 29.91, "end_time": 30.47},
                     {"text": "Goodbye.", "start_time": 32.21, "end_time": 32.68},
                 ],
             },
@@ -87,11 +87,8 @@ SAMPLES: TranscriptionTests = TranscriptionTests.from_dict(
     }
 )
 
-# VAD_DELAYS: list[float] = [0.1, 0.15, 0.18, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6]
-# VAD_DELAYS: list[float] = [0.3, 0.4]
-# VAD_DELAYS: list[float] = [0.4]# VAD_DELAYS: list[float] = [0.4]
-# VAD_DELAYS: list[float] = [0.18]
-VAD_DELAYS: list[float] = [0.18]
+# VAD delay
+VAD_DELAY_S: list[float] = [0.15, 0.18, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
 
 # Margin
 MARGIN_S = 0.5
@@ -99,44 +96,60 @@ CER_THRESHOLD = 0.95
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("delay", VAD_DELAYS)
 @pytest.mark.parametrize("sample", SAMPLES.samples, ids=lambda s: f"{s.id}:{s.path}")
-async def test_turn_feou(sample: TranscriptionTest, delay: float):
-    """Test transcription and prediction"""
+async def test_turn_fixed_eou(sample: TranscriptionTest):
+    """Test transcription and prediction using FIXED without FEOU"""
 
-    # API key
-    api_key = os.getenv("SPEECHMATICS_API_KEY")
-    if not api_key:
-        pytest.skip("Valid API key required for test")
+    # Config
+    config = VoiceAgentConfigPreset.FIXED()
 
-    # Start time
-    start_time = datetime.datetime.now()
+    # Dump config
+    if SHOW_LOG:
+        print(f"\nTest `{sample.path}` with preset FIXED\n")
+        print(config.to_json(exclude_defaults=True, exclude_none=True, exclude_unset=True, indent=2))
+
+    # Run test
+    await run_test(sample, config)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("sample", SAMPLES.samples, ids=lambda s: f"{s.id}")
+@pytest.mark.parametrize("vad_delay", VAD_DELAY_S)
+async def test_turn_adaptive_feou(sample: TranscriptionTest, vad_delay: float):
+    """Test transcription and prediction using ADAPTIVE with FEOU"""
+
+    # Config
+    config = VoiceAgentConfigPreset.ADAPTIVE(
+        VoiceAgentConfig(
+            vad_config=VoiceActivityConfig(enabled=True, silence_duration=vad_delay),
+        )
+    )
+
+    # Dump config
+    if SHOW_LOG:
+        print(f"\nTest `{sample.path}` with preset ADAPTIVE with VAD delay of {vad_delay}s\n")
+        print(config.to_json(exclude_defaults=True, exclude_none=True, exclude_unset=True, indent=2))
+
+    # Run test
+    await run_test(sample, config)
+
+
+async def run_test(sample: TranscriptionTest, config: VoiceAgentConfig):
+    """Run a test with the given sample and config."""
+
+    # Client
+    client = await get_client(
+        api_key=API_KEY,
+        connect=False,
+        config=config,
+    )
 
     # Results
     eot_count: int = 0
     segments_received: list[dict] = []
 
-    # Config
-    config = VoiceAgentConfigPreset.ADAPTIVE(
-        VoiceAgentConfig(
-            vad_config=VoiceActivityConfig(enabled=True, silence_duration=delay),
-            end_of_turn_config=EndOfTurnConfig(min_end_of_turn_delay=0.025, use_forced_eou=True),
-        )
-    )
-    # config = VoiceAgentConfigPreset.FIXED()
-    # config = VoiceAgentConfigPreset.ADAPTIVE()
-
-    # Dump config
-    if SHOW_LOG:
-        print(f"\nTest with {delay}s silence duration\n")
-        print(config.to_json(exclude_defaults=True, exclude_none=True, exclude_unset=True, indent=2))
-
-    # Client
-    client = await get_client(
-        api_key=api_key,
-        connect=False,
-        config=config,
-    )
+    # Start time
+    start_time = datetime.datetime.now()
 
     # Finalized segment
     def add_segments(message):
@@ -281,7 +294,7 @@ async def test_turn_feou(sample: TranscriptionTest, delay: float):
 
     # Report all errors
     if errors:
-        error_message = "\nSegment validation failed:\n" + "\n".join(errors)
+        error_message = "\n=== ERRORS ===\n" + "\n".join(errors)
         if SHOW_LOG:
             print(error_message)
         pytest.fail(error_message)
