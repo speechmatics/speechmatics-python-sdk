@@ -88,7 +88,13 @@ SAMPLES: TranscriptionTests = TranscriptionTests.from_dict(
 )
 
 # VAD delay
-VAD_DELAY_S: list[float] = [0.15, 0.18, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
+VAD_DELAY_S: list[float] = [0.18]
+
+# Endpoints
+ENDPOINTS: list[str] = [
+    "wss://eu.rt.speechmatics.com/v2",
+    "wss://us.rt.speechmatics.com/v2",
+]
 
 # Margin
 MARGIN_S = 0.5
@@ -96,8 +102,9 @@ CER_THRESHOLD = 0.95
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("endpoint", ENDPOINTS)
 @pytest.mark.parametrize("sample", SAMPLES.samples, ids=lambda s: f"{s.id}:{s.path}")
-async def test_turn_fixed_eou(sample: TranscriptionTest):
+async def test_turn_fixed_eou(endpoint: str, sample: TranscriptionTest):
     """Test transcription and prediction using FIXED without FEOU"""
 
     # Config
@@ -105,17 +112,18 @@ async def test_turn_fixed_eou(sample: TranscriptionTest):
 
     # Dump config
     if SHOW_LOG:
-        print(f"\nTest `{sample.path}` with preset FIXED\n")
+        print(f"\nTest `{sample.path}` with preset FIXED -> {endpoint}\n")
         print(config.to_json(exclude_defaults=True, exclude_none=True, exclude_unset=True, indent=2))
 
     # Run test
-    await run_test(sample, config)
+    await run_test(endpoint, sample, config)
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("endpoint", ENDPOINTS)
 @pytest.mark.parametrize("sample", SAMPLES.samples, ids=lambda s: f"{s.id}")
 @pytest.mark.parametrize("vad_delay", VAD_DELAY_S)
-async def test_turn_adaptive_feou(sample: TranscriptionTest, vad_delay: float):
+async def test_turn_adaptive_feou(endpoint: str, sample: TranscriptionTest, vad_delay: float):
     """Test transcription and prediction using ADAPTIVE with FEOU"""
 
     # Config
@@ -127,18 +135,19 @@ async def test_turn_adaptive_feou(sample: TranscriptionTest, vad_delay: float):
 
     # Dump config
     if SHOW_LOG:
-        print(f"\nTest `{sample.path}` with preset ADAPTIVE with VAD delay of {vad_delay}s\n")
+        print(f"\nTest `{sample.path}` with preset ADAPTIVE with VAD delay of {vad_delay}s -> {endpoint}\n")
         print(config.to_json(exclude_defaults=True, exclude_none=True, exclude_unset=True, indent=2))
 
     # Run test
-    await run_test(sample, config)
+    await run_test(endpoint, sample, config)
 
 
-async def run_test(sample: TranscriptionTest, config: VoiceAgentConfig):
+async def run_test(endpoint: str, sample: TranscriptionTest, config: VoiceAgentConfig):
     """Run a test with the given sample and config."""
 
     # Client
     client = await get_client(
+        url=endpoint,
         api_key=API_KEY,
         connect=False,
         config=config,
@@ -147,6 +156,8 @@ async def run_test(sample: TranscriptionTest, config: VoiceAgentConfig):
     # Results
     eot_count: int = 0
     segments_received: list[dict] = []
+    partials_received: set[str] = set()
+    finals_received: set[str] = set()
 
     # Start time
     start_time = datetime.datetime.now()
@@ -161,6 +172,25 @@ async def run_test(sample: TranscriptionTest, config: VoiceAgentConfig):
     def eot_detected(message):
         nonlocal eot_count
         eot_count += 1
+
+    # Extract words
+    def extract_words(message) -> list[str]:
+        return [
+            alt.get("content", None)
+            for result in message.get("results", [])
+            if result.get("type") == "word"
+            for alt in result.get("alternatives", [])
+        ]
+
+    # Partials
+    def rx_partial(message):
+        words = extract_words(message)
+        partials_received.update(w.lower() for w in words if w)
+
+    # Finals
+    def rx_finals(message):
+        words = extract_words(message)
+        finals_received.update(w.lower() for w in words if w)
 
     # Callback for each message
     def log_message(message):
@@ -178,6 +208,8 @@ async def run_test(sample: TranscriptionTest, config: VoiceAgentConfig):
     # Custom listeners
     client.on(AgentServerMessageType.END_OF_TURN, eot_detected)
     client.on(AgentServerMessageType.ADD_SEGMENT, add_segments)
+    client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, rx_partial)
+    client.on(AgentServerMessageType.ADD_TRANSCRIPT, rx_partial)
 
     # HEADER
     if SHOW_LOG:
@@ -205,6 +237,9 @@ async def run_test(sample: TranscriptionTest, config: VoiceAgentConfig):
     if SHOW_LOG:
         print()
         print("--- AUDIO END ---")
+        print()
+        print(f"\nPartial words = {json.dumps(sorted(partials_received), indent=2)}\n")
+        print(f"\nFinal words = {json.dumps(sorted(finals_received), indent=2)}\n")
         print()
 
     # Check segment count
