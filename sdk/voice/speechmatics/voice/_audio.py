@@ -16,11 +16,11 @@ class AudioBuffer:
     frame_size and total_seconds. As the buffer fills, the oldest
     data is removed and the start_time is updated.
 
-    The function get_slice(start_time, end_time) will return a snapshot
-    of the data between the start_time and end_time. If the start_time is
-    before the start of the buffer, then the start_time will be set to the
-    start of the buffer. If the end_time is after the end of the buffer,
-    then the end_time will be set to the end of the buffer.
+    The function get_frames(start_time, end_time) will return a snapshot
+    of the data between the start_time and end_time, with optional fade-out.
+    If the start_time is before the start of the buffer, then the start_time
+    will be set to the start of the buffer. If the end_time is after the end
+    of the buffer, then the end_time will be set to the end of the buffer.
 
     Timing is based on the number of bytes added to the buffer.
 
@@ -113,7 +113,7 @@ class AudioBuffer:
         """Add data frame to the buffer.
 
         New data frame is added to the end of the buffer. The oldest data is removed
-        to maintain the total number of seconds in the buffer.`
+        to maintain the total number of seconds in the buffer.
 
         Args:
             data: The data frame to add to the buffer.
