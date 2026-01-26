@@ -581,7 +581,7 @@ class VoiceAgentClient(AsyncClient):
         self._closing_session = True
 
         # Emit final segments
-        await self._emit_segments(finalize=True)
+        await self._emit_segments(finalize=True, is_eou=True)
 
         # Emit final metrics
         self._emit_speaker_metrics()
@@ -748,7 +748,7 @@ class VoiceAgentClient(AsyncClient):
                 return
 
             # Emit the segments
-            self._stt_message_queue.put_nowait(lambda: self._emit_segments(finalize=True))
+            self._stt_message_queue.put_nowait(lambda: self._emit_segments(finalize=True, is_eou=True))
 
         # Call async task (only if not already waiting for forced EOU)
         if not (self._config.end_of_turn_config.use_forced_eou and self._forced_eou_active):
@@ -1234,7 +1234,7 @@ class VoiceAgentClient(AsyncClient):
         # Emit the segments
         await self._emit_segments()
 
-    async def _emit_segments(self, finalize: bool = False) -> None:
+    async def _emit_segments(self, finalize: bool = False, is_eou: bool = False) -> None:
         """Emit segments to listeners.
 
         This function will emit segments in the view without any further checks
@@ -1243,6 +1243,7 @@ class VoiceAgentClient(AsyncClient):
 
         Args:
             finalize: Whether to finalize all segments.
+            is_eou: Whether the segments are being emitted after an end of utterance.
         """
 
         # Only process if we have segments in the buffer
@@ -1313,6 +1314,10 @@ class VoiceAgentClient(AsyncClient):
                             segment=last_segment,
                         )
 
+                # Mark the final segments as end of utterance
+                if is_eou:
+                    final_segments[-1].is_eou = True
+
                 # Emit segments
                 self._emit_message(
                     SegmentMessage(
@@ -1325,6 +1330,7 @@ class VoiceAgentClient(AsyncClient):
                                 language=s.language,
                                 text=s.text,
                                 annotation=s.annotation,
+                                is_eou=s.is_eou,
                                 fragments=(
                                     [SegmentMessageSegmentFragment(**f.__dict__) for f in s.fragments]
                                     if self._config.include_results

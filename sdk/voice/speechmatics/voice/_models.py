@@ -940,6 +940,7 @@ class SpeakerSegment(BaseModel):
         fragments: The list of SpeechFragment items.
         text: The text of the segment.
         annotation: The annotation associated with the segment.
+        is_eou: Whether the fragment is the end of an utterance. Defaults to `False`.
     """
 
     speaker_id: Optional[str] = None
@@ -949,6 +950,7 @@ class SpeakerSegment(BaseModel):
     fragments: list[SpeechFragment] = Field(default_factory=list)
     text: Optional[str] = None
     annotation: AnnotationResult = Field(default_factory=AnnotationResult)
+    is_eou: bool = False
 
     model_config = ConfigDict(use_enum_values=True, arbitrary_types_allowed=True)
 
@@ -1313,6 +1315,8 @@ class SegmentMessageSegment(BaseModel):
         language: The language of the frame.
         text: The text of the segment.
         fragments: The fragments associated with the segment.
+        annotation: The annotation associated with the segment (optional).
+        is_eou: Whether the segment is an end of utterance.
         metadata: The metadata associated with the segment.
     """
 
@@ -1323,6 +1327,7 @@ class SegmentMessageSegment(BaseModel):
     text: Optional[str] = None
     fragments: Optional[list[SegmentMessageSegmentFragment]] = None
     annotation: list[AnnotationFlags] = Field(default_factory=list, exclude=False)
+    is_eou: bool = False
     metadata: MessageTimeMetadata
 
     model_config = ConfigDict(extra="ignore")
