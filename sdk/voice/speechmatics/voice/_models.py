@@ -451,7 +451,7 @@ class VoiceActivityConfig(BaseModel):
     """
 
     enabled: bool = False
-    silence_duration: float = 0.22  # @sam-s10s: Raised from 0.18
+    silence_duration: float = 0.18
     threshold: float = 0.35
 
 
