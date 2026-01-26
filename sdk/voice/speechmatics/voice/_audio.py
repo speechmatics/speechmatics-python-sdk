@@ -16,11 +16,11 @@ class AudioBuffer:
     frame_size and total_seconds. As the buffer fills, the oldest
     data is removed and the start_time is updated.
 
-    The function get_slice(start_time, end_time) will return a snapshot
-    of the data between the start_time and end_time. If the start_time is
-    before the start of the buffer, then the start_time will be set to the
-    start of the buffer. If the end_time is after the end of the buffer,
-    then the end_time will be set to the end of the buffer.
+    The function get_frames(start_time, end_time) will return a snapshot
+    of the data between the start_time and end_time, with optional fade-out.
+    If the start_time is before the start of the buffer, then the start_time
+    will be set to the start of the buffer. If the end_time is after the end
+    of the buffer, then the end_time will be set to the end of the buffer.
 
     Timing is based on the number of bytes added to the buffer.
 
@@ -90,7 +90,8 @@ class AudioBuffer:
             data: The data frame to add to the buffer.
         """
 
-        # If the right length and buffer zero
+        # If data is exactly one frame and there's no buffered remainder,
+        # put the frame directly into the buffer.
         if len(data) // self._sample_width == self._frame_size and len(self._buffer) == 0:
             return await self.put_frame(data)
 
@@ -109,19 +110,23 @@ class AudioBuffer:
             await self.put_frame(frame)
 
     async def put_frame(self, data: bytes) -> None:
-        """Add data to the buffer.
+        """Add data frame to the buffer.
 
-        New data added to the end of the buffer. The oldest data is removed
+        New data frame is added to the end of the buffer. The oldest data is removed
         to maintain the total number of seconds in the buffer.
 
         Args:
             data: The data frame to add to the buffer.
         """
+        # Verify number of bytes matches frame size
+        if len(data) != self._frame_bytes:
+            raise ValueError(f"Invalid frame size: {len(data)} bytes, expected {self._frame_bytes} bytes")
 
         # Add data to the buffer
         async with self._lock:
             self._frames.append(data)
             self._total_frames += 1
+            # Trim to rolling window, keep last _max_frames frames
             if len(self._frames) > self._max_frames:
                 self._frames = self._frames[-self._max_frames :]
 
