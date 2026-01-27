@@ -719,14 +719,11 @@ class VoiceAgentClient(AsyncClient):
     # PUBLIC UTTERANCE / TURN MANAGEMENT
     # ============================================================================
 
-    def finalize(self, end_of_turn: bool = False) -> None:
+    def finalize(self) -> None:
         """Finalize segments.
 
         This function will emit segments in the buffer without any further checks
         on the contents of the segments.
-
-        Args:
-            end_of_turn: Whether to emit an end of turn message.
         """
 
         # Clear smart turn cutoff
