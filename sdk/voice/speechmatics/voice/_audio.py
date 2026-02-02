@@ -197,6 +197,7 @@ class AudioBuffer:
             Bytes with fade-out applied.
         """
         # Choose dtype
+        # Todo - establish supported sample_width values
         dtype: type[np.signedinteger]
         if self._sample_width == 1:
             dtype = np.int8
