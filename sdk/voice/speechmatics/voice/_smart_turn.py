@@ -78,10 +78,12 @@ class SmartTurnDetector:
     Further information at https://github.com/pipecat-ai/smart-turn
     """
 
-    WINDOW_SECONDS = 8
+    # Constants
     DEFAULT_SAMPLE_RATE = 16000
+    DEFAULT_THRESHOLD = 0.8
+    WINDOW_SECONDS = 8
 
-    def __init__(self, auto_init: bool = True, threshold: float = 0.8):
+    def __init__(self, auto_init: bool = True, threshold: float = DEFAULT_THRESHOLD):
         """Create the new SmartTurnDetector.
 
         Args:
@@ -164,13 +166,13 @@ class SmartTurnDetector:
 
         Args:
             audio_array: Numpy array containing audio samples at 16kHz. The function
-                will convert the audio into float32 and truncate to 8 seconds (keeping the end)
-                or pad to 8 seconds.
+                will convert the audio into float32 and truncate to WINDOW_SECONDS (keeping the end)
+                or pad to WINDOW_SECONDS seconds.
             sample_rate: Sample rate of the audio.
             sample_width: Sample width of the audio.
 
         Returns:
-            Numpy array containing audio samples at 16kHz.
+            Numpy array containing audio samples at DEFAULT_SAMPLE_RATE.
         """
         # Convert into numpy array
         dtype = np.int16 if sample_width == 2 else np.int8
@@ -217,9 +219,9 @@ class SmartTurnDetector:
         """Predict whether an audio segment is complete (turn ended) or incomplete.
 
         Args:
-            audio_array: Numpy array containing audio samples at 16kHz. The function
-                will convert the audio into float32 and truncate to 8 seconds (keeping the end)
-                or pad to 8 seconds.
+            audio_array: Numpy array containing audio samples at sample_rate. The function
+                will convert the audio into float32 and truncate to WINDOW_SECONDS seconds (keeping the end)
+                or pad to WINDOW_SECONDS seconds.
             language: Language of the audio.
             sample_rate: Sample rate of the audio.
             sample_width: Sample width of the audio.
@@ -265,7 +267,7 @@ class SmartTurnDetector:
 
     @staticmethod
     def truncate_audio_to_last_n_seconds(
-        audio_array: np.ndarray, n_seconds: float = 8.0, sample_rate: int = DEFAULT_SAMPLE_RATE
+        audio_array: np.ndarray, n_seconds: float = WINDOW_SECONDS, sample_rate: int = DEFAULT_SAMPLE_RATE
     ) -> np.ndarray:
         """Truncate audio to last n seconds or pad with zeros to meet n seconds.
 
@@ -303,7 +305,7 @@ class SmartTurnDetector:
         If not, it will download the model from HuggingFace.
         """
 
-        # Check if model file exists
+        # Check if model file already exists
         if SmartTurnDetector.model_exists():
             return
 
