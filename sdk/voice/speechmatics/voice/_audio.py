@@ -218,11 +218,14 @@ class AudioBuffer:
         envelope = np.linspace(1.0, 0.0, fade_samples, endpoint=True)
 
         # Apply fade
-        faded = samples.astype(np.float32)
-        faded[-fade_samples:] *= envelope
+        # Only convert the section being modified to save memory
+        tail = samples[-fade_samples:].astype(np.float32) * envelope
 
-        # Convert back to original dtype and bytes
-        return bytes(faded.astype(dtype).tobytes())
+        # Robust Conversion: Round to nearest integer and clip to valid range to avoid wraparound
+        info = np.iinfo(dtype)
+        faded_tail = np.round(tail).clip(info.min, info.max).astype(dtype)
+
+        return samples[:-fade_samples].tobytes() + faded_tail.tobytes()
 
     async def reset(self) -> None:
         """Reset the buffer."""
