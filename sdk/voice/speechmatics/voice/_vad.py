@@ -82,12 +82,13 @@ class SileroVAD:
         silence_duration: float = 0.1,
         on_state_change: Optional[Callable[[SileroVADResult], None]] = None,
     ):
-        """Create the new SileroVAD.
+        """
+        Create the new SileroVAD.
 
         Args:
             auto_init: Whether to automatically initialise the detector.
             threshold: Probability threshold for speech detection (0.0-1.0).
-            silence_duration: Duration of consecutive silence (in ms) before considering speech ended.
+            silence_duration: Duration of consecutive silence before considering speech ended in seconds.
             on_state_change: Optional callback invoked when VAD state changes (speech <-> silence).
         """
 
@@ -189,18 +190,18 @@ class SileroVAD:
             self._last_reset_time = time.time()
 
     def process_chunk(self, chunk_f32: np.ndarray) -> float:
-        """Process a single 512-sample chunk and return speech probability.
+        """Process a single SILERO_CHUNK_SIZE-sample chunk and return speech probability.
 
         Args:
-            chunk_f32: Float32 numpy array of exactly 512 samples.
+            chunk_f32: Float32 numpy array of exactly SILERO_CHUNK_SIZE samples.
 
         Returns:
             Speech probability (0.0-1.0).
 
         Raises:
-            ValueError: If chunk is not exactly 512 samples.
+            ValueError: If chunk is not exactly SILERO_CHUNK_SIZE samples.
         """
-        # Ensure shape (1, 512)
+        # Ensure shape (1, SILERO_CHUNK_SIZE)
         x = np.reshape(chunk_f32, (1, -1))
         if x.shape[1] != SILERO_CHUNK_SIZE:
             raise ValueError(f"Expected {SILERO_CHUNK_SIZE} samples, got {x.shape[1]}")
@@ -249,14 +250,14 @@ class SileroVAD:
 
     def _get_audio_chunks(self, sample_width: int):
         """
-        A generator that yields complete 512-sample chunks from the buffer.
+        A generator that yields complete SILERO_CHUNK_SIZE-sample chunks from the buffer.
         Incomplete data remains in the buffer for the next call.
 
         Args:
             sample_width: Sample width of the incoming audio.
 
         Yields:
-            Complete 512-sample chunks from the buffer.
+            Complete SILERO_CHUNK_SIZE-sample chunks from the buffer.
         """
         # Calculate bytes needed for a full model window
         bytes_per_chunk = SILERO_CHUNK_SIZE * sample_width
@@ -283,15 +284,16 @@ class SileroVAD:
         if sample_width == 2:
             dtype = np.int16
             divisor = 32768.0
-        elif sample_width == 1:
-            dtype = np.int8
-            divisor = 128.0
+        # Todo - establish supported sample widths
         else:
             raise ValueError(f"Unsupported sample_width {sample_width}")
 
         # Decode and normalize the chunk data
         int_array = np.frombuffer(chunk_bytes, dtype=dtype)
         float32_array: np.ndarray = int_array.astype(np.float32) / divisor
+
+        # Clip to avoid overflow
+        float32_array = np.clip(float32_array, -1.0, 1.0)
 
         return float32_array
 
@@ -354,15 +356,15 @@ class SileroVAD:
         # Trigger callback with result
         self._on_state_change(result)
 
-    async def process_audio(self, audio_bytes: bytes, sample_rate: int = 16000, sample_width: int = 2) -> None:
+    async def process_audio(self, audio_bytes: bytes, sample_rate: int = SILERO_SAMPLE_RATE, sample_width: int = 2) -> None:
         """Process incoming audio bytes and invoke callback on state changes.
 
-        This method buffers incomplete chunks and processes all complete 512-sample chunks.
+        This method buffers incomplete chunks and processes all complete SILERO_CHUNK_SIZE-sample chunks.
         The callback is invoked only once at the end if the VAD state changed during processing.
 
         Args:
-            audio_bytes: Raw audio bytes (int16 PCM).
-            sample_rate: Sample rate of the audio (must be 16000).
+            audio_bytes: Raw audio bytes.
+            sample_rate: Sample rate of the audio (must be SILERO_SAMPLE_RATE).
             sample_width: Sample width in bytes (2 for int16).
         """
         if not self._validate_input(sample_rate):
