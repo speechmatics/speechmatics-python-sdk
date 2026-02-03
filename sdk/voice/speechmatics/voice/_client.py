@@ -515,7 +515,7 @@ class VoiceAgentClient(AsyncClient):
             return
 
         # Emit info message with URL
-        self.self.emit(
+        self.emit(
             AgentServerMessageType.INFO,
             {"message": AgentServerMessageType.INFO, "type": "endpoint_info", "reason": f"Connected to `{self._url}`"},
         )
