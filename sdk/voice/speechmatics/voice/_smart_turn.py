@@ -165,15 +165,15 @@ class SmartTurnDetector:
         """Prepare the audio for inference.
 
         Args:
-            audio_array: Numpy array containing audio samples at 16kHz. The function
-                will convert the audio into float32 and truncate to WINDOW_SECONDS (keeping the end)
-                or pad to WINDOW_SECONDS seconds.
+            audio_array: Raw PCM bytes at 16kHz. The function converts the audio into float32 and
+                truncate to WINDOW_SECONDS (keeping the end).
             sample_rate: Sample rate of the audio.
             sample_width: Sample width of the audio.
 
         Returns:
             Numpy array containing audio samples at DEFAULT_SAMPLE_RATE.
         """
+        # Todo - fix support for other sample widths
         # Convert into numpy array
         dtype = np.int16 if sample_width == 2 else np.int8
         int16_array: np.ndarray = np.frombuffer(audio_array, dtype=dtype).astype(np.int16)
