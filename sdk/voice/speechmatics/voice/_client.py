@@ -161,11 +161,11 @@ class VoiceAgentClient(AsyncClient):
             url = os.getenv("SPEECHMATICS_RT_URL") or "wss://eu2.rt.speechmatics.com/v2"
 
         # Full endpoint URL
-        url = self._get_endpoint_url(url, app)
-        self._logger.debug(f"Speechmatics endpoint URL: `{url}`")
+        self._url = self._get_endpoint_url(url, app)
+        self._logger.debug(f"Speechmatics endpoint URL: `{self._url}`")
 
         # Initialize the client
-        super().__init__(auth=auth, api_key=api_key, url=url)
+        super().__init__(auth=auth, api_key=api_key, url=self._url)
 
         # -------------------------------------
         # Client Configuration
@@ -513,6 +513,12 @@ class VoiceAgentClient(AsyncClient):
                 )
             )
             return
+
+        # Emit info message with URL
+        self.self.emit(
+            AgentServerMessageType.INFO,
+            {"message": AgentServerMessageType.INFO, "type": "endpoint_info", "reason": f"Connected to `{self._url}`"},
+        )
 
         # Update the closing session flag
         self._closing_session = False
