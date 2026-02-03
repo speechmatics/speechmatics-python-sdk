@@ -517,7 +517,11 @@ class VoiceAgentClient(AsyncClient):
         # Emit info message with URL
         self.emit(
             AgentServerMessageType.INFO,
-            {"message": AgentServerMessageType.INFO, "type": "endpoint_info", "reason": f"Connected to `{self._url}`"},
+            {
+                "message": AgentServerMessageType.INFO.value,
+                "type": "endpoint_info",
+                "reason": f"Connected to `{self._url}`",
+            },
         )
 
         # Update the closing session flag
