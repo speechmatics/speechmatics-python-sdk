@@ -153,15 +153,19 @@ class VoiceAgentClient(AsyncClient):
                 ... )
         """
 
+        # Logger
+        self._logger = get_logger(__name__)
+
         # Default URL
         if not url:
             url = os.getenv("SPEECHMATICS_RT_URL") or "wss://eu2.rt.speechmatics.com/v2"
 
-        # Initialize the client
-        super().__init__(auth=auth, api_key=api_key, url=self._get_endpoint_url(url, app))
+        # Full endpoint URL
+        url = self._get_endpoint_url(url, app)
+        self._logger.debug(f"Speechmatics endpoint URL: `{url}`")
 
-        # Logger
-        self._logger = get_logger(__name__)
+        # Initialize the client
+        super().__init__(auth=auth, api_key=api_key, url=url)
 
         # -------------------------------------
         # Client Configuration
@@ -719,14 +723,11 @@ class VoiceAgentClient(AsyncClient):
     # PUBLIC UTTERANCE / TURN MANAGEMENT
     # ============================================================================
 
-    def finalize(self, end_of_turn: bool = False) -> None:
+    def finalize(self) -> None:
         """Finalize segments.
 
         This function will emit segments in the buffer without any further checks
         on the contents of the segments.
-
-        Args:
-            end_of_turn: Whether to emit an end of turn message.
         """
 
         # Clear smart turn cutoff
