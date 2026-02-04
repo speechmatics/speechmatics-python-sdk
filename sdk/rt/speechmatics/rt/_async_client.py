@@ -191,6 +191,7 @@ class AsyncClient(_BaseClient):
         audio_events_config: Optional[AudioEventsConfig] = None,
         ws_headers: Optional[dict] = None,
         timeout: Optional[float] = None,
+        get_speakers: Optional[bool] = False,
     ) -> None:
         """
         Transcribe a single audio stream in real-time.
@@ -213,6 +214,7 @@ class AsyncClient(_BaseClient):
             ws_headers: Additional headers to include in the WebSocket handshake.
             timeout: Maximum time in seconds to wait for transcription completion.
                     Default None.
+            get_speakers: Send a speaker identifier event at the end of the session.
 
         Raises:
             AudioError: If source is invalid or cannot be read.
@@ -252,6 +254,9 @@ class AsyncClient(_BaseClient):
             audio_events_config=audio_events_config,
             ws_headers=ws_headers,
         )
+
+        if get_speakers:
+            await self.send_message({"message": "GetSpeakers", "final": True})
 
         try:
             await asyncio.wait_for(
