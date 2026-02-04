@@ -119,6 +119,18 @@ class TranscriptionConfig:
 
 
 @dataclass
+class OutputConfig:
+    """Configuration for output formatting."""
+
+    generate_lattice: Optional[bool] = None
+    srt_overrides: Optional[dict[str, Any]] = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary, excluding None values."""
+        return {k: v for k, v in asdict(self).items() if v is not None}
+
+
+@dataclass
 class AlignmentConfig:
     """Configuration for alignment jobs."""
 
@@ -277,6 +289,7 @@ class JobConfig:
         topic_detection_config: Topic detection settings.
         auto_chapters_config: Auto chapters settings.
         audio_events_config: Audio events detection settings.
+        output_config: Output configuration.
     """
 
     type: JobType
@@ -292,6 +305,7 @@ class JobConfig:
     topic_detection_config: Optional[TopicDetectionConfig] = None
     auto_chapters_config: Optional[AutoChaptersConfig] = None
     audio_events_config: Optional[AudioEventsConfig] = None
+    output_config: Optional[OutputConfig] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert job config to dictionary for API submission."""
@@ -321,6 +335,8 @@ class JobConfig:
             config["auto_chapters_config"] = self.auto_chapters_config.to_dict()
         if self.audio_events_config:
             config["audio_events_config"] = self.audio_events_config.to_dict()
+        if self.output_config:
+            config["output_config"] = self.output_config.to_dict()
 
         return config
 
