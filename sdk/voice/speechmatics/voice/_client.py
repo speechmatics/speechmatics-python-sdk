@@ -520,7 +520,8 @@ class VoiceAgentClient(AsyncClient):
             {
                 "message": AgentServerMessageType.INFO.value,
                 "type": "endpoint_info",
-                "reason": f"Connected to `{self._url}`",
+                "reason": "Connected to endpoint",
+                "url": self._url,
             },
         )
 
