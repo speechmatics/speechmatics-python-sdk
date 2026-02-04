@@ -356,7 +356,9 @@ class SileroVAD:
         # Trigger callback with result
         self._on_state_change(result)
 
-    async def process_audio(self, audio_bytes: bytes, sample_rate: int = SILERO_SAMPLE_RATE, sample_width: int = 2) -> None:
+    async def process_audio(
+        self, audio_bytes: bytes, sample_rate: int = SILERO_SAMPLE_RATE, sample_width: int = 2
+    ) -> None:
         """Process incoming audio bytes and invoke callback on state changes.
 
         This method buffers incomplete chunks and processes all complete SILERO_CHUNK_SIZE-sample chunks.

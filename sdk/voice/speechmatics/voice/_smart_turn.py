@@ -202,7 +202,7 @@ class SmartTurnDetector:
             sampling_rate=sample_rate,
             return_tensors="np",
             padding="max_length",
-            max_length= self.WINDOW_SECONDS * sample_rate,
+            max_length=self.WINDOW_SECONDS * sample_rate,
             truncation=True,
             do_normalize=True,
         )

@@ -17,11 +17,11 @@ from ._models import SpeakerSegmentView
 from ._models import SpeechFragment
 
 # Constants
-PAUSE_MIN_GAP_S = 0.1            # minimum gap in seconds to consider a pause
-WPM_RECENT_WORD_WINDOW = 10      # number of recent words to estimate WPM from
-WPM_VERY_SLOW_MAX = 80           # wpm < 80 => VERY_SLOW_SPEAKER
-WPM_SLOW_MAX = 110               # 80 <= wpm < 110 => SLOW_SPEAKER
-WPM_FAST_MIN = 250               # wpm > 250 => FAST_SPEAKER
+PAUSE_MIN_GAP_S = 0.1  # minimum gap in seconds to consider a pause
+WPM_RECENT_WORD_WINDOW = 10  # number of recent words to estimate WPM from
+WPM_VERY_SLOW_MAX = 80  # wpm < 80 => VERY_SLOW_SPEAKER
+WPM_SLOW_MAX = 110  # 80 <= wpm < 110 => SLOW_SPEAKER
+WPM_FAST_MIN = 250  # wpm > 250 => FAST_SPEAKER
 
 
 class FragmentUtils:
@@ -297,7 +297,7 @@ class FragmentUtils:
             # Calculate the approximate words-per-minute (for last few words)
             recent_words = words[-WPM_RECENT_WORD_WINDOW:]
             word_time_span = recent_words[-1].end_time - recent_words[0].start_time
-            if (word_time_span != 0):
+            if word_time_span != 0:
                 wpm = (len(recent_words) / word_time_span) * 60
 
                 # Categorize the speaker
