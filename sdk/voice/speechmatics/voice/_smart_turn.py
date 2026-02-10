@@ -45,9 +45,9 @@ except ModuleNotFoundError:
 
 # Base model from HuggingFace
 SMART_TURN_MODEL_URL = os.getenv(
-    "SMART_TURN_HF_URL", "https://huggingface.co/pipecat-ai/smart-turn-v3/resolve/main/smart-turn-v3.2-cpu.onnx"
+    "SMART_TURN_HF_URL", "https://huggingface.co/pipecat-ai/smart-turn-v3/resolve/main/smart-turn-v3.1-cpu.onnx"
 )
-SMART_TURN_MODEL_LOCAL_PATH = os.getenv("SMART_TURN_MODEL_PATH", ".models/smart-turn-v3.2-cpu.onnx")
+SMART_TURN_MODEL_LOCAL_PATH = os.getenv("SMART_TURN_MODEL_PATH", ".models/smart-turn-v3.1-cpu.onnx")
 
 # Hint for when dependencies are not available
 SMART_TURN_INSTALL_HINT = "SMART_TURN mode unavailable. Install `speechmatics-voice[smart]` to enable SMART_TURN mode."
