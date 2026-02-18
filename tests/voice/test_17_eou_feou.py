@@ -177,6 +177,11 @@ async def run_test(endpoint: str, sample: TranscriptionTest, config: VoiceAgentC
     # Start time
     start_time = datetime.datetime.now()
 
+    # Zero time
+    def zero_time(message):
+        global start_time
+        start_time = datetime.datetime.now()
+
     # Finalized segment
     def add_segments(message):
         segments = message["segments"]
@@ -213,18 +218,19 @@ async def run_test(endpoint: str, sample: TranscriptionTest, config: VoiceAgentC
         log = json.dumps({"ts": round(ts, 3), "payload": message})
         print(log)
 
+    # Custom listeners
+    client.on(AgentServerMessageType.RECOGNITION_STARTED, zero_time)
+    client.on(AgentServerMessageType.END_OF_TURN, eot_detected)
+    client.on(AgentServerMessageType.ADD_SEGMENT, add_segments)
+    client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, rx_partial)
+    client.on(AgentServerMessageType.ADD_TRANSCRIPT, rx_partial)
+
     # Add listeners
     if SHOW_LOG:
         message_types = [m for m in AgentServerMessageType if m != AgentServerMessageType.AUDIO_ADDED]
         # message_types = [AgentServerMessageType.ADD_SEGMENT]
         for message_type in message_types:
             client.on(message_type, log_message)
-
-    # Custom listeners
-    client.on(AgentServerMessageType.END_OF_TURN, eot_detected)
-    client.on(AgentServerMessageType.ADD_SEGMENT, add_segments)
-    client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, rx_partial)
-    client.on(AgentServerMessageType.ADD_TRANSCRIPT, rx_partial)
 
     # HEADER
     if SHOW_LOG:
