@@ -578,33 +578,31 @@ class VoiceAgentClient(AsyncClient):
         """
 
         # Check if we are already connected
-        if not self._is_connected:
-            return
+        if self._is_connected:
+            # Update the closing session flag
+            self._closing_session = True
 
-        # Update the closing session flag
-        self._closing_session = True
+            # Emit final segments
+            await self._emit_segments(finalize=True, is_eou=True)
 
-        # Emit final segments
-        await self._emit_segments(finalize=True, is_eou=True)
+            # Emit final metrics
+            self._emit_speaker_metrics()
+            self._emit_metrics()
 
-        # Emit final metrics
-        self._emit_speaker_metrics()
-        self._emit_metrics()
+            # Stop audio and metrics tasks
+            self._is_ready_for_audio = False
+            self._stop_metrics_task()
 
-        # Stop audio and metrics tasks
-        self._is_ready_for_audio = False
-        self._stop_metrics_task()
+            # end session
+            try:
+                await asyncio.wait_for(self.stop_session(), timeout=5.0)
+            except Exception as e:
+                self._logger.error(f"Error closing session: {e}")
+            finally:
+                self._is_connected = False
 
-        # end session
-        try:
-            await asyncio.wait_for(self.stop_session(), timeout=5.0)
-        except Exception as e:
-            self._logger.error(f"Error closing session: {e}")
-        finally:
-            self._is_connected = False
-
-        # Stop end of turn-related tasks
-        self._turn_handler.cancel_tasks()
+            # Stop end of turn-related tasks
+            self._turn_handler.cancel_tasks()
 
         # Stop the STT queue task
         if self._stt_queue_task:
