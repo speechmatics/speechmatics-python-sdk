@@ -167,16 +167,24 @@ class AsyncClient(_BaseClient):
         await self._session_done_evt.wait()  # Wait for end of transcript event to indicate we can stop listening
         await self.close()
 
-    async def force_end_of_utterance(self) -> None:
+    async def force_end_of_utterance(self, timestamp: Optional[float] = None) -> None:
         """
         This method sends a ForceEndOfUtterance message to the server to signal
         the end of an utterance. Forcing end of utterance will cause the final
         transcript to be sent to the client early.
 
+        Takes an optional timestamp parameter to specify a marker for the engine
+        to use for timing of the end of the utterance. If not provided, the timestamp
+        will be calculated based on the cumulative audio sent to the server.
+
+        Args:
+            timestamp: Optional timestamp for the request.
+
         Raises:
             ConnectionError: If the WebSocket connection fails.
             TranscriptionError: If the server reports an error during teardown.
             TimeoutError: If the connection or teardown times out.
+            ValueError: If the audio format does not have an encoding set.
 
         Examples:
             Basic streaming:
@@ -185,11 +193,19 @@ class AsyncClient(_BaseClient):
                 ...     await client.send_audio(frame)
                 ...     await client.force_end_of_utterance()
         """
-        audio_sent_seconds: float = self.audio_bytes_sent / (
-            self._audio_format.sample_rate * self._audio_format.bytes_per_sample
-        )
+        if timestamp is None:
+            timestamp = self.audio_seconds_sent
 
-        await self.send_message({"message": ClientMessageType.FORCE_END_OF_UTTERANCE, "timestamp": audio_sent_seconds})
+        await self.send_message({"message": ClientMessageType.FORCE_END_OF_UTTERANCE, "timestamp": timestamp})
+
+    @property
+    def audio_seconds_sent(self) -> float:
+        """Number of audio seconds sent to the server.
+
+        Raises:
+            ValueError: If the audio format does not have an encoding set.
+        """
+        return self._audio_bytes_sent / (self._audio_format.sample_rate * self._audio_format.bytes_per_sample)
 
     async def transcribe(
         self,
