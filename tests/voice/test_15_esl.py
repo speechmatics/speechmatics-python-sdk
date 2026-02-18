@@ -6,10 +6,6 @@ from _utils import get_client
 from _utils import log_client_messages
 from _utils import send_audio_file
 
-from speechmatics.voice import AgentServerMessageType
-from speechmatics.voice import OperatingPoint
-from speechmatics.voice import SpeechSegmentConfig
-from speechmatics.voice import VoiceAgentConfig
 from speechmatics.voice._presets import VoiceAgentConfigPreset
 
 # Skip for CI testing
@@ -29,30 +25,10 @@ async def test_esl():
     """Local ESL inference."""
 
     # Client
-    client = await get_client(
-        api_key=API_KEY,
-        url=URL,
-        connect=False,
-        config=VoiceAgentConfigPreset.FIXED(
-            VoiceAgentConfig(
-                operating_point=OperatingPoint.STANDARD,
-                max_delay=1.0,
-                speech_segment_config=SpeechSegmentConfig(emit_sentences=True, add_trailing_eos=False),
-            )
-        ),
-    )
+    client = await get_client(api_key=API_KEY, url=URL, connect=False, config=VoiceAgentConfigPreset.FAST())
 
     # Add listeners
-    log_client_messages(
-        client,
-        [
-            AgentServerMessageType.RECOGNITION_STARTED,
-            AgentServerMessageType.INFO,
-            AgentServerMessageType.DIAGNOSTICS,
-            AgentServerMessageType.ADD_SEGMENT,
-            AgentServerMessageType.END_OF_UTTERANCE,
-        ],
-    )
+    log_client_messages(client)
 
     # Connect
     await client.connect()
