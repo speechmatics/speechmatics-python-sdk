@@ -22,7 +22,7 @@ ENDPOINTS: list[str] = [
 SILENCE_DURATION = 3.0
 
 # Tolerance for the timestamp check
-TOLERANCE = 0.05
+TOLERANCE = 0.00
 
 
 @pytest.mark.asyncio
@@ -56,9 +56,9 @@ async def test_feou_timestamp(endpoint: str):
 
     # Check the computed audio seconds
     actual_seconds = client.audio_seconds_sent
-    assert abs(actual_seconds - SILENCE_DURATION) < TOLERANCE, (
-        f"Expected ~{SILENCE_DURATION}s but got {actual_seconds:.4f}s"
-    )
+    assert (
+        abs(actual_seconds - SILENCE_DURATION) <= TOLERANCE
+    ), f"Expected ~{SILENCE_DURATION}s but got {actual_seconds:.4f}s"
 
     # Clean up
     await client.disconnect()
