@@ -12,6 +12,7 @@ from ._exceptions import AudioError
 from ._exceptions import TimeoutError
 from ._exceptions import TranscriptionError
 from ._logging import get_logger
+from ._models import AudioEncoding
 from ._models import AudioEventsConfig
 from ._models import AudioFormat
 from ._models import ClientMessageType
@@ -97,6 +98,8 @@ class AsyncClient(_BaseClient):
         self.on(ServerMessageType.WARNING, self._on_warning)
         self.on(ServerMessageType.AUDIO_ADDED, self._on_audio_added)
 
+        self._audio_format = AudioFormat(encoding=AudioEncoding.PCM_S16LE, sample_rate=44100, chunk_size=4096)
+
         self._logger.debug("AsyncClient initialized (request_id=%s)", self._session.request_id)
 
     async def start_session(
@@ -133,6 +136,9 @@ class AsyncClient(_BaseClient):
                 ...     await client.start_session()
                 ...     await client.send_audio(frame)
         """
+        if audio_format is not None:
+            self._audio_format = audio_format
+
         await self._start_recognition_session(
             transcription_config=transcription_config,
             audio_format=audio_format,
@@ -179,7 +185,11 @@ class AsyncClient(_BaseClient):
                 ...     await client.send_audio(frame)
                 ...     await client.force_end_of_utterance()
         """
-        await self.send_message({"message": ClientMessageType.FORCE_END_OF_UTTERANCE})
+        audio_sent_seconds: float = self.audio_bytes_sent / (
+            self._audio_format.sample_rate * self._audio_format.bytes_per_sample
+        )
+
+        await self.send_message({"message": ClientMessageType.FORCE_END_OF_UTTERANCE, "timestamp": audio_sent_seconds})
 
     async def transcribe(
         self,
