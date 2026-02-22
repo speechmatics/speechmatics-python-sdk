@@ -48,41 +48,41 @@ class TranscriptionTests(BaseModel):
 SAMPLES: TranscriptionTests = TranscriptionTests.from_dict(
     {
         "samples": [
-            # {
-            #     "id": "07b",
-            #     "path": "./assets/audio_07b_16kHz.wav",
-            #     "sample_rate": 16000,
-            #     "language": "en",
-            #     "segments": [
-            #         {"text": "Hello.", "start_time": 1.05, "end_time": 1.67},
-            #         {"text": "Tomorrow.", "start_time": 3.5, "end_time": 4.1},
-            #         {"text": "Wednesday.", "start_time": 6.05, "end_time": 6.73},
-            #         {"text": "Of course. That's fine.", "start_time": 8.8, "end_time": 9.96},
-            #         {"text": "Behind.", "start_time": 12.03, "end_time": 12.73},
-            #         {"text": "In front.", "start_time": 14.84, "end_time": 15.52},
-            #         {"text": "Do you think so?", "start_time": 17.54, "end_time": 18.32},
-            #         {"text": "Brilliant.", "start_time": 20.55, "end_time": 21.08},
-            #         {"text": "Banana.", "start_time": 22.98, "end_time": 23.53},
-            #         {"text": "When?", "start_time": 25.49, "end_time": 25.96},
-            #         {"text": "Today.", "start_time": 27.66, "end_time": 28.15},
-            #         {"text": "This morning.", "start_time": 29.91, "end_time": 30.47},
-            #         {"text": "Goodbye.", "start_time": 32.21, "end_time": 32.68},
-            #     ],
-            # },
-            # {
-            #     "id": "08",
-            #     "path": "./assets/audio_08_16kHz.wav",
-            #     "sample_rate": 16000,
-            #     "language": "en",
-            #     "segments": [
-            #         {"text": "Hello.", "start_time": 0.4, "end_time": 0.75},
-            #         {"text": "Goodbye.", "start_time": 2.12, "end_time": 2.5},
-            #         {"text": "Banana.", "start_time": 3.84, "end_time": 4.27},
-            #         {"text": "Breakaway.", "start_time": 5.62, "end_time": 6.42},
-            #         {"text": "Before.", "start_time": 7.76, "end_time": 8.16},
-            #         {"text": "After.", "start_time": 9.56, "end_time": 10.05},
-            #     ],
-            # },
+            {
+                "id": "07b",
+                "path": "./assets/audio_07b_16kHz.wav",
+                "sample_rate": 16000,
+                "language": "en",
+                "segments": [
+                    {"text": "Hello.", "start_time": 1.05, "end_time": 1.67},
+                    {"text": "Tomorrow.", "start_time": 3.5, "end_time": 4.1},
+                    {"text": "Wednesday.", "start_time": 6.05, "end_time": 6.73},
+                    {"text": "Of course. That's fine.", "start_time": 8.8, "end_time": 9.96},
+                    {"text": "Behind.", "start_time": 12.03, "end_time": 12.73},
+                    {"text": "In front.", "start_time": 14.84, "end_time": 15.52},
+                    {"text": "Do you think so?", "start_time": 17.54, "end_time": 18.32},
+                    {"text": "Brilliant.", "start_time": 20.55, "end_time": 21.08},
+                    {"text": "Banana.", "start_time": 22.98, "end_time": 23.53},
+                    {"text": "When?", "start_time": 25.49, "end_time": 25.96},
+                    {"text": "Today.", "start_time": 27.66, "end_time": 28.15},
+                    {"text": "This morning.", "start_time": 29.91, "end_time": 30.47},
+                    {"text": "Goodbye.", "start_time": 32.21, "end_time": 32.68},
+                ],
+            },
+            {
+                "id": "08",
+                "path": "./assets/audio_08_16kHz.wav",
+                "sample_rate": 16000,
+                "language": "en",
+                "segments": [
+                    {"text": "Hello.", "start_time": 0.4, "end_time": 0.75},
+                    {"text": "Goodbye.", "start_time": 2.12, "end_time": 2.5},
+                    {"text": "Banana.", "start_time": 3.84, "end_time": 4.27},
+                    {"text": "Breakaway.", "start_time": 5.62, "end_time": 6.42},
+                    {"text": "Before.", "start_time": 7.76, "end_time": 8.16},
+                    {"text": "After.", "start_time": 9.56, "end_time": 10.05},
+                ],
+            },
             {
                 "id": "09",
                 "path": "./assets/audio_09_16kHz.wav",
@@ -97,12 +97,12 @@ SAMPLES: TranscriptionTests = TranscriptionTests.from_dict(
 )
 
 # VAD delay
-VAD_DELAY_S: list[float] = [0.18, 0.22]
+VAD_DELAY_S: list[float] = [0.18]  # , 0.22]
 
 # Endpoints
 ENDPOINTS: list[str] = [
-    # "wss://eu-west-2-research.speechmatics.cloud/v2",
-    "wss://eu.rt.speechmatics.com/v2",
+    "wss://eu-west-2-research.speechmatics.cloud/v2",
+    # "wss://eu.rt.speechmatics.com/v2",
     # "wss://us.rt.speechmatics.com/v2",
 ]
 
@@ -177,6 +177,11 @@ async def run_test(endpoint: str, sample: TranscriptionTest, config: VoiceAgentC
     # Start time
     start_time = datetime.datetime.now()
 
+    # Zero time
+    def zero_time(message):
+        global start_time
+        start_time = datetime.datetime.now()
+
     # Finalized segment
     def add_segments(message):
         segments = message["segments"]
@@ -213,18 +218,19 @@ async def run_test(endpoint: str, sample: TranscriptionTest, config: VoiceAgentC
         log = json.dumps({"ts": round(ts, 3), "payload": message})
         print(log)
 
+    # Custom listeners
+    client.on(AgentServerMessageType.RECOGNITION_STARTED, zero_time)
+    client.on(AgentServerMessageType.END_OF_TURN, eot_detected)
+    client.on(AgentServerMessageType.ADD_SEGMENT, add_segments)
+    client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, rx_partial)
+    client.on(AgentServerMessageType.ADD_TRANSCRIPT, rx_partial)
+
     # Add listeners
     if SHOW_LOG:
         message_types = [m for m in AgentServerMessageType if m != AgentServerMessageType.AUDIO_ADDED]
         # message_types = [AgentServerMessageType.ADD_SEGMENT]
         for message_type in message_types:
             client.on(message_type, log_message)
-
-    # Custom listeners
-    client.on(AgentServerMessageType.END_OF_TURN, eot_detected)
-    client.on(AgentServerMessageType.ADD_SEGMENT, add_segments)
-    client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, rx_partial)
-    client.on(AgentServerMessageType.ADD_TRANSCRIPT, rx_partial)
 
     # HEADER
     if SHOW_LOG:
@@ -326,7 +332,9 @@ async def run_test(endpoint: str, sample: TranscriptionTest, config: VoiceAgentC
         # Calculate the CER
         cer = TextUtils.cer(normalized_expected, normalized_received)
 
-        print(f"[{idx}] `{normalized_expected}` -> `{normalized_received}` (CER: {cer:.1%})")
+        # Debug metrics
+        if SHOW_LOG:
+            print(f"[{idx}] `{normalized_expected}` -> `{normalized_received}` (CER: {cer:.1%})")
 
         # Check CER
         if cer > CER_THRESHOLD:
