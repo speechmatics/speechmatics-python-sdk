@@ -417,24 +417,43 @@ class EndOfTurnConfig(BaseModel):
     min_end_of_turn_delay: float = 0.01
     penalties: list[EndOfTurnPenaltyItem] = Field(
         default_factory=lambda: [
-            # Increase delay
+            #
+            # Speaker rate increases expected TTL
             EndOfTurnPenaltyItem(penalty=3.0, annotation=[AnnotationFlags.VERY_SLOW_SPEAKER]),
             EndOfTurnPenaltyItem(penalty=2.0, annotation=[AnnotationFlags.SLOW_SPEAKER]),
+            #
+            # High / low rate of disfluencies
             EndOfTurnPenaltyItem(penalty=2.5, annotation=[AnnotationFlags.ENDS_WITH_DISFLUENCY]),
             EndOfTurnPenaltyItem(penalty=1.1, annotation=[AnnotationFlags.HAS_DISFLUENCY]),
+            #
+            # We do NOT have an end of sentence character
             EndOfTurnPenaltyItem(
                 penalty=2.0,
                 annotation=[AnnotationFlags.ENDS_WITH_EOS],
                 is_not=True,
             ),
-            # Decrease delay
+            #
+            # We have finals and end of sentence
             EndOfTurnPenaltyItem(
                 penalty=0.5, annotation=[AnnotationFlags.ENDS_WITH_FINAL, AnnotationFlags.ENDS_WITH_EOS]
             ),
-            # Smart Turn + VAD
-            EndOfTurnPenaltyItem(penalty=0.2, annotation=[AnnotationFlags.SMART_TURN_TRUE]),
+            #
+            # Smart Turn - when false, wait longer to prevent premature end of turn
             EndOfTurnPenaltyItem(
-                penalty=0.2, annotation=[AnnotationFlags.VAD_STOPPED, AnnotationFlags.SMART_TURN_INACTIVE]
+                penalty=0.2, annotation=[AnnotationFlags.SMART_TURN_TRUE, AnnotationFlags.SMART_TURN_ACTIVE]
+            ),
+            EndOfTurnPenaltyItem(
+                penalty=2.0, annotation=[AnnotationFlags.SMART_TURN_FALSE, AnnotationFlags.SMART_TURN_ACTIVE]
+            ),
+            #
+            # VAD - only applied when smart turn is not in use and on the speaker stopping
+            EndOfTurnPenaltyItem(
+                penalty=0.2,
+                annotation=[
+                    AnnotationFlags.VAD_STOPPED,
+                    AnnotationFlags.VAD_ACTIVE,
+                    AnnotationFlags.SMART_TURN_INACTIVE,
+                ],
             ),
         ]
     )
