@@ -447,7 +447,7 @@ class EndOfTurnConfig(BaseModel):
                 penalty=2.0, annotation=[AnnotationFlags.SMART_TURN_FALSE, AnnotationFlags.SMART_TURN_ACTIVE]
             ),
             EndOfTurnPenaltyItem(
-                penalty=1.0, annotation=[AnnotationFlags.SMART_TURN_NO_SIGNAL, AnnotationFlags.SMART_TURN_ACTIVE]
+                penalty=1.5, annotation=[AnnotationFlags.SMART_TURN_NO_SIGNAL, AnnotationFlags.SMART_TURN_ACTIVE]
             ),
             #
             # VAD - only applied when smart turn is not in use and on the speaker stopping
