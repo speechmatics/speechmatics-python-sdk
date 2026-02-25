@@ -261,6 +261,7 @@ class AnnotationFlags(str, Enum):
     SMART_TURN_INACTIVE = "smart_turn_inactive"
     SMART_TURN_TRUE = "smart_turn_true"
     SMART_TURN_FALSE = "smart_turn_false"
+    SMART_TURN_NO_SIGNAL = "smart_turn_no_signal"
 
 
 # ==============================================================================
@@ -444,6 +445,9 @@ class EndOfTurnConfig(BaseModel):
             ),
             EndOfTurnPenaltyItem(
                 penalty=2.0, annotation=[AnnotationFlags.SMART_TURN_FALSE, AnnotationFlags.SMART_TURN_ACTIVE]
+            ),
+            EndOfTurnPenaltyItem(
+                penalty=1.5, annotation=[AnnotationFlags.SMART_TURN_NO_SIGNAL, AnnotationFlags.SMART_TURN_ACTIVE]
             ),
             #
             # VAD - only applied when smart turn is not in use and on the speaker stopping
