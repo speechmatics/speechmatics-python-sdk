@@ -318,6 +318,7 @@ class VoiceAgentClient(AsyncClient):
         )
 
         # Uses ForceEndOfUtterance message
+        # Todo - fix this logic as use FEOU isn't the same as just not using fixed.
         self._uses_forced_eou: bool = not self._uses_fixed_eou
         self._forced_eou_active: bool = False
         self._last_forced_eou_latency: float = 0.0
@@ -1421,6 +1422,7 @@ class VoiceAgentClient(AsyncClient):
         # Flag as turn active
         self._turn_active = False
 
+
         # Metadata (for LAST view)
         metadata = MessageTimeMetadata(start_time=self._turn_start_time, end_time=self._previous_view.end_time)
 
@@ -1526,6 +1528,10 @@ class VoiceAgentClient(AsyncClient):
         # Smart Turn enabled
         if self._smart_turn_detector:
             annotation.add(AnnotationFlags.SMART_TURN_ACTIVE)
+            # If Smart Turn hasn't returned a result yet but is enabled, add NO_SIGNAL annotation.
+            # This covers the case where the TTL fires before VAD triggers Smart Turn inference.
+            if not annotation.has(AnnotationFlags.SMART_TURN_TRUE) and not annotation.has(AnnotationFlags.SMART_TURN_FALSE):
+                annotation.add(AnnotationFlags.SMART_TURN_NO_SIGNAL)
         else:
             annotation.add(AnnotationFlags.SMART_TURN_INACTIVE)
 
