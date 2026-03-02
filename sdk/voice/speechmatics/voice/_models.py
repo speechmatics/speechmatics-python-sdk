@@ -13,7 +13,6 @@ from typing import Optional
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ConfigDict
 from pydantic import Field
-from pydantic import model_validator
 from typing_extensions import Self
 
 from speechmatics.rt import AudioEncoding
@@ -734,10 +733,16 @@ class VoiceAgentConfig(BaseModel):
     audio_encoding: AudioEncoding = AudioEncoding.PCM_S16LE
     chunk_size: int = 160
 
-    # Validation
-    @model_validator(mode="after")  # type: ignore[misc]
-    def validate_config(self) -> Self:
-        """Validate the configuration."""
+    def validate_config(self) -> None:
+        """Validate the configuration.
+
+        Cross-field validation is deferred to this method so that configs can be
+        constructed as overlays (e.g. for presets) without triggering validation
+        on intermediate states. Call this once the final config is ready.
+
+        Raises:
+            ValueError: If any validation errors are found.
+        """
 
         # Validation errors
         errors: list[str] = []
@@ -777,9 +782,6 @@ class VoiceAgentConfig(BaseModel):
         # Raise error if any validation errors
         if errors:
             raise ValueError(f"{len(errors)} config error(s): {'; '.join(errors)}")
-
-        # Return validated config
-        return self
 
 
 # ==============================================================================

@@ -176,6 +176,10 @@ class VoiceAgentClient(AsyncClient):
             preset_config = VoiceAgentConfigPreset.load(preset)
             config = VoiceAgentConfigPreset._merge_configs(preset_config, config)
 
+        # Validate the final config (deferred to allow overlay/preset merging first)
+        if config is not None:
+            config.validate_config()
+
         # Process the config
         self._config, self._transcription_config, self._audio_format = self._prepare_config(config)
 
