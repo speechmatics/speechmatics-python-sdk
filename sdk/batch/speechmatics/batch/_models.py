@@ -97,6 +97,8 @@ class TranscriptionConfig:
         enable_partials: Enable partial transcript results.
         max_delay: Maximum delay for transcript delivery.
         max_delay_mode: Mode for handling max delay.
+        transcript_filtering_config: If True, words identified as disfluencies
+            are removed from the transcript.
     """
 
     language: str = "en"
@@ -112,11 +114,14 @@ class TranscriptionConfig:
     enable_partials: Optional[bool] = None
     max_delay: Optional[float] = None
     max_delay_mode: Optional[str] = None
-
+    transcript_filtering_config: Optional [bool] = None
+    
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary, excluding None values."""
-        return {k: v for k, v in asdict(self).items() if v is not None}
-
+        result = asdict(self, dict_factory=lambda x: {k: v for (k, v) in x if v is not None})
+        if "transcript_filtering_config" in result:
+            result["transcript_filtering_config"] = {"remove_disfluencies": result["transcript_filtering_config"]}
+        return result
 
 @dataclass
 class OutputConfig:
@@ -347,7 +352,10 @@ class JobConfig:
 
         transcription_config = None
         if "transcription_config" in data:
-            tc_data = data["transcription_config"]
+            tc_data = data["transcription_config"].copy()
+            if "transcript_filtering_config" in tc_data:
+                tfc = tc_data["transcript_filtering_config"]
+                tc_data["transcript_filtering_config"] = tfc.get("remove_disfluencies") if isinstance(tfc, dict) else tfc
             transcription_config = TranscriptionConfig(**tc_data)
 
         alignment_config = None
@@ -405,6 +413,11 @@ class JobConfig:
             fd_data = data["fetch_data"]
             fetch_data = FetchData(**fd_data)
 
+        output_config = None
+        if "output_config" in data:
+            oc_data = data["output_config"]
+            output_config = OutputConfig(**oc_data)
+
         return cls(
             type=job_type,
             fetch_data=fetch_data,
@@ -419,6 +432,7 @@ class JobConfig:
             topic_detection_config=topic_detection_config,
             auto_chapters_config=auto_chapters_config,
             audio_events_config=audio_events_config,
+            output_config=output_config,
         )
 
 
