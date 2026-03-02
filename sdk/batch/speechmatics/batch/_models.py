@@ -114,14 +114,15 @@ class TranscriptionConfig:
     enable_partials: Optional[bool] = None
     max_delay: Optional[float] = None
     max_delay_mode: Optional[str] = None
-    transcript_filtering_config: Optional [bool] = None
-    
+    transcript_filtering_config: Optional[bool] = None
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary, excluding None values."""
         result = asdict(self, dict_factory=lambda x: {k: v for (k, v) in x if v is not None})
         if "transcript_filtering_config" in result:
             result["transcript_filtering_config"] = {"remove_disfluencies": result["transcript_filtering_config"]}
         return result
+
 
 @dataclass
 class OutputConfig:
@@ -355,7 +356,9 @@ class JobConfig:
             tc_data = data["transcription_config"].copy()
             if "transcript_filtering_config" in tc_data:
                 tfc = tc_data["transcript_filtering_config"]
-                tc_data["transcript_filtering_config"] = tfc.get("remove_disfluencies") if isinstance(tfc, dict) else tfc
+                tc_data["transcript_filtering_config"] = (
+                    tfc.get("remove_disfluencies") if isinstance(tfc, dict) else tfc
+                )
             transcription_config = TranscriptionConfig(**tc_data)
 
         alignment_config = None
