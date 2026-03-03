@@ -106,6 +106,8 @@ class TranscriptionConfig:
         result = {k: v for k, v in asdict(self).items() if v is not None}
         if isinstance(self.transcript_filtering_config, TranscriptFilteringConfig):
             result["transcript_filtering_config"] = self.transcript_filtering_config.to_dict()
+        elif isinstance(self.transcript_filtering_config, bool):
+            result["transcript_filtering_config"] = {"remove_disfluencies": self.transcript_filtering_config}
         return result
 
     language: str = "en"
@@ -275,7 +277,7 @@ class AudioEventsConfig:
 class TranscriptFilteringConfig:
     """Configuration for transcript filtering."""
 
-    remove_disfluencies: Optional[bool] = None
+    remove_disfluencies: Optional[object] = None
     replacements: Optional[list[dict[str, str]]] = None
     
     def to_dict(self) -> dict[str, Any]:
