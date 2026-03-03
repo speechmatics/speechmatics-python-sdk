@@ -11,7 +11,6 @@ from _utils import send_audio_file
 from speechmatics.rt import ClientMessageType
 from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
-from speechmatics.voice import EndOfTurnConfig
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import SpeakerIdentifier
 from speechmatics.voice import SpeechSegmentConfig

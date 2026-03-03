@@ -751,12 +751,6 @@ class VoiceAgentConfig(BaseModel):
         if self.end_of_utterance_mode == EndOfUtteranceMode.EXTERNAL and self.smart_turn_config:
             errors.append("EXTERNAL mode cannot be used in conjunction with SmartTurnConfig")
 
-        # Cannot have FIXED and forced end of utterance enabled without VAD being enabled
-        if (self.end_of_utterance_mode == EndOfUtteranceMode.FIXED and self.end_of_turn_config.use_forced_eou) and not (
-            self.vad_config and self.vad_config.enabled
-        ):
-            errors.append("FIXED mode cannot be used in conjunction with forced end of utterance without VAD enabled")
-
         # Cannot use VAD with external end of utterance mode
         if self.end_of_utterance_mode == EndOfUtteranceMode.EXTERNAL and (self.vad_config and self.vad_config.enabled):
             errors.append("EXTERNAL mode cannot be used in conjunction with VAD being enabled")

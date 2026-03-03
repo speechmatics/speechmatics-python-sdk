@@ -14,7 +14,6 @@ from _utils import send_silence
 
 from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
-from speechmatics.voice import EndOfTurnConfig
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import SpeechSegmentConfig
 from speechmatics.voice import VoiceAgentConfig

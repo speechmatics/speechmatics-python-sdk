@@ -10,7 +10,6 @@ from _utils import get_client
 from _utils import log_client_messages
 
 from speechmatics.voice import AgentServerMessageType
-from speechmatics.voice import EndOfTurnConfig
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import SpeechSegmentConfig
 from speechmatics.voice import VoiceAgentConfig
