@@ -320,6 +320,7 @@ class VoiceAgentClient(AsyncClient):
         # Forced end of utterance handling
         self._forced_eou_active: bool = False
         self._last_forced_eou_latency: float = 0.0
+        self._disable_feou_for_testing: bool = False
 
         # Emit EOT prediction
         self._emit_eot_predictions: bool = self._eou_mode not in [
@@ -738,7 +739,7 @@ class VoiceAgentClient(AsyncClient):
             """Wait for EndOfUtterance if needed, then emit segments."""
 
             # Forced end of utterance message (only when no speaker is detected)
-            if self._config.end_of_turn_config.use_forced_eou:
+            if not self._disable_feou_for_testing:
                 await self._await_forced_eou()
 
             # Check if the turn has changed
@@ -1216,11 +1217,7 @@ class VoiceAgentClient(AsyncClient):
                 return
 
         # Turn prediction
-        if (
-            self._emit_eot_predictions
-            and self._config.end_of_turn_config.use_forced_eou
-            and not self._forced_eou_active
-        ):
+        if self._emit_eot_predictions and not self._forced_eou_active and not self._disable_feou_for_testing:
 
             async def fn() -> None:
                 ttl = await self._calculate_finalize_delay()
@@ -1887,7 +1884,7 @@ class VoiceAgentClient(AsyncClient):
             await self._emit_start_of_turn(event_time)
 
         # Update the turn handler
-        if self._config.end_of_turn_config.use_forced_eou:
+        if not self._disable_feou_for_testing:
             self._turn_handler.reset()
 
         # Emit the event

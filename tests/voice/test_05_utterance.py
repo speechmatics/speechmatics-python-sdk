@@ -235,6 +235,9 @@ async def test_external_vad():
     )
     assert client is not None
 
+    # Set FEOU to disabled for offline tests
+    client._disable_feou_for_testing = True
+
     # Start the queue
     client._start_stt_queue()
 
@@ -340,6 +343,9 @@ async def test_end_of_utterance_adaptive_vad():
     # Log messages
     if SHOW_LOG:
         log_client_messages(client)
+
+    # Set FEOU to disabled for offline tests
+    client._disable_feou_for_testing = True
 
     # Start the queue
     client._start_stt_queue()
