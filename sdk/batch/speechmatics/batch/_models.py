@@ -106,7 +106,7 @@ class TranscriptionConfig:
         result = {k: v for k, v in asdict(self).items() if v is not None}
         if isinstance(self.transcript_filtering_config, TranscriptFilteringConfig):
             result["transcript_filtering_config"] = self.transcript_filtering_config.to_dict()
-        elif isinstance(self.transcript_filtering_config, object):
+        elif self.transcript_filtering_config is not None and isinstance(self.transcript_filtering_config, object):
             result["transcript_filtering_config"] = {"remove_disfluencies": self.transcript_filtering_config}
         return result
 
