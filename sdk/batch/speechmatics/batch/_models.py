@@ -124,7 +124,7 @@ class TranscriptionConfig:
     max_delay: Optional[float] = None
     max_delay_mode: Optional[str] = None
     transcript_filtering_config: Optional[object] = None
-    
+
 @dataclass
 class OutputConfig:
     """Configuration for output formatting."""
@@ -279,11 +279,11 @@ class TranscriptFilteringConfig:
 
     remove_disfluencies: Optional[object] = None
     replacements: Optional[list[dict[str, str]]] = None
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary, excluding None values."""
         return {k: v for k, v in asdict(self).items() if v is not None}
-    
+
 
 @dataclass
 class JobConfig:
