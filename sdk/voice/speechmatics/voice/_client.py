@@ -447,9 +447,7 @@ class VoiceAgentClient(AsyncClient):
             )
 
         # Fixed end of Utterance
-        if bool(
-            config.end_of_utterance_mode == EndOfUtteranceMode.FIXED and not config.end_of_turn_config.use_forced_eou
-        ):
+        if config.end_of_utterance_mode == EndOfUtteranceMode.FIXED:
             transcription_config.conversation_config = ConversationConfig(
                 end_of_utterance_silence_trigger=config.end_of_utterance_silence_trigger,
             )
@@ -786,7 +784,7 @@ class VoiceAgentClient(AsyncClient):
             self._stt_message_queue.put_nowait(lambda: self._handle_transcript(message, is_final=True))
 
         # End of Utterance (FIXED mode only)
-        if not self._listen_to_eou_messages:
+        if self._listen_to_eou_messages:
 
             @self.on(ServerMessageType.END_OF_UTTERANCE)  # type: ignore[misc]
             def _evt_on_end_of_utterance(message: dict[str, Any]) -> None:
