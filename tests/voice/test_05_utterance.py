@@ -232,7 +232,6 @@ async def test_external_vad():
         config=VoiceAgentConfig(
             end_of_utterance_silence_trigger=adaptive_timeout,
             end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL,
-            end_of_turn_config=EndOfTurnConfig(use_forced_eou=False),
         ),
     )
     assert client is not None
@@ -335,7 +334,6 @@ async def test_end_of_utterance_adaptive_vad():
             end_of_utterance_silence_trigger=adaptive_timeout,
             end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
             speech_segment_config=SpeechSegmentConfig(emit_sentences=False),
-            end_of_turn_config=EndOfTurnConfig(use_forced_eou=False),
         ),
     )
     assert client is not None

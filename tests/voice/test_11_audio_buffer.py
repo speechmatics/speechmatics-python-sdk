@@ -263,7 +263,6 @@ async def test_transcribe_and_slice():
                 AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"]),
             ],
             smart_turn_config=SmartTurnConfig(enabled=True),
-            end_of_turn_config=EndOfTurnConfig(use_forced_eou=False),
         ),
     )
 
@@ -369,7 +368,6 @@ async def x_test_transcribe_and_slice_vad():
                 AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"]),
             ],
             smart_turn_config=SmartTurnConfig(enabled=True),
-            end_of_turn_config=EndOfTurnConfig(use_forced_eou=False),
         ),
     )
 

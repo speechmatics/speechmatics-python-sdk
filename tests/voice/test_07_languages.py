@@ -124,7 +124,6 @@ async def test_transcribe_languages(sample: AudioSample):
             end_of_utterance_silence_trigger=1.2,
             language=sample.language,
             additional_vocab=[AdditionalVocabEntry(content=vocab) for vocab in sample.vocab],
-            end_of_turn_config=EndOfTurnConfig(use_forced_eou=False),
             speech_segment_config=SpeechSegmentConfig(
                 emit_sentences=False,
             ),
