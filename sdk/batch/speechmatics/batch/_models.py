@@ -103,7 +103,10 @@ class TranscriptionConfig:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary, excluding None values."""
-        return {k: v for k, v in asdict(self).items() if v is not None}
+        result = {k: v for k, v in asdict(self).items() if v is not None}
+        if isinstance(self.transcript_filtering_config, TranscriptFilteringConfig):
+            result["transcript_filtering_config"] = self.transcript_filtering_config.to_dict()
+        return result
 
     language: str = "en"
     operating_point: OperatingPoint = OperatingPoint.ENHANCED
@@ -366,9 +369,10 @@ class JobConfig:
             tc_data = data["transcription_config"].copy()
             if "transcript_filtering_config" in tc_data:
                 tfc = tc_data["transcript_filtering_config"]
-                tc_data["transcript_filtering_config"] = (
-                    tfc.get("remove_disfluencies") if isinstance(tfc, dict) else tfc
-                )
+                if isinstance(tfc, dict):
+                    tc_data["transcript_filtering_config"] = TranscriptFilteringConfig(**tfc)
+                elif isinstance(tfc, bool):
+                    tc_data["transcript_filtering_config"] = TranscriptFilteringConfig(remove_disfluencies=tfc)
             transcription_config = TranscriptionConfig(**tc_data)
 
         alignment_config = None
