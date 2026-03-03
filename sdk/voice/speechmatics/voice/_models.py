@@ -410,7 +410,7 @@ class EndOfTurnConfig(BaseModel):
         base_multiplier: Base multiplier for end of turn delay.
         min_end_of_turn_delay: Minimum end of turn delay.
         penalties: List of end of turn penalty items.
-        use_forced_eou: Whether to use forced end of utterance detection.
+        use_forced_eou: Whether to use forced end of utterance detection. (SHOULD ONLY EVER BE TRUE)
     """
 
     base_multiplier: float = 1.0
@@ -460,7 +460,7 @@ class EndOfTurnConfig(BaseModel):
             ),
         ]
     )
-    use_forced_eou: bool = False
+    use_forced_eou: bool = True
 
 
 class VoiceActivityConfig(BaseModel):
@@ -778,6 +778,10 @@ class VoiceAgentConfig(BaseModel):
         # Check sample rate
         if self.sample_rate not in [8000, 16000]:
             errors.append("sample_rate must be 8000 or 16000")
+
+        # Check that forced end of utterance is set to True
+        if not self.end_of_turn_config.use_forced_eou:
+            errors.append("EndOfTurnConfig.use_forced_eou cannot be False")
 
         # Raise error if any validation errors
         if errors:
