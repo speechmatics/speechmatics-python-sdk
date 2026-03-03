@@ -749,7 +749,7 @@ class VoiceAgentClient(AsyncClient):
             self._stt_message_queue.put_nowait(lambda: self._emit_segments(finalize=True, is_eou=True))
 
         # Call async task (only if not already waiting for forced EOU)
-        if not (self._config.end_of_turn_config.use_forced_eou and self._forced_eou_active):
+        if not self._forced_eou_active:
             asyncio.create_task(emit())
 
     # ============================================================================
@@ -1216,7 +1216,11 @@ class VoiceAgentClient(AsyncClient):
                 return
 
         # Turn prediction
-        if self._emit_eot_predictions and not self._forced_eou_active:
+        if (
+            self._emit_eot_predictions
+            and self._config.end_of_turn_config.use_forced_eou
+            and not self._forced_eou_active
+        ):
 
             async def fn() -> None:
                 ttl = await self._calculate_finalize_delay()
@@ -1883,7 +1887,8 @@ class VoiceAgentClient(AsyncClient):
             await self._emit_start_of_turn(event_time)
 
         # Update the turn handler
-        self._turn_handler.reset()
+        if self._config.end_of_turn_config.use_forced_eou:
+            self._turn_handler.reset()
 
         # Emit the event
         self._emit_message(
