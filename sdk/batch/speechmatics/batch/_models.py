@@ -97,9 +97,13 @@ class TranscriptionConfig:
         enable_partials: Enable partial transcript results.
         max_delay: Maximum delay for transcript delivery.
         max_delay_mode: Mode for handling max delay.
-        transcript_filtering_config: If True, words identified as disfluencies
-            are removed from the transcript.
+        transcript_filtering_config: Configuration for filtering transcription.
+            defaults to None.
     """
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary, excluding None values."""
+        return {k: v for k, v in asdict(self).items() if v is not None}
 
     language: str = "en"
     operating_point: OperatingPoint = OperatingPoint.ENHANCED
@@ -114,16 +118,8 @@ class TranscriptionConfig:
     enable_partials: Optional[bool] = None
     max_delay: Optional[float] = None
     max_delay_mode: Optional[str] = None
-    transcript_filtering_config: Optional[bool] = None
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, excluding None values."""
-        result = asdict(self, dict_factory=lambda x: {k: v for (k, v) in x if v is not None})
-        if "transcript_filtering_config" in result:
-            result["transcript_filtering_config"] = {"remove_disfluencies": result["transcript_filtering_config"]}
-        return result
-
-
+    transcript_filtering_config: Optional[object] = None
+    
 @dataclass
 class OutputConfig:
     """Configuration for output formatting."""
@@ -272,6 +268,17 @@ class AudioEventsConfig:
         """Convert to dictionary, excluding None values."""
         return {k: v for k, v in asdict(self).items() if v is not None}
 
+@dataclass
+class TranscriptFilteringConfig:
+    """Configuration for transcript filtering."""
+
+    remove_disfluencies: Optional[bool] = None
+    replacements: Optional[list[dict[str, str]]] = None
+    
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary, excluding None values."""
+        return {k: v for k, v in asdict(self).items() if v is not None}
+    
 
 @dataclass
 class JobConfig:
@@ -312,6 +319,7 @@ class JobConfig:
     auto_chapters_config: Optional[AutoChaptersConfig] = None
     audio_events_config: Optional[AudioEventsConfig] = None
     output_config: Optional[OutputConfig] = None
+    transcript_filtering_config: Optional[TranscriptFilteringConfig] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert job config to dictionary for API submission."""
@@ -343,6 +351,8 @@ class JobConfig:
             config["audio_events_config"] = self.audio_events_config.to_dict()
         if self.output_config:
             config["output_config"] = self.output_config.to_dict()
+        if self.transcript_filtering_config:
+            config["transcript_filtering_config"] = self.transcript_filtering_config.to_dict()
 
         return config
 
