@@ -100,16 +100,6 @@ class TranscriptionConfig:
         transcript_filtering_config: Configuration for filtering transcription.
             defaults to None.
     """
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, excluding None values."""
-        result = {k: v for k, v in asdict(self).items() if v is not None}
-        if isinstance(self.transcript_filtering_config, TranscriptFilteringConfig):
-            result["transcript_filtering_config"] = self.transcript_filtering_config.to_dict()
-        elif self.transcript_filtering_config is not None and isinstance(self.transcript_filtering_config, object):
-            result["transcript_filtering_config"] = {"remove_disfluencies": self.transcript_filtering_config}
-        return result
-
     language: str = "en"
     operating_point: OperatingPoint = OperatingPoint.ENHANCED
     output_locale: Optional[str] = None
@@ -123,7 +113,13 @@ class TranscriptionConfig:
     enable_partials: Optional[bool] = None
     max_delay: Optional[float] = None
     max_delay_mode: Optional[str] = None
-    transcript_filtering_config: Optional[object] = None
+    transcript_filtering_config: Optional[TranscriptFilteringConfig] = None
+
+    def to_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {k: v for k, v in asdict(self).items() if v is not None}
+        if self.transcript_filtering_config is not None:
+            result["transcript_filtering_config"] = self.transcript_filtering_config.to_dict()
+        return result
 
 @dataclass
 class OutputConfig:
@@ -135,7 +131,6 @@ class OutputConfig:
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary, excluding None values."""
         return {k: v for k, v in asdict(self).items() if v is not None}
-
 
 @dataclass
 class AlignmentConfig:
@@ -277,13 +272,12 @@ class AudioEventsConfig:
 class TranscriptFilteringConfig:
     """Configuration for transcript filtering."""
 
-    remove_disfluencies: Optional[bool] = None
+    remove_disfluencies: bool = False
     replacements: Optional[list[dict[str, str]]] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary, excluding None values."""
         return {k: v for k, v in asdict(self).items() if v is not None}
-
 
 @dataclass
 class JobConfig:
@@ -324,7 +318,6 @@ class JobConfig:
     auto_chapters_config: Optional[AutoChaptersConfig] = None
     audio_events_config: Optional[AudioEventsConfig] = None
     output_config: Optional[OutputConfig] = None
-    transcript_filtering_config: Optional[TranscriptFilteringConfig] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert job config to dictionary for API submission."""
@@ -356,9 +349,6 @@ class JobConfig:
             config["audio_events_config"] = self.audio_events_config.to_dict()
         if self.output_config:
             config["output_config"] = self.output_config.to_dict()
-        if self.transcript_filtering_config:
-            config["transcript_filtering_config"] = self.transcript_filtering_config.to_dict()
-
         return config
 
     @classmethod
@@ -369,12 +359,8 @@ class JobConfig:
         transcription_config = None
         if "transcription_config" in data:
             tc_data = data["transcription_config"].copy()
-            if "transcript_filtering_config" in tc_data:
-                tfc = tc_data["transcript_filtering_config"]
-                if isinstance(tfc, dict):
-                    tc_data["transcript_filtering_config"] = TranscriptFilteringConfig(**tfc)
-                elif isinstance(tfc, bool):
-                    tc_data["transcript_filtering_config"] = TranscriptFilteringConfig(remove_disfluencies=tfc)
+            if "transcript_filtering_config" in tc_data and isinstance(tc_data["transcript_filtering_config"], dict):
+                tc_data["transcript_filtering_config"] = TranscriptFilteringConfig(**tc_data["transcript_filtering_config"])
             transcription_config = TranscriptionConfig(**tc_data)
 
         alignment_config = None
