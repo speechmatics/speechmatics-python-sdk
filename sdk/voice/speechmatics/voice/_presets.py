@@ -232,4 +232,10 @@ class VoiceAgentConfigPreset:
             **base.model_dump(exclude_unset=True, exclude_none=True),
             **overlay.model_dump(exclude_unset=True, exclude_none=True),
         }
-        return VoiceAgentConfig.from_dict(merged_dict)
+        config = VoiceAgentConfig.from_dict(merged_dict)
+
+        # Validate the merged config
+        config.validate_config()
+
+        # Return the merged config
+        return config

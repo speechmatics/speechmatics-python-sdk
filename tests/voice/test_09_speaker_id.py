@@ -11,7 +11,6 @@ from _utils import send_audio_file
 from speechmatics.rt import ClientMessageType
 from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
-from speechmatics.voice import EndOfTurnConfig
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import SpeakerIdentifier
 from speechmatics.voice import SpeechSegmentConfig
@@ -59,7 +58,6 @@ async def test_extract_speaker_ids():
             additional_vocab=[
                 AdditionalVocabEntry(content="GeoRouter"),
             ],
-            end_of_turn_config=EndOfTurnConfig(use_forced_eou=False),
         ),
     )
 
@@ -192,7 +190,6 @@ async def test_known_speakers():
             additional_vocab=[
                 AdditionalVocabEntry(content="GeoRouter"),
             ],
-            end_of_turn_config=EndOfTurnConfig(use_forced_eou=False),
         ),
     )
 
@@ -270,7 +267,6 @@ async def test_ignoring_assistant():
             additional_vocab=[
                 AdditionalVocabEntry(content="GeoRouter"),
             ],
-            end_of_turn_config=EndOfTurnConfig(use_forced_eou=False),
         ),
     )
 

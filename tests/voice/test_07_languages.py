@@ -14,7 +14,6 @@ from _utils import send_silence
 
 from speechmatics.voice import AdditionalVocabEntry
 from speechmatics.voice import AgentServerMessageType
-from speechmatics.voice import EndOfTurnConfig
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import SpeechSegmentConfig
 from speechmatics.voice import VoiceAgentConfig
@@ -113,22 +112,24 @@ async def test_transcribe_languages(sample: AudioSample):
     if not API_KEY:
         pytest.skip("Valid API key required for test")
 
+    # Config
+    config = VoiceAgentConfig(
+        max_delay=1.2,
+        end_of_utterance_mode=EndOfUtteranceMode.FIXED,
+        end_of_utterance_silence_trigger=1.2,
+        language=sample.language,
+        additional_vocab=[AdditionalVocabEntry(content=vocab) for vocab in sample.vocab],
+        speech_segment_config=SpeechSegmentConfig(
+            emit_sentences=False,
+        ),
+    )
+
     # Client
     client = await get_client(
         api_key=API_KEY,
         url=URL,
         connect=False,
-        config=VoiceAgentConfig(
-            max_delay=1.2,
-            end_of_utterance_mode=EndOfUtteranceMode.FIXED,
-            end_of_utterance_silence_trigger=1.2,
-            language=sample.language,
-            additional_vocab=[AdditionalVocabEntry(content=vocab) for vocab in sample.vocab],
-            end_of_turn_config=EndOfTurnConfig(use_forced_eou=False),
-            speech_segment_config=SpeechSegmentConfig(
-                emit_sentences=False,
-            ),
-        ),
+        config=config,
     )
     assert client is not None
 
@@ -188,6 +189,10 @@ async def test_transcribe_languages(sample: AudioSample):
     # Extract the last message
     assert last_message.get("message") == AgentServerMessageType.ADD_SEGMENT
 
+    # Close session
+    await client.disconnect()
+    assert not client._is_connected
+
     # Check the segment
     assert len(segments) >= 1
     seg0 = segments[0]
@@ -216,7 +221,3 @@ async def test_transcribe_languages(sample: AudioSample):
         print(f"Transcribed: [{str_transcribed}]")
         print(f"CER: {str_cer}")
         raise AssertionError("Transcription does not match original")
-
-    # Close session
-    await client.disconnect()
-    assert not client._is_connected

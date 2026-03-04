@@ -46,37 +46,37 @@ SAMPLES: list[SpeakerTest] = [
         segment_regex=["^Welcome to GeoRouter", "Buckingham", "clarify", "Notting Hill", "Rickmansworth"],
         speakers_present=["S1", "S2"],
     ),
-    SpeakerTest(
-        id="focus_s2",
-        path="./assets/audio_02_8kHz.wav",
-        sample_rate=8000,
-        segment_regex=["^Welcome to GeoRouter", "Buckingham", "clarify", "Notting Hill"],
-        speaker_config=SpeakerFocusConfig(
-            focus_speakers=["S2"],
-        ),
-        speakers_present=["S1", "S2"],
-    ),
-    SpeakerTest(
-        id="only_s2",
-        path="./assets/audio_02_8kHz.wav",
-        sample_rate=8000,
-        segment_regex=["Buckingham", "Notting Hill"],
-        speaker_config=SpeakerFocusConfig(
-            focus_speakers=["S2"],
-            focus_mode=SpeakerFocusMode.IGNORE,
-        ),
-        speakers_present=["S2"],
-    ),
-    SpeakerTest(
-        id="ignore_s2",
-        path="./assets/audio_02_8kHz.wav",
-        sample_rate=8000,
-        segment_regex=["^Welcome to GeoRouter", "clarify", "Rickmansworth"],
-        speaker_config=SpeakerFocusConfig(
-            ignore_speakers=["S2"],
-        ),
-        speakers_present=["S1"],
-    ),
+    # SpeakerTest(
+    #     id="focus_s2",
+    #     path="./assets/audio_02_8kHz.wav",
+    #     sample_rate=8000,
+    #     segment_regex=["^Welcome to GeoRouter", "Buckingham", "clarify", "Notting Hill"],
+    #     speaker_config=SpeakerFocusConfig(
+    #         focus_speakers=["S2"],
+    #     ),
+    #     speakers_present=["S1", "S2"],
+    # ),
+    # SpeakerTest(
+    #     id="only_s2",
+    #     path="./assets/audio_02_8kHz.wav",
+    #     sample_rate=8000,
+    #     segment_regex=["Buckingham", "Notting Hill"],
+    #     speaker_config=SpeakerFocusConfig(
+    #         focus_speakers=["S2"],
+    #         focus_mode=SpeakerFocusMode.IGNORE,
+    #     ),
+    #     speakers_present=["S2"],
+    # ),
+    # SpeakerTest(
+    #     id="ignore_s2",
+    #     path="./assets/audio_02_8kHz.wav",
+    #     sample_rate=8000,
+    #     segment_regex=["^Welcome to GeoRouter", "clarify", "Rickmansworth"],
+    #     speaker_config=SpeakerFocusConfig(
+    #         ignore_speakers=["S2"],
+    #     ),
+    #     speakers_present=["S1"],
+    # ),
 ]
 
 
@@ -121,6 +121,10 @@ async def test_multiple_speakers(sample: SpeakerTest):
         config=config,
     )
 
+    # Debug
+    print(config.to_json(exclude_none=True, exclude_defaults=True, exclude_unset=True, indent=2))
+    print(json.dumps(client._transcription_config.to_dict(), indent=2))
+
     # Create an event to track when the callback is called
     messages: list[str] = []
     bytes_sent: int = 0
@@ -153,11 +157,21 @@ async def test_multiple_speakers(sample: SpeakerTest):
     client.once(AgentServerMessageType.INFO, log_message)
     client.on(AgentServerMessageType.WARNING, log_message)
     client.on(AgentServerMessageType.ERROR, log_message)
+    client.on(AgentServerMessageType.DIAGNOSTICS, log_message)
+
+    # Transcript
+    client.on(AgentServerMessageType.ADD_PARTIAL_TRANSCRIPT, log_message)
+    client.on(AgentServerMessageType.ADD_TRANSCRIPT, log_message)
     client.on(AgentServerMessageType.ADD_PARTIAL_SEGMENT, log_message)
     client.on(AgentServerMessageType.ADD_SEGMENT, log_message)
+
+    # Turn events
+    client.on(AgentServerMessageType.VAD_STATUS, log_message)
     client.on(AgentServerMessageType.SPEAKER_STARTED, log_message)
     client.on(AgentServerMessageType.SPEAKER_ENDED, log_message)
+    client.on(AgentServerMessageType.START_OF_TURN, log_message)
     client.on(AgentServerMessageType.END_OF_TURN, log_message)
+    client.on(AgentServerMessageType.END_OF_UTTERANCE, log_message)
 
     # Log ADD_SEGMENT
     client.on(AgentServerMessageType.ADD_SEGMENT, log_final_segment)

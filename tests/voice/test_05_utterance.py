@@ -10,7 +10,6 @@ from _utils import get_client
 from _utils import log_client_messages
 
 from speechmatics.voice import AgentServerMessageType
-from speechmatics.voice import EndOfTurnConfig
 from speechmatics.voice import EndOfUtteranceMode
 from speechmatics.voice import SpeechSegmentConfig
 from speechmatics.voice import VoiceAgentConfig
@@ -232,10 +231,12 @@ async def test_external_vad():
         config=VoiceAgentConfig(
             end_of_utterance_silence_trigger=adaptive_timeout,
             end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL,
-            end_of_turn_config=EndOfTurnConfig(use_forced_eou=False),
         ),
     )
     assert client is not None
+
+    # Set FEOU to disabled for offline tests
+    client._disable_feou_for_testing = True
 
     # Start the queue
     client._start_stt_queue()
@@ -335,7 +336,6 @@ async def test_end_of_utterance_adaptive_vad():
             end_of_utterance_silence_trigger=adaptive_timeout,
             end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
             speech_segment_config=SpeechSegmentConfig(emit_sentences=False),
-            end_of_turn_config=EndOfTurnConfig(use_forced_eou=False),
         ),
     )
     assert client is not None
@@ -343,6 +343,9 @@ async def test_end_of_utterance_adaptive_vad():
     # Log messages
     if SHOW_LOG:
         log_client_messages(client)
+
+    # Set FEOU to disabled for offline tests
+    client._disable_feou_for_testing = True
 
     # Start the queue
     client._start_stt_queue()
