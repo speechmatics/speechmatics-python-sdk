@@ -2,13 +2,17 @@ from speechmatics.batch._models import JobConfig, TranscriptFilteringConfig, Tra
 
 
 class TestTranscriptFilteringConfigToDict:
-    def test_true_serializes_to_remove_disfluencies_dict(self):
-        config = TranscriptionConfig(transcript_filtering_config=True)
+    def test_remove_disfluencies_true_serializes_correctly(self):
+        config = TranscriptionConfig(
+            transcript_filtering_config=TranscriptFilteringConfig(remove_disfluencies=True)
+        )
         result = config.to_dict()
         assert result["transcript_filtering_config"] == {"remove_disfluencies": True}
 
-    def test_false_serializes_to_remove_disfluencies_dict(self):
-        config = TranscriptionConfig(transcript_filtering_config=False)
+    def test_remove_disfluencies_false_included_in_output(self):
+        config = TranscriptionConfig(
+            transcript_filtering_config=TranscriptFilteringConfig(remove_disfluencies=False)
+        )
         result = config.to_dict()
         assert result["transcript_filtering_config"] == {"remove_disfluencies": False}
 
@@ -23,7 +27,10 @@ class TestTranscriptFilteringConfigToDict:
             transcript_filtering_config=TranscriptFilteringConfig(replacements=replacements)
         )
         result = config.to_dict()
-        assert result["transcript_filtering_config"] == {"replacements": replacements}
+        assert result["transcript_filtering_config"] == {
+            "remove_disfluencies": False,
+            "replacements": replacements,
+        }
 
     def test_replacements_absent_when_none(self):
         config = TranscriptionConfig(
@@ -61,20 +68,6 @@ class TestTranscriptFilteringConfigFromDict:
         assert isinstance(tfc, TranscriptFilteringConfig)
         assert tfc.remove_disfluencies is True
 
-    def test_bool_form_normalizes_to_config_object(self):
-        data = {
-            "type": "transcription",
-            "transcription_config": {
-                "language": "en",
-                "transcript_filtering_config": True,
-            },
-        }
-        job_config = JobConfig.from_dict(data)
-        assert job_config.transcription_config is not None
-        tfc = job_config.transcription_config.transcript_filtering_config
-        assert isinstance(tfc, TranscriptFilteringConfig)
-        assert tfc.remove_disfluencies is True
-
     def test_absent_field_is_none(self):
         data = {
             "type": "transcription",
@@ -98,7 +91,7 @@ class TestTranscriptFilteringConfigFromDict:
         tfc = job_config.transcription_config.transcript_filtering_config
         assert isinstance(tfc, TranscriptFilteringConfig)
         assert tfc.replacements == replacements
-        assert tfc.remove_disfluencies is None
+        assert tfc.remove_disfluencies is False
 
     def test_dict_with_replacements_and_remove_disfluencies_deserializes(self):
         replacements = [{"from": "gonna", "to": "going to"}]
