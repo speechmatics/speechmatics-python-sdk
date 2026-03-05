@@ -29,6 +29,7 @@ from ._models import SentimentAnalysisConfig
 from ._models import SummarizationConfig
 from ._models import TopicDetectionConfig
 from ._models import Transcript
+from ._models import TranscriptFilteringConfig
 from ._models import TranscriptionConfig
 from ._models import TranslationConfig
 
@@ -54,6 +55,7 @@ __all__ = [
     "NotificationContents",
     "NotificationMethod",
     "OperatingPoint",
+    "OutputConfig",
     "SentimentAnalysisConfig",
     "StaticKeyAuth",
     "SummarizationConfig",
@@ -62,6 +64,6 @@ __all__ = [
     "Transcript",
     "TranscriptionConfig",
     "TranslationConfig",
-    "OutputConfig",
     "TransportError",
+    "TranscriptFilteringConfig",
 ]

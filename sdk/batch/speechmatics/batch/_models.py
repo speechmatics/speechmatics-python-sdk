@@ -100,6 +100,7 @@ class TranscriptionConfig:
         transcript_filtering_config: Configuration for filtering transcription.
             defaults to None.
     """
+
     language: str = "en"
     operating_point: OperatingPoint = OperatingPoint.ENHANCED
     output_locale: Optional[str] = None
@@ -121,6 +122,7 @@ class TranscriptionConfig:
             result["transcript_filtering_config"] = self.transcript_filtering_config.to_dict()
         return result
 
+
 @dataclass
 class OutputConfig:
     """Configuration for output formatting."""
@@ -131,6 +133,7 @@ class OutputConfig:
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary, excluding None values."""
         return {k: v for k, v in asdict(self).items() if v is not None}
+
 
 @dataclass
 class AlignmentConfig:
@@ -268,6 +271,7 @@ class AudioEventsConfig:
         """Convert to dictionary, excluding None values."""
         return {k: v for k, v in asdict(self).items() if v is not None}
 
+
 @dataclass
 class TranscriptFilteringConfig:
     """Configuration for transcript filtering."""
@@ -278,6 +282,7 @@ class TranscriptFilteringConfig:
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary, excluding None values."""
         return {k: v for k, v in asdict(self).items() if v is not None}
+
 
 @dataclass
 class JobConfig:
@@ -360,7 +365,9 @@ class JobConfig:
         if "transcription_config" in data:
             tc_data = data["transcription_config"].copy()
             if "transcript_filtering_config" in tc_data and isinstance(tc_data["transcript_filtering_config"], dict):
-                tc_data["transcript_filtering_config"] = TranscriptFilteringConfig(**tc_data["transcript_filtering_config"])
+                tc_data["transcript_filtering_config"] = TranscriptFilteringConfig(
+                    **tc_data["transcript_filtering_config"]
+                )
             transcription_config = TranscriptionConfig(**tc_data)
 
         alignment_config = None
