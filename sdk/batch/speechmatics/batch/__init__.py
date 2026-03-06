@@ -11,6 +11,7 @@ from ._exceptions import ConnectionError
 from ._exceptions import JobError
 from ._exceptions import TimeoutError
 from ._exceptions import TransportError
+from ._models import AudioFilteringConfig
 from ._models import AutoChaptersConfig
 from ._models import ConnectionConfig
 from ._models import FetchData
@@ -34,6 +35,7 @@ from ._models import TranscriptionConfig
 from ._models import TranslationConfig
 
 __all__ = [
+    "AudioFilteringConfig",
     "AsyncClient",
     "AuthBase",
     "AuthenticationError",
