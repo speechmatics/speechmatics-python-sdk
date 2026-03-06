@@ -293,11 +293,11 @@ class TranscriptFilteringConfig:
 class AudioFilteringConfig:
     """Configuration for limiting the transcription of quiet audio. 'volume_threshold' supports a range of 0 - 100 where 0 does not filter any audio and 100 removes all audio."""
 
-    volume_threshold: Optional[float] = None
+    volume_threshold: float = 0
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, excluding None values."""
-        return {k: v for k, v in asdict(self).items() if v is not None}
+        """Convert to dictionary."""
+        return asdict(self)
 
 
 @dataclass
