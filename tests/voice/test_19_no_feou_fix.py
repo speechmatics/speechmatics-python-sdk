@@ -31,19 +31,6 @@ async def test_no_feou_fix():
         pytest.skip("Valid API key required for test")
 
     # Config
-    # config = VoiceAgentConfigPreset.SMART_TURN(
-    #     VoiceAgentConfig(
-    #         language="en",
-    #         audio_encoding="pcm_s16le",
-    #         sample_rate=16000,
-    #         smart_turn_config=SmartTurnConfig(enabled=True, smart_turn_threshold=0.8),
-    #         end_of_turn_config=EndOfTurnConfig(min_end_of_turn_delay=0.1, use_forced_eou=False),
-    #         additional_vocab=[
-    #             AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"]),
-    #         ],
-    #     )
-    # )
-
     config = VoiceAgentConfig(
         language="en",
         end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
@@ -69,6 +56,9 @@ async def test_no_feou_fix():
         connect=False,
         config=config,
     )
+
+    # Disable FEOU
+    client._use_forced_eou = False
 
     # Add listeners
     messages = [message for message in AgentServerMessageType if message != AgentServerMessageType.AUDIO_ADDED]
