@@ -97,6 +97,10 @@ class AsyncClient(_BaseClient):
         self.on(ServerMessageType.WARNING, self._on_warning)
         self.on(ServerMessageType.AUDIO_ADDED, self._on_audio_added)
 
+        # Audio format is set when start_session is called with an explicit format.
+        # Deliberately None until then to avoid silently using incorrect defaults.
+        self._audio_format: Optional[AudioFormat] = None
+
         self._logger.debug("AsyncClient initialized (request_id=%s)", self._session.request_id)
 
     async def start_session(
@@ -133,7 +137,10 @@ class AsyncClient(_BaseClient):
                 ...     await client.start_session()
                 ...     await client.send_audio(frame)
         """
-        await self._start_recognition_session(
+
+        # _start_recognition_session resolves defaults (e.g. AudioFormat() if None),
+        # so we capture the resolved format to keep _audio_format in sync.
+        _, self._audio_format = await self._start_recognition_session(
             transcription_config=transcription_config,
             audio_format=audio_format,
             translation_config=translation_config,
@@ -161,16 +168,27 @@ class AsyncClient(_BaseClient):
         await self._session_done_evt.wait()  # Wait for end of transcript event to indicate we can stop listening
         await self.close()
 
-    async def force_end_of_utterance(self) -> None:
+    async def force_end_of_utterance(self, timestamp: Optional[float] = None) -> float:
         """
         This method sends a ForceEndOfUtterance message to the server to signal
         the end of an utterance. Forcing end of utterance will cause the final
         transcript to be sent to the client early.
 
+        Takes an optional timestamp parameter to specify a marker for the engine
+        to use for timing of the end of the utterance. If not provided, the timestamp
+        will be calculated based on the cumulative audio sent to the server.
+
+        Args:
+            timestamp: Optional timestamp for the request.
+
+        Returns:
+            The timestamp that was used for the request.
+
         Raises:
             ConnectionError: If the WebSocket connection fails.
             TranscriptionError: If the server reports an error during teardown.
             TimeoutError: If the connection or teardown times out.
+            ValueError: If the audio format does not have an encoding set.
 
         Examples:
             Basic streaming:
@@ -179,7 +197,26 @@ class AsyncClient(_BaseClient):
                 ...     await client.send_audio(frame)
                 ...     await client.force_end_of_utterance()
         """
-        await self.send_message({"message": ClientMessageType.FORCE_END_OF_UTTERANCE})
+        if timestamp is None:
+            timestamp = self.audio_seconds_sent
+
+        await self.send_message({"message": ClientMessageType.FORCE_END_OF_UTTERANCE, "timestamp": timestamp})
+
+        return timestamp
+
+    @property
+    def audio_seconds_sent(self) -> float:
+        """Number of audio seconds sent to the server.
+
+        Raises:
+            ValueError: If called before start_session has set the audio format,
+                or if the audio format does not have an encoding set.
+        """
+        # _audio_format is only set once start_session receives an explicit AudioFormat.
+        # Failing here prevents silently computing with wrong defaults (e.g. 44100Hz).
+        if self._audio_format is None:
+            raise ValueError("audio_seconds_sent is not available before start_session is called with an audio format")
+        return self._audio_bytes_sent / (self._audio_format.sample_rate * self._audio_format.bytes_per_sample)
 
     async def transcribe(
         self,
