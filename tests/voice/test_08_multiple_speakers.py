@@ -46,37 +46,37 @@ SAMPLES: list[SpeakerTest] = [
         segment_regex=["^Welcome to GeoRouter", "Buckingham", "clarify", "Notting Hill", "Rickmansworth"],
         speakers_present=["S1", "S2"],
     ),
-    # SpeakerTest(
-    #     id="focus_s2",
-    #     path="./assets/audio_02_8kHz.wav",
-    #     sample_rate=8000,
-    #     segment_regex=["^Welcome to GeoRouter", "Buckingham", "clarify", "Notting Hill"],
-    #     speaker_config=SpeakerFocusConfig(
-    #         focus_speakers=["S2"],
-    #     ),
-    #     speakers_present=["S1", "S2"],
-    # ),
-    # SpeakerTest(
-    #     id="only_s2",
-    #     path="./assets/audio_02_8kHz.wav",
-    #     sample_rate=8000,
-    #     segment_regex=["Buckingham", "Notting Hill"],
-    #     speaker_config=SpeakerFocusConfig(
-    #         focus_speakers=["S2"],
-    #         focus_mode=SpeakerFocusMode.IGNORE,
-    #     ),
-    #     speakers_present=["S2"],
-    # ),
-    # SpeakerTest(
-    #     id="ignore_s2",
-    #     path="./assets/audio_02_8kHz.wav",
-    #     sample_rate=8000,
-    #     segment_regex=["^Welcome to GeoRouter", "clarify", "Rickmansworth"],
-    #     speaker_config=SpeakerFocusConfig(
-    #         ignore_speakers=["S2"],
-    #     ),
-    #     speakers_present=["S1"],
-    # ),
+    SpeakerTest(
+        id="focus_s2",
+        path="./assets/audio_02_8kHz.wav",
+        sample_rate=8000,
+        segment_regex=["^Welcome to GeoRouter", "Buckingham", "clarify", "Notting Hill"],
+        speaker_config=SpeakerFocusConfig(
+            focus_speakers=["S2"],
+        ),
+        speakers_present=["S1", "S2"],
+    ),
+    SpeakerTest(
+        id="only_s2",
+        path="./assets/audio_02_8kHz.wav",
+        sample_rate=8000,
+        segment_regex=["Buckingham", "Notting Hill"],
+        speaker_config=SpeakerFocusConfig(
+            focus_speakers=["S2"],
+            focus_mode=SpeakerFocusMode.IGNORE,
+        ),
+        speakers_present=["S2"],
+    ),
+    SpeakerTest(
+        id="ignore_s2",
+        path="./assets/audio_02_8kHz.wav",
+        sample_rate=8000,
+        segment_regex=["^Welcome to GeoRouter", "clarify", "Rickmansworth"],
+        speaker_config=SpeakerFocusConfig(
+            ignore_speakers=["S2"],
+        ),
+        speakers_present=["S1"],
+    ),
 ]
 
 
