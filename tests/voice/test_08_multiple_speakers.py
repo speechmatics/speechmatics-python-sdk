@@ -122,8 +122,9 @@ async def test_multiple_speakers(sample: SpeakerTest):
     )
 
     # Debug
-    print(config.to_json(exclude_none=True, exclude_defaults=True, exclude_unset=True, indent=2))
-    print(json.dumps(client._transcription_config.to_dict(), indent=2))
+    if SHOW_LOG:
+        print(config.to_json(exclude_none=True, exclude_defaults=True, exclude_unset=True, indent=2))
+        print(json.dumps(client._transcription_config.to_dict(), indent=2))
 
     # Create an event to track when the callback is called
     messages: list[str] = []
@@ -152,6 +153,10 @@ async def test_multiple_speakers(sample: SpeakerTest):
         segments: list[SpeakerSegment] = message["segments"]
         final_segments.extend(segments)
 
+    # Log end of turn
+    def log_end_of_turn(message):
+        final_segments.extend([{"speaker_id": "--", "text": "_TURN_"}])
+
     # Add listeners
     client.once(AgentServerMessageType.RECOGNITION_STARTED, log_message)
     client.once(AgentServerMessageType.INFO, log_message)
@@ -171,10 +176,12 @@ async def test_multiple_speakers(sample: SpeakerTest):
     client.on(AgentServerMessageType.SPEAKER_ENDED, log_message)
     client.on(AgentServerMessageType.START_OF_TURN, log_message)
     client.on(AgentServerMessageType.END_OF_TURN, log_message)
+    client.on(AgentServerMessageType.END_OF_TURN_PREDICTION, log_message)
     client.on(AgentServerMessageType.END_OF_UTTERANCE, log_message)
 
-    # Log ADD_SEGMENT
+    # Log ADD_SEGMENT + END_OF_TURN
     client.on(AgentServerMessageType.ADD_SEGMENT, log_final_segment)
+    client.on(AgentServerMessageType.END_OF_TURN, log_end_of_turn)
 
     # HEADER
     if SHOW_LOG:
@@ -201,22 +208,44 @@ async def test_multiple_speakers(sample: SpeakerTest):
         progress_callback=log_bytes_sent,
     )
 
+    # Close session
+    await client.disconnect()
+
     # FOOTER
     if SHOW_LOG:
         print("---")
         print()
         print()
 
+    # Print all final_segments
+    if SHOW_LOG:
+        print("Final segments:")
+        for idx, segment in enumerate(final_segments):
+            print(f"{idx}: [{segment.get('speaker_id')}] {segment.get('text')}")
+        print()
+
+    # Accumulate errors
+    errors: list[str] = []
+
+    # Check number of final segments
+    if len(final_segments) < len(sample.segment_regex):
+        errors.append(f"Expected at least {len(sample.segment_regex)} segments, got {len(final_segments)}")
+
     # Check final segments against regex
+    if SHOW_LOG:
+        print("Checking final segments against regex:")
     for idx, _test in enumerate(sample.segment_regex):
+        text = final_segments[idx].get("text") if idx < len(final_segments) else None
+        match = text and re.search(_test, text, flags=re.IGNORECASE | re.MULTILINE)
         if SHOW_LOG:
-            print(f"`{_test}` -> `{final_segments[idx].get('text')}`")
-        assert re.search(_test, final_segments[idx].get("text"), flags=re.IGNORECASE | re.MULTILINE)
+            print(f'{idx}: {"✅" if match else "❌"} - `{_test}` -> `{text}`')
+        if not match:
+            errors.append(f"Segment {idx}: expected /{_test}/ but got '{text}'")
 
     # Check only speakers present
     speakers = [segment.get("speaker_id") for segment in final_segments]
-    assert set(speakers) == set(sample.speakers_present)
+    if set(speakers) != set(sample.speakers_present):
+        errors.append(f"Speakers: expected {set(sample.speakers_present)} but got {set(speakers)}")
 
-    # Close session
-    await client.disconnect()
-    assert not client._is_connected
+    # Report all errors
+    assert not errors, "\n".join(errors)

@@ -1210,14 +1210,14 @@ class VoiceAgentClient(AsyncClient):
             return
 
         # Skip re-evaluation if transcripts are older than smart turn cutoff
-        if self._smart_turn_pending_cutoff is not None and self._current_view:
-            latest_end_time = max(
-                (f.end_time for f in self._current_view.fragments if f.end_time is not None), default=0.0
-            )
+        # if self._smart_turn_pending_cutoff is not None and self._current_view:
+        #     latest_end_time = max(
+        #         (f.end_time for f in self._current_view.fragments if f.end_time is not None), default=0.0
+        #     )
 
-            # If all fragments end before or at the cutoff, skip re-evaluation
-            if latest_end_time <= self._smart_turn_pending_cutoff:
-                return
+        #     # If all fragments end before or at the cutoff, skip re-evaluation
+        #     if latest_end_time <= self._smart_turn_pending_cutoff:
+        #         return
 
         # Turn prediction
         if self._emit_eot_predictions and not self._forced_eou_active and self._use_forced_eou:
@@ -1862,7 +1862,7 @@ class VoiceAgentClient(AsyncClient):
             annotation.add(AnnotationFlags.VAD_STARTED)
 
         # If speech has ended, we need to predict the end of turn
-        if self._emit_eot_predictions:
+        if self._emit_eot_predictions and result.speech_ended:
             """VAD-based end of turn prediction."""
 
             # Set cutoff to prevent late transcripts from cancelling finalization
