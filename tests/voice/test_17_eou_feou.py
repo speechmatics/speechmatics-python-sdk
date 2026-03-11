@@ -101,7 +101,7 @@ VAD_DELAY_S: list[float] = [0.18]  # , 0.22]
 
 # Endpoints
 ENDPOINTS: list[str] = [
-    "wss://eu-west-2-research.speechmatics.cloud/v2",
+    "wss://preview.rt.speechmatics.com/v2",
     # "wss://eu.rt.speechmatics.com/v2",
     # "wss://us.rt.speechmatics.com/v2",
 ]

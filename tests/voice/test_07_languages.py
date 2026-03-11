@@ -24,7 +24,7 @@ pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping lang
 
 # Constants
 API_KEY = os.getenv("SPEECHMATICS_API_KEY")
-URL = "wss://eu2.rt.speechmatics.com/v2"
+URL = os.getenv("SPEECHMATICS_RT_URL", "wss://eu2.rt.speechmatics.com/v2")
 SHOW_LOG = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
 
 
