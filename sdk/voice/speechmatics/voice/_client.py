@@ -1687,7 +1687,7 @@ class VoiceAgentClient(AsyncClient):
             self._forced_eou_active = True
 
             # Send the force EOU and wait for the response
-            await self.force_end_of_utterance()
+            await self.force_end_of_utterance(self.audio_seconds_sent)
             await asyncio.wait_for(eou_received.wait(), timeout=timeout)
 
             # Record the latency

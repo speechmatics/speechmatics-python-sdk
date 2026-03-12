@@ -174,8 +174,7 @@ class AsyncClient(_BaseClient):
         transcript to be sent to the client early.
 
         Takes an optional timestamp parameter to specify a marker for the engine
-        to use for timing of the end of the utterance. If not provided, the timestamp
-        will be calculated based on the cumulative audio sent to the server.
+        to use for timing of the end of the utterance.
 
         Args:
             timestamp: Optional timestamp for the request.
@@ -184,7 +183,6 @@ class AsyncClient(_BaseClient):
             ConnectionError: If the WebSocket connection fails.
             TranscriptionError: If the server reports an error during teardown.
             TimeoutError: If the connection or teardown times out.
-            ValueError: If the audio format does not have an encoding set.
 
         Examples:
             Basic streaming:
@@ -193,10 +191,12 @@ class AsyncClient(_BaseClient):
                 ...     await client.send_audio(frame)
                 ...     await client.force_end_of_utterance()
         """
-        if timestamp is None:
-            timestamp = self.audio_seconds_sent
 
-        await self.send_message({"message": ClientMessageType.FORCE_END_OF_UTTERANCE, "timestamp": timestamp})
+        msg: dict = {"message": ClientMessageType.FORCE_END_OF_UTTERANCE}
+        if timestamp is not None:
+            msg["timestamp"] = timestamp
+
+        await self.send_message(msg)
 
     @property
     def audio_seconds_sent(self) -> float:
