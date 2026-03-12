@@ -31,6 +31,7 @@ from ._models import JobStatus
 from ._models import JobType
 from ._models import Transcript
 from ._models import TranscriptionConfig
+from ._transport import PROCESSING_DATA_HEADER
 from ._transport import Transport
 
 
@@ -537,7 +538,7 @@ class AsyncClient:
         """Submit job and create JobDetails response."""
         extra_headers: Optional[dict[str, dict[str, int]]] = None
         if requested_parallel is not None:
-            extra_headers = {"X-SM-Processing-Data": {"requested_parallel": requested_parallel}}
+            extra_headers = {PROCESSING_DATA_HEADER: {"requested_parallel": requested_parallel}}
         response = await self._transport.post("/jobs", multipart_data=multipart_data, extra_headers=extra_headers)
         job_id = response.get("id")
         if not job_id:

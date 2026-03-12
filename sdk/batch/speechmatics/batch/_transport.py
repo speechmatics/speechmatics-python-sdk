@@ -25,6 +25,8 @@ from ._helpers import get_version
 from ._logging import get_logger
 from ._models import ConnectionConfig
 
+PROCESSING_DATA_HEADER = "X-SM-Processing-Data"
+
 
 class Transport:
     """

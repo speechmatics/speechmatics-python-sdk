@@ -13,6 +13,7 @@ from speechmatics.batch import JobConfig
 from speechmatics.batch import JobStatus
 from speechmatics.batch import JobType
 from speechmatics.batch import TranscriptionConfig
+from speechmatics.batch import PROCESSING_DATA_HEADER
 
 
 def _make_client(api_key: str = "test-key") -> AsyncClient:
@@ -53,8 +54,8 @@ class TestRequestedParallelHeader:
 
         extra_headers = _captured_extra_headers(mock_post)
         assert extra_headers is not None
-        assert "X-SM-Processing-Data" in extra_headers
-        payload = extra_headers["X-SM-Processing-Data"]
+        assert PROCESSING_DATA_HEADER in extra_headers
+        payload = extra_headers[PROCESSING_DATA_HEADER]
         assert payload == {"requested_parallel": 4}
 
     @pytest.mark.asyncio
@@ -81,7 +82,7 @@ class TestRequestedParallelHeader:
         extra_headers = _captured_extra_headers(mock_post)
         # Must be parseable JSON
         assert extra_headers is not None
-        parsed = extra_headers["X-SM-Processing-Data"]
+        parsed = extra_headers[PROCESSING_DATA_HEADER]
         assert parsed["requested_parallel"] == 8
 
     @pytest.mark.asyncio
@@ -95,7 +96,7 @@ class TestRequestedParallelHeader:
 
         extra_headers = _captured_extra_headers(mock_post)
         assert extra_headers is not None
-        payload = extra_headers["X-SM-Processing-Data"]
+        payload = extra_headers[PROCESSING_DATA_HEADER]
         assert payload["requested_parallel"] == 1
 
     @pytest.mark.asyncio
@@ -120,7 +121,7 @@ class TestRequestedParallelHeader:
 
         extra_headers = _captured_extra_headers(mock_post)
         assert extra_headers is not None
-        payload = extra_headers["X-SM-Processing-Data"]
+        payload = extra_headers[PROCESSING_DATA_HEADER]
         assert payload == {"requested_parallel": 2}
 
 
