@@ -62,7 +62,6 @@ documentation = "https://docs.speechmatics.com/"
 repository = "https://github.com/speechmatics/speechmatics-python-sdk"
 issues = "https://github.com/speechmatics/speechmatics-python-sdk/issues"
 
-
 [tool.setuptools.dynamic]
 version = { attr = "speechmatics.voice.__version__" }
 
@@ -75,6 +74,3 @@ where = ["."]
 [[tool.mypy.overrides]]
 module = ["speechmatics.rt.*", "onnxruntime.*"]
 ignore_missing_imports = true
-
-[tool.uv.sources]
-speechmatics-rt = { git = "https://github.com/speechmatics/speechmatics-python-sdk.git", branch = "feat/va-rel", subdirectory = "sdk/rt" }
