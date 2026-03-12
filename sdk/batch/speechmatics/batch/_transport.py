@@ -25,6 +25,8 @@ from ._helpers import get_version
 from ._logging import get_logger
 from ._models import ConnectionConfig
 
+PROCESSING_DATA_HEADER = "X-SM-Processing-Data"
+
 
 class Transport:
     """
@@ -116,6 +118,7 @@ class Transport:
         json_data: Optional[dict[str, Any]] = None,
         multipart_data: Optional[dict[str, Any]] = None,
         timeout: Optional[float] = None,
+        extra_headers: Optional[dict[str, dict[str, int]]] = None,
     ) -> dict[str, Any]:
         """
         Send POST request to the API.
@@ -125,6 +128,7 @@ class Transport:
             json_data: Optional JSON data for request body
             multipart_data: Optional multipart form data
             timeout: Optional request timeout
+            extra_headers: Optional additional headers to include in the request
 
         Returns:
             JSON response as dictionary
@@ -133,7 +137,14 @@ class Transport:
             AuthenticationError: If authentication fails
             TransportError: If request fails
         """
-        return await self._request("POST", path, json_data=json_data, multipart_data=multipart_data, timeout=timeout)
+        return await self._request(
+            "POST",
+            path,
+            json_data=json_data,
+            multipart_data=multipart_data,
+            timeout=timeout,
+            extra_headers=extra_headers,
+        )
 
     async def delete(self, path: str, timeout: Optional[float] = None) -> dict[str, Any]:
         """
@@ -200,6 +211,7 @@ class Transport:
         json_data: Optional[dict[str, Any]] = None,
         multipart_data: Optional[dict[str, Any]] = None,
         timeout: Optional[float] = None,
+        extra_headers: Optional[dict[str, dict[str, int]]] = None,
     ) -> dict[str, Any]:
         """
         Send HTTP request to the API.
@@ -227,6 +239,8 @@ class Transport:
 
         url = f"{self._url.rstrip('/')}{path}"
         headers = await self._prepare_headers()
+        if extra_headers:
+            headers.update(extra_headers)
 
         self._logger.debug(
             "Sending HTTP request %s %s (json=%s, multipart=%s)",
