@@ -1688,8 +1688,8 @@ class VoiceAgentClient(AsyncClient):
             self._forced_eou_active = True
 
             # Send the force EOU and wait for the response
-            timestamp = await self.force_end_of_utterance()
-            self._emit_diagnostic_message(f"ForceEndOfUtterance sent - waiting for EndOfUtterance ({timestamp=})")
+            await self.force_end_of_utterance(self.audio_seconds_sent)
+            self._emit_diagnostic_message("ForceEndOfUtterance sent - waiting for EndOfUtterance")
 
             # Wait for the response
             await asyncio.wait_for(eou_received.wait(), timeout=timeout)
