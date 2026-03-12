@@ -6,6 +6,8 @@ from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
+from typing import Optional
+
 import pytest
 
 from speechmatics.batch import AsyncClient
@@ -29,7 +31,7 @@ def _job_response(job_id: str = "job-123") -> dict:
 # ---------------------------------------------------------------------------
 
 
-def _captured_extra_headers(mock_post: AsyncMock) -> dict | None:
+def _captured_extra_headers(mock_post: AsyncMock) -> Optional[dict]:
     """Return the extra_headers kwarg from the first call to transport.post."""
     _, kwargs = mock_post.call_args
     return kwargs.get("extra_headers")
