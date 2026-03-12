@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+import json as _json
 import sys
 import uuid
 from typing import Any
@@ -118,7 +119,7 @@ class Transport:
         json_data: Optional[dict[str, Any]] = None,
         multipart_data: Optional[dict[str, Any]] = None,
         timeout: Optional[float] = None,
-        extra_headers: Optional[dict[str, dict[str, int]]] = None,
+        extra_headers: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """
         Send POST request to the API.
@@ -211,7 +212,7 @@ class Transport:
         json_data: Optional[dict[str, Any]] = None,
         multipart_data: Optional[dict[str, Any]] = None,
         timeout: Optional[float] = None,
-        extra_headers: Optional[dict[str, dict[str, int]]] = None,
+        extra_headers: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """
         Send HTTP request to the API.
@@ -240,7 +241,8 @@ class Transport:
         url = f"{self._url.rstrip('/')}{path}"
         headers = await self._prepare_headers()
         if extra_headers:
-            headers.update(extra_headers)
+            for k, v in extra_headers.items():
+                headers[k] = _json.dumps(v) if isinstance(v, dict) else v
 
         self._logger.debug(
             "Sending HTTP request %s %s (json=%s, multipart=%s)",

@@ -541,7 +541,7 @@ class AsyncClient:
         self, multipart_data: dict, filename: str, config: JobConfig, requested_parallel: Optional[int] = None
     ) -> JobDetails:
         """Submit job and create JobDetails response."""
-        extra_headers: Optional[dict[str, dict[str, int]]] = None
+        extra_headers: Optional[dict[str, Any]] = None
         if requested_parallel is not None:
             extra_headers = {PROCESSING_DATA_HEADER: {"requested_parallel": requested_parallel}}
         response = await self._transport.post("/jobs", multipart_data=multipart_data, extra_headers=extra_headers)
