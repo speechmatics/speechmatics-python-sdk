@@ -440,6 +440,7 @@ class AsyncClient:
         transcription_config: Optional[TranscriptionConfig] = None,
         polling_interval: float = 5.0,
         timeout: Optional[float] = None,
+        requested_parallel: Optional[int] = None,
     ) -> Union[Transcript, str]:
         """
         Complete transcription workflow: submit job and wait for completion.
@@ -453,6 +454,9 @@ class AsyncClient:
             transcription_config: Transcription-specific configuration.
             polling_interval: Time in seconds between status checks.
             timeout: Maximum time in seconds to wait for completion.
+            requested_parallel: Optional number of parallel engines to request for this job.
+                               Sent as ``{"requested_parallel": N}`` in the ``X-SM-Processing-Data`` header.
+                               This only applies when using the container onPrem on http batch mode.
 
         Returns:
             Transcript object containing the transcript and metadata.
@@ -480,6 +484,7 @@ class AsyncClient:
             audio_file,
             config=config,
             transcription_config=transcription_config,
+            requested_parallel=requested_parallel,
         )
 
         # Wait for completion and return result
