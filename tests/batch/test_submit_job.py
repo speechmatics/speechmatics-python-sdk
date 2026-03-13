@@ -1,4 +1,4 @@
-"""Unit tests for AsyncClient.submit_job, focusing on the requested_parallel feature."""
+"""Unit tests for AsyncClient.submit_job, focusing on the requested_parallel and user_id features."""
 
 import json
 from io import BytesIO
@@ -125,6 +125,90 @@ class TestRequestedParallelHeader:
         assert extra_headers is not None
         payload = extra_headers[PROCESSING_DATA_HEADER]
         assert payload == {"requested_parallel": 2}
+
+
+class TestUserIdHeader:
+    """X-SM-Processing-Data header is set correctly based on user_id."""
+
+    @pytest.mark.asyncio
+    async def test_header_sent_when_user_id_provided(self):
+        client = _make_client()
+        audio = BytesIO(b"fake-audio")
+
+        with patch.object(client._transport, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = _job_response()
+            await client.submit_job(audio, user_id="user-abc")
+
+        extra_headers = _captured_extra_headers(mock_post)
+        assert extra_headers is not None
+        assert PROCESSING_DATA_HEADER in extra_headers
+        payload = extra_headers[PROCESSING_DATA_HEADER]
+        assert payload == {"user_id": "user-abc"}
+
+    @pytest.mark.asyncio
+    async def test_header_not_sent_when_user_id_is_none(self):
+        client = _make_client()
+        audio = BytesIO(b"fake-audio")
+
+        with patch.object(client._transport, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = _job_response()
+            await client.submit_job(audio)
+
+        extra_headers = _captured_extra_headers(mock_post)
+        assert extra_headers is None
+
+    @pytest.mark.asyncio
+    async def test_user_id_and_requested_parallel_sent_together(self):
+        client = _make_client()
+        audio = BytesIO(b"fake-audio")
+
+        with patch.object(client._transport, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = _job_response()
+            await client.submit_job(audio, requested_parallel=4, user_id="user-xyz")
+
+        extra_headers = _captured_extra_headers(mock_post)
+        assert extra_headers is not None
+        payload = extra_headers[PROCESSING_DATA_HEADER]
+        assert payload == {"requested_parallel": 4, "user_id": "user-xyz"}
+
+    @pytest.mark.asyncio
+    async def test_user_id_does_not_appear_when_only_requested_parallel_set(self):
+        client = _make_client()
+        audio = BytesIO(b"fake-audio")
+
+        with patch.object(client._transport, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = _job_response()
+            await client.submit_job(audio, requested_parallel=2)
+
+        payload = _captured_extra_headers(mock_post)[PROCESSING_DATA_HEADER]
+        assert "user_id" not in payload
+
+    @pytest.mark.asyncio
+    async def test_requested_parallel_does_not_appear_when_only_user_id_set(self):
+        client = _make_client()
+        audio = BytesIO(b"fake-audio")
+
+        with patch.object(client._transport, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = _job_response()
+            await client.submit_job(audio, user_id="u1")
+
+        payload = _captured_extra_headers(mock_post)[PROCESSING_DATA_HEADER]
+        assert "requested_parallel" not in payload
+
+    @pytest.mark.asyncio
+    async def test_user_id_forwarded_from_transcribe(self):
+        client = _make_client()
+        audio = BytesIO(b"fake-audio")
+
+        with patch.object(client._transport, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = _job_response()
+            with patch.object(client, "wait_for_completion", new_callable=AsyncMock) as mock_wait:
+                mock_wait.return_value = MagicMock()
+                await client.transcribe(audio, user_id="transcribe-user")
+
+        extra_headers = _captured_extra_headers(mock_post)
+        assert extra_headers is not None
+        assert extra_headers[PROCESSING_DATA_HEADER]["user_id"] == "transcribe-user"
 
 
 class TestSubmitJobReturnValue:
