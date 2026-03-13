@@ -31,6 +31,7 @@ from ._models import JobStatus
 from ._models import JobType
 from ._models import Transcript
 from ._models import TranscriptionConfig
+from ._transport import PROCESSING_DATA_HEADER
 from ._transport import Transport
 
 
@@ -139,6 +140,8 @@ class AsyncClient:
         *,
         config: Optional[JobConfig] = None,
         transcription_config: Optional[TranscriptionConfig] = None,
+        requested_parallel: Optional[int] = None,
+        user_id: Optional[str] = None,
     ) -> JobDetails:
         """
         Submit a new transcription job.
@@ -154,6 +157,12 @@ class AsyncClient:
                    to build a basic job configuration.
             transcription_config: Transcription-specific configuration. Used if config
                                 is not provided.
+            requested_parallel: Optional number of parallel engines to request for this job.
+                               Sent as ``{"requested_parallel": N}`` in the ``X-SM-Processing-Data`` header.
+                               This only applies when using the container onPrem on http batch mode.
+            user_id: Optional user identifier to associate with this job.
+                    Sent as ``{"user_id": "..."}`` in the ``X-SM-Processing-Data`` header.
+                    This only applies when using the container onPrem on http batch mode.
 
         Returns:
             JobDetails object containing the job ID and initial status.
@@ -200,7 +209,7 @@ class AsyncClient:
                 assert audio_file is not None  # for type checker; validated above
                 multipart_data, filename = await self._prepare_file_submission(audio_file, config_dict)
 
-            return await self._submit_and_create_job_details(multipart_data, filename, config)
+            return await self._submit_and_create_job_details(multipart_data, filename, config, requested_parallel, user_id)
         except Exception as e:
             if isinstance(e, (AuthenticationError, BatchError)):
                 raise
@@ -435,6 +444,8 @@ class AsyncClient:
         transcription_config: Optional[TranscriptionConfig] = None,
         polling_interval: float = 5.0,
         timeout: Optional[float] = None,
+        requested_parallel: Optional[int] = None,
+        user_id: Optional[str] = None,
     ) -> Union[Transcript, str]:
         """
         Complete transcription workflow: submit job and wait for completion.
@@ -448,6 +459,12 @@ class AsyncClient:
             transcription_config: Transcription-specific configuration.
             polling_interval: Time in seconds between status checks.
             timeout: Maximum time in seconds to wait for completion.
+            requested_parallel: Optional number of parallel engines to request for this job.
+                               Sent as ``{"requested_parallel": N}`` in the ``X-SM-Processing-Data`` header.
+                               This only applies when using the container onPrem on http batch mode.
+            user_id: Optional user identifier to associate with this job.
+                    Sent as ``{"user_id": "..."}`` in the ``X-SM-Processing-Data`` header.
+                    This only applies when using the container onPrem on http batch mode.
 
         Returns:
             Transcript object containing the transcript and metadata.
@@ -475,6 +492,8 @@ class AsyncClient:
             audio_file,
             config=config,
             transcription_config=transcription_config,
+            requested_parallel=requested_parallel,
+            user_id=user_id,
         )
 
         # Wait for completion and return result
@@ -528,10 +547,23 @@ class AsyncClient:
             return multipart_data, filename
 
     async def _submit_and_create_job_details(
-        self, multipart_data: dict, filename: str, config: JobConfig
+        self,
+        multipart_data: dict,
+        filename: str,
+        config: JobConfig,
+        requested_parallel: Optional[int] = None,
+        user_id: Optional[str] = None,
     ) -> JobDetails:
         """Submit job and create JobDetails response."""
-        response = await self._transport.post("/jobs", multipart_data=multipart_data)
+        extra_headers: Optional[dict[str, Any]] = None
+        processing_data: dict[str, Any] = {}
+        if requested_parallel is not None:
+            processing_data["requested_parallel"] = requested_parallel
+        if user_id is not None:
+            processing_data["user_id"] = user_id
+        if processing_data:
+            extra_headers = {PROCESSING_DATA_HEADER: processing_data}
+        response = await self._transport.post("/jobs", multipart_data=multipart_data, extra_headers=extra_headers)
         job_id = response.get("id")
         if not job_id:
             raise BatchError("No job ID returned from server")
