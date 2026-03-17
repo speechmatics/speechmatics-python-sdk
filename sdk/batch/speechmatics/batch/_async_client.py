@@ -140,7 +140,7 @@ class AsyncClient:
         *,
         config: Optional[JobConfig] = None,
         transcription_config: Optional[TranscriptionConfig] = None,
-        requested_parallel: Optional[int] = None,
+        parallel_engines: Optional[int] = None,
     ) -> JobDetails:
         """
         Submit a new transcription job.
@@ -156,8 +156,8 @@ class AsyncClient:
                    to build a basic job configuration.
             transcription_config: Transcription-specific configuration. Used if config
                                 is not provided.
-            requested_parallel: Optional number of parallel engines to request for this job.
-                               Sent as ``{"requested_parallel": N}`` in the ``X-SM-Processing-Data`` header.
+            parallel_engines: Optional number of parallel engines to request for this job.
+                               Sent as ``{"parallel_engines": N}`` in the ``X-SM-Processing-Data`` header.
                                This only applies when using the container onPrem on http batch mode.
 
         Returns:
@@ -205,7 +205,7 @@ class AsyncClient:
                 assert audio_file is not None  # for type checker; validated above
                 multipart_data, filename = await self._prepare_file_submission(audio_file, config_dict)
 
-            return await self._submit_and_create_job_details(multipart_data, filename, config, requested_parallel)
+            return await self._submit_and_create_job_details(multipart_data, filename, config, parallel_engines)
         except Exception as e:
             if isinstance(e, (AuthenticationError, BatchError)):
                 raise
@@ -440,7 +440,7 @@ class AsyncClient:
         transcription_config: Optional[TranscriptionConfig] = None,
         polling_interval: float = 5.0,
         timeout: Optional[float] = None,
-        requested_parallel: Optional[int] = None,
+        parallel_engines: Optional[int] = None,
     ) -> Union[Transcript, str]:
         """
         Complete transcription workflow: submit job and wait for completion.
@@ -454,8 +454,8 @@ class AsyncClient:
             transcription_config: Transcription-specific configuration.
             polling_interval: Time in seconds between status checks.
             timeout: Maximum time in seconds to wait for completion.
-            requested_parallel: Optional number of parallel engines to request for this job.
-                               Sent as ``{"requested_parallel": N}`` in the ``X-SM-Processing-Data`` header.
+            parallel_engines: Optional number of parallel engines to request for this job.
+                               Sent as ``{"parallel_engines": N}`` in the ``X-SM-Processing-Data`` header.
                                This only applies when using the container onPrem on http batch mode.
 
         Returns:
@@ -484,7 +484,7 @@ class AsyncClient:
             audio_file,
             config=config,
             transcription_config=transcription_config,
-            requested_parallel=requested_parallel,
+            parallel_engines=parallel_engines,
         )
 
         # Wait for completion and return result
@@ -538,12 +538,12 @@ class AsyncClient:
             return multipart_data, filename
 
     async def _submit_and_create_job_details(
-        self, multipart_data: dict, filename: str, config: JobConfig, requested_parallel: Optional[int] = None
+        self, multipart_data: dict, filename: str, config: JobConfig, parallel_engines: Optional[int] = None
     ) -> JobDetails:
         """Submit job and create JobDetails response."""
         extra_headers: Optional[dict[str, Any]] = None
-        if requested_parallel is not None:
-            extra_headers = {PROCESSING_DATA_HEADER: {"requested_parallel": requested_parallel}}
+        if parallel_engines is not None:
+            extra_headers = {PROCESSING_DATA_HEADER: {"parallel_engines": parallel_engines}}
         response = await self._transport.post("/jobs", multipart_data=multipart_data, extra_headers=extra_headers)
         job_id = response.get("id")
         if not job_id:

@@ -1,4 +1,4 @@
-"""Unit tests for AsyncClient.submit_job, focusing on the requested_parallel feature."""
+"""Unit tests for AsyncClient.submit_job, focusing on the parallel_engines feature."""
 
 import json
 from io import BytesIO
@@ -43,25 +43,25 @@ def _captured_extra_headers(mock_post: AsyncMock) -> Optional[dict]:
 
 
 class TestRequestedParallelHeader:
-    """X-SM-Processing-Data header is set correctly based on requested_parallel."""
+    """X-SM-Processing-Data header is set correctly based on parallel_engines."""
 
     @pytest.mark.asyncio
-    async def test_header_sent_when_requested_parallel_provided(self):
+    async def test_header_sent_when_parallel_engines_provided(self):
         client = _make_client()
         audio = BytesIO(b"fake-audio")
 
         with patch.object(client._transport, "post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = _job_response()
-            await client.submit_job(audio, requested_parallel=4)
+            await client.submit_job(audio, parallel_engines=4)
 
         extra_headers = _captured_extra_headers(mock_post)
         assert extra_headers is not None
         assert PROCESSING_DATA_HEADER in extra_headers
         payload = extra_headers[PROCESSING_DATA_HEADER]
-        assert payload == {"requested_parallel": 4}
+        assert payload == {"parallel_engines": 4}
 
     @pytest.mark.asyncio
-    async def test_header_not_sent_when_requested_parallel_is_none(self):
+    async def test_header_not_sent_when_parallel_engines_is_none(self):
         client = _make_client()
         audio = BytesIO(b"fake-audio")
 
@@ -79,31 +79,31 @@ class TestRequestedParallelHeader:
 
         with patch.object(client._transport, "post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = _job_response()
-            await client.submit_job(audio, requested_parallel=8)
+            await client.submit_job(audio, parallel_engines=8)
 
         extra_headers = _captured_extra_headers(mock_post)
         # Must be parseable JSON
         assert extra_headers is not None
         parsed = extra_headers[PROCESSING_DATA_HEADER]
-        assert parsed["requested_parallel"] == 8
+        assert parsed["parallel_engines"] == 8
 
     @pytest.mark.asyncio
-    async def test_requested_parallel_one(self):
+    async def test_parallel_engines_one(self):
         client = _make_client()
         audio = BytesIO(b"fake-audio")
 
         with patch.object(client._transport, "post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = _job_response()
-            await client.submit_job(audio, requested_parallel=1)
+            await client.submit_job(audio, parallel_engines=1)
 
         extra_headers = _captured_extra_headers(mock_post)
         assert extra_headers is not None
         payload = extra_headers[PROCESSING_DATA_HEADER]
-        assert payload["requested_parallel"] == 1
+        assert payload["parallel_engines"] == 1
 
     @pytest.mark.asyncio
     async def test_header_sent_with_fetch_data_config(self):
-        """requested_parallel works with fetch_data submissions too."""
+        """parallel_engines works with fetch_data submissions too."""
         client = _make_client()
         config = JobConfig(
             type=JobType.TRANSCRIPTION,
@@ -119,16 +119,16 @@ class TestRequestedParallelHeader:
         with patch.object(config, "to_dict", return_value=config_dict):
             with patch.object(client._transport, "post", new_callable=AsyncMock) as mock_post:
                 mock_post.return_value = _job_response()
-                await client.submit_job(None, config=config, requested_parallel=2)
+                await client.submit_job(None, config=config, parallel_engines=2)
 
         extra_headers = _captured_extra_headers(mock_post)
         assert extra_headers is not None
         payload = extra_headers[PROCESSING_DATA_HEADER]
-        assert payload == {"requested_parallel": 2}
+        assert payload == {"parallel_engines": 2}
 
 
 class TestSubmitJobReturnValue:
-    """submit_job still returns the correct JobDetails regardless of requested_parallel."""
+    """submit_job still returns the correct JobDetails regardless of parallel_engines."""
 
     @pytest.mark.asyncio
     async def test_returns_job_details_with_correct_id(self):
@@ -137,7 +137,7 @@ class TestSubmitJobReturnValue:
 
         with patch.object(client._transport, "post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = _job_response("abc-456")
-            job = await client.submit_job(audio, requested_parallel=3)
+            job = await client.submit_job(audio, parallel_engines=3)
 
         assert job.id == "abc-456"
         assert job.status == JobStatus.RUNNING
@@ -149,7 +149,7 @@ class TestSubmitJobReturnValue:
 
         with patch.object(client._transport, "post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = _job_response()
-            await client.submit_job(audio, requested_parallel=2)
+            await client.submit_job(audio, parallel_engines=2)
 
         args, _ = mock_post.call_args
         assert args[0] == "/jobs"
