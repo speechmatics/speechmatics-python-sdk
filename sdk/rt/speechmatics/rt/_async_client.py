@@ -21,6 +21,7 @@ from ._models import ServerMessageType
 from ._models import TranscriptionConfig
 from ._models import TranslationConfig
 
+_UNSET = object()
 
 class AsyncClient(_BaseClient):
     """
@@ -167,7 +168,7 @@ class AsyncClient(_BaseClient):
         await self._session_done_evt.wait()  # Wait for end of transcript event to indicate we can stop listening
         await self.close()
 
-    async def force_end_of_utterance(self, *, timestamp: Optional[float] = None) -> None:
+    async def force_end_of_utterance(self, *, timestamp=_UNSET) -> None:
         """
         This method sends a ForceEndOfUtterance message to the server to signal
         the end of an utterance. Forcing end of utterance will cause the final
@@ -193,10 +194,17 @@ class AsyncClient(_BaseClient):
                 ...     await client.force_end_of_utterance()
         """
 
-        if timestamp is None:
-            timestamp = self.audio_seconds_sent
+        message: dict[str,Any] = {"message": ClientMessageType.FORCE_END_OF_UTTERANCE}
 
-        await self.send_message({"message": ClientMessageType.FORCE_END_OF_UTTERANCE, "timestamp": timestamp})
+        if timestamp is _UNSET:
+            # default: auto-set from audio_seconds_sent
+            message["timestamp"] = self.audio_seconds_sent
+        elif timestamp is not None:
+            # user provided explicit value
+            message["timestamp"] = timestamp
+        # if timestamp is None: omit entirely
+
+        await self.send_message(message)
 
     @property
     def audio_seconds_sent(self) -> float:
