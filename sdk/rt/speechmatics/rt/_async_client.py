@@ -176,7 +176,8 @@ class AsyncClient(_BaseClient):
 
         Takes an optional timestamp parameter to specify a marker for the engine
         to use for timing of the end of the utterance. If not provided, the timestamp
-        will be calculated based on the cumulative audio sent to the server.
+        will be calculated based on the cumulative audio sent to the server. If the provided
+        timestamp is None, the ForceEndOfUtterance message will not include a timestamp.
         Args:
             timestamp: Optional timestamp for the request.
 
