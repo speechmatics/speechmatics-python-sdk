@@ -168,7 +168,7 @@ class AsyncClient(_BaseClient):
         await self._session_done_evt.wait()  # Wait for end of transcript event to indicate we can stop listening
         await self.close()
 
-    async def force_end_of_utterance(self, *, timestamp=_UNSET) -> None:
+    async def force_end_of_utterance(self, *, timestamp: Optional[float] | object = _UNSET) -> None:
         """
         This method sends a ForceEndOfUtterance message to the server to signal
         the end of an utterance. Forcing end of utterance will cause the final
