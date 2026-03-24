@@ -29,11 +29,14 @@ from ._models import SentimentAnalysisConfig
 from ._models import SummarizationConfig
 from ._models import TopicDetectionConfig
 from ._models import Transcript
+from ._models import TranscriptFilteringConfig
 from ._models import TranscriptionConfig
 from ._models import TranslationConfig
+from ._transport import PROCESSING_DATA_HEADER
 
 __all__ = [
     "AsyncClient",
+    "PROCESSING_DATA_HEADER",
     "AuthBase",
     "AuthenticationError",
     "AutoChaptersConfig",
@@ -54,6 +57,7 @@ __all__ = [
     "NotificationContents",
     "NotificationMethod",
     "OperatingPoint",
+    "OutputConfig",
     "SentimentAnalysisConfig",
     "StaticKeyAuth",
     "SummarizationConfig",
@@ -62,6 +66,6 @@ __all__ = [
     "Transcript",
     "TranscriptionConfig",
     "TranslationConfig",
-    "OutputConfig",
     "TransportError",
+    "TranscriptFilteringConfig",
 ]
