@@ -78,7 +78,12 @@ class SmartTurnDetector:
     Further information at https://github.com/pipecat-ai/smart-turn
     """
 
-    def __init__(self, auto_init: bool = True, threshold: float = 0.8):
+    # Constants
+    DEFAULT_SAMPLE_RATE = 16000
+    DEFAULT_THRESHOLD = 0.8
+    WINDOW_SECONDS = 8
+
+    def __init__(self, auto_init: bool = True, threshold: float = DEFAULT_THRESHOLD):
         """Create the new SmartTurnDetector.
 
         Args:
@@ -125,7 +130,7 @@ class SmartTurnDetector:
             self.session = self.build_session(SMART_TURN_MODEL_LOCAL_PATH)
 
             # Load the feature extractor
-            self.feature_extractor = WhisperFeatureExtractor(chunk_length=8)
+            self.feature_extractor = WhisperFeatureExtractor(chunk_length=self.WINDOW_SECONDS)
 
             # Set initialized
             self._is_initialized = True
@@ -156,15 +161,67 @@ class SmartTurnDetector:
         # Return the new session
         return ort.InferenceSession(onnx_path, sess_options=so)
 
+    def _prepare_audio(self, audio_array: bytes, sample_rate: int, sample_width: int) -> np.ndarray:
+        """Prepare the audio for inference.
+
+        Args:
+            audio_array: Raw PCM bytes at 16kHz. The function converts the audio into float32 and
+                truncate to WINDOW_SECONDS (keeping the end).
+            sample_rate: Sample rate of the audio.
+            sample_width: Sample width of the audio.
+
+        Returns:
+            Numpy array containing audio samples at DEFAULT_SAMPLE_RATE.
+        """
+        # Todo - fix support for other sample widths
+        # Convert into numpy array
+        dtype = np.int16 if sample_width == 2 else np.int8
+        int16_array: np.ndarray = np.frombuffer(audio_array, dtype=dtype).astype(np.int16)
+
+        # Truncate to last WINDOW_SECONDS seconds if needed (keep the tail/end of audio)
+        max_samples = self.WINDOW_SECONDS * sample_rate
+        if len(int16_array) > max_samples:
+            int16_array = int16_array[-max_samples:]
+
+        # Convert int16 to float32 in range [-1, 1] (same as reference implementation)
+        float32_array: np.ndarray = int16_array.astype(np.float32) / 32768.0
+
+        return float32_array
+
+    def _get_input_features(self, audio_data: np.ndarray, sample_rate: int) -> np.ndarray:
+        """
+        Get the input features for the audio data using Whisper's feature extractor.
+
+        Args:
+            audio_data: Numpy array containing audio samples.
+            sample_rate: Sample rate of the audio.
+        """
+
+        inputs = self.feature_extractor(
+            audio_data,
+            sampling_rate=sample_rate,
+            return_tensors="np",
+            padding="max_length",
+            max_length=self.WINDOW_SECONDS * sample_rate,
+            truncation=True,
+            do_normalize=True,
+        )
+
+        # Ensure dimensions are correct shape for ONNX
+        input_features = inputs.input_features.squeeze(0).astype(np.float32)
+        input_features = np.expand_dims(input_features, axis=0)
+
+        return input_features
+
     async def predict(
-        self, audio_array: bytes, language: str, sample_rate: int = 16000, sample_width: int = 2
+        self, audio_array: bytes, language: str, sample_rate: int = DEFAULT_SAMPLE_RATE, sample_width: int = 2
     ) -> SmartTurnPredictionResult:
         """Predict whether an audio segment is complete (turn ended) or incomplete.
 
         Args:
-            audio_array: Numpy array containing audio samples at 16kHz. The function
-                will convert the audio into float32 and truncate to 8 seconds (keeping the end)
-                or pad to 8 seconds.
+            audio_array: Numpy array containing audio samples at sample_rate. The function
+                will convert the audio into float32 and truncate to WINDOW_SECONDS seconds (keeping the end)
+                or pad to WINDOW_SECONDS seconds.
             language: Language of the audio.
             sample_rate: Sample rate of the audio.
             sample_width: Sample width of the audio.
@@ -184,55 +241,33 @@ class SmartTurnDetector:
         # Record start time
         start_time = datetime.datetime.now()
 
-        # Convert into numpy array
-        dtype = np.int16 if sample_width == 2 else np.int8
-        int16_array: np.ndarray = np.frombuffer(audio_array, dtype=dtype).astype(np.int16)
+        # Convert the audio into required format
+        prepared_audio = self._prepare_audio(audio_array, sample_rate, sample_width)
 
-        # Truncate to last 8 seconds if needed (keep the tail/end of audio)
-        max_samples = 8 * sample_rate
-        if len(int16_array) > max_samples:
-            int16_array = int16_array[-max_samples:]
+        # Feature extraction
+        input_features = self._get_input_features(prepared_audio, sample_rate)
 
-        # Convert int16 to float32 in range [-1, 1] (same as reference implementation)
-        float32_array: np.ndarray = int16_array.astype(np.float32) / 32768.0
-
-        # Process audio using Whisper's feature extractor
-        inputs = self.feature_extractor(
-            float32_array,
-            sampling_rate=sample_rate,
-            return_tensors="np",
-            padding="max_length",
-            max_length=max_samples,
-            truncation=True,
-            do_normalize=True,
-        )
-
-        # Extract features and ensure correct shape for ONNX
-        input_features = inputs.input_features.squeeze(0).astype(np.float32)
-        input_features = np.expand_dims(input_features, axis=0)
-
-        # Run ONNX inference
+        # Model inference
         outputs = self.session.run(None, {"input_features": input_features})
-
-        # Extract probability (ONNX model returns sigmoid probabilities)
         probability = outputs[0][0].item()
 
         # Make prediction (True for Complete, False for Incomplete)
         prediction = probability >= self._threshold
 
-        # Record end time
+        # Result Formatting
         end_time = datetime.datetime.now()
+        duration = float((end_time - start_time).total_seconds())
 
         # Return the result
         return SmartTurnPredictionResult(
             prediction=prediction,
             probability=round(probability, 3),
-            processing_time=round(float((end_time - start_time).total_seconds()), 3),
+            processing_time=round(duration, 3),
         )
 
     @staticmethod
     def truncate_audio_to_last_n_seconds(
-        audio_array: np.ndarray, n_seconds: float = 8.0, sample_rate: int = 16000
+        audio_array: np.ndarray, n_seconds: float = WINDOW_SECONDS, sample_rate: int = DEFAULT_SAMPLE_RATE
     ) -> np.ndarray:
         """Truncate audio to last n seconds or pad with zeros to meet n seconds.
 
@@ -270,7 +305,7 @@ class SmartTurnDetector:
         If not, it will download the model from HuggingFace.
         """
 
-        # Check if model file exists
+        # Check if model file already exists
         if SmartTurnDetector.model_exists():
             return
 
@@ -300,7 +335,8 @@ class SmartTurnDetector:
 
     @staticmethod
     def valid_language(language: str) -> bool:
-        """Check if the language is valid.
+        """Check if the language is valid against list of supported languages
+        for the Pipecat model.
 
         Args:
             language: Language code to validate.

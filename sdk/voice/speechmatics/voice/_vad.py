@@ -82,12 +82,13 @@ class SileroVAD:
         silence_duration: float = 0.1,
         on_state_change: Optional[Callable[[SileroVADResult], None]] = None,
     ):
-        """Create the new SileroVAD.
+        """
+        Create the new SileroVAD.
 
         Args:
             auto_init: Whether to automatically initialise the detector.
             threshold: Probability threshold for speech detection (0.0-1.0).
-            silence_duration: Duration of consecutive silence (in ms) before considering speech ended.
+            silence_duration: Duration of consecutive silence before considering speech ended in seconds.
             on_state_change: Optional callback invoked when VAD state changes (speech <-> silence).
         """
 
@@ -189,18 +190,18 @@ class SileroVAD:
             self._last_reset_time = time.time()
 
     def process_chunk(self, chunk_f32: np.ndarray) -> float:
-        """Process a single 512-sample chunk and return speech probability.
+        """Process a single SILERO_CHUNK_SIZE-sample chunk and return speech probability.
 
         Args:
-            chunk_f32: Float32 numpy array of exactly 512 samples.
+            chunk_f32: Float32 numpy array of exactly SILERO_CHUNK_SIZE samples.
 
         Returns:
             Speech probability (0.0-1.0).
 
         Raises:
-            ValueError: If chunk is not exactly 512 samples.
+            ValueError: If chunk is not exactly SILERO_CHUNK_SIZE samples.
         """
-        # Ensure shape (1, 512)
+        # Ensure shape (1, SILERO_CHUNK_SIZE)
         x = np.reshape(chunk_f32, (1, -1))
         if x.shape[1] != SILERO_CHUNK_SIZE:
             raise ValueError(f"Expected {SILERO_CHUNK_SIZE} samples, got {x.shape[1]}")
@@ -226,86 +227,167 @@ class SileroVAD:
         # Return probability (out shape is (1, 1))
         return float(out[0][0])
 
-    async def process_audio(self, audio_bytes: bytes, sample_rate: int = 16000, sample_width: int = 2) -> None:
-        """Process incoming audio bytes and invoke callback on state changes.
-
-        This method buffers incomplete chunks and processes all complete 512-sample chunks.
-        The callback is invoked only once at the end if the VAD state changed during processing.
+    def _validate_input(self, sample_rate: int) -> bool:
+        """
+        Ensures the VAD is ready and the incoming audio format
+        matches the model's requirements.
 
         Args:
-            audio_bytes: Raw audio bytes (int16 PCM).
-            sample_rate: Sample rate of the audio (must be 16000).
-            sample_width: Sample width in bytes (2 for int16).
-        """
+            sample_rate: Sample rate of the incoming audio.
 
+        Returns:
+            True if the VAD is ready and the incoming sample rate matches the model's requirements.
+        """
         if not self._is_initialized:
             logger.error("SileroVAD is not initialized")
-            return
+            return False
 
         if sample_rate != SILERO_SAMPLE_RATE:
             logger.error(f"Sample rate must be {SILERO_SAMPLE_RATE}Hz, got {sample_rate}Hz")
-            return
+            return False
 
-        # Add new bytes to buffer
-        self._audio_buffer += audio_bytes
+        return True
 
-        # Calculate bytes per chunk (512 samples * 2 bytes for int16)
+    def _get_audio_chunks(self, sample_width: int):
+        """
+        A generator that yields complete SILERO_CHUNK_SIZE-sample chunks from the buffer.
+        Incomplete data remains in the buffer for the next call.
+
+        Args:
+            sample_width: Sample width of the incoming audio.
+
+        Yields:
+            Complete SILERO_CHUNK_SIZE-sample chunks from the buffer.
+        """
+        # Calculate bytes needed for a full model window
         bytes_per_chunk = SILERO_CHUNK_SIZE * sample_width
 
-        # Process all complete chunks in buffer
         while len(self._audio_buffer) >= bytes_per_chunk:
-            # Extract one chunk
-            chunk_bytes = self._audio_buffer[:bytes_per_chunk]
+            # Extract the chunk from the front of the buffer
+            chunk = self._audio_buffer[:bytes_per_chunk]
             self._audio_buffer = self._audio_buffer[bytes_per_chunk:]
 
-            # Convert bytes to int16 array
-            dtype = np.int16 if sample_width == 2 else np.int8
-            int16_array: np.ndarray = np.frombuffer(chunk_bytes, dtype=dtype).astype(np.int16)
+            yield chunk
 
-            # Convert int16 to float32 in range [-1, 1]
-            float32_array: np.ndarray = int16_array.astype(np.float32) / 32768.0
+    def _prepare_chunk(self, chunk_bytes: bytes, sample_width: int) -> np.ndarray:
+        """
+        Translates raw PCM bytes into a normalised float32 array in the range [-1, 1],
+        compatible with the Silero VAD model.
+
+        Args:
+            chunk_bytes: Audio bytes to be processed.
+            sample_width: Sample width of the incoming audio.
+
+        Returns:
+            Normalised float32 array in the range [-1, 1].
+        """
+        if sample_width == 2:
+            dtype = np.int16
+            divisor = 32768.0
+        # Todo - establish supported sample widths
+        else:
+            raise ValueError(f"Unsupported sample_width {sample_width}")
+
+        # Decode and normalize the chunk data
+        int_array = np.frombuffer(chunk_bytes, dtype=dtype)
+        float32_array: np.ndarray = int_array.astype(np.float32) / divisor
+
+        # Clip to avoid overflow
+        float32_array = np.clip(float32_array, -1.0, 1.0)
+
+        return float32_array
+
+    def _evaluate_activity_change(self) -> None:
+        """
+        Analyzes the prediction window of probabilities to determine if the user has started
+        or stopped speaking. If the state has changed, emit a VADStatusMessage.
+
+        Returns:
+            None
+        """
+        if len(self._prediction_window) == 0:
+            return
+
+        # Calculate weighted average (most recent predictions have higher weight)
+        probs = list(self._prediction_window)
+        weights = np.arange(1, len(probs) + 1, dtype=np.float32)
+        weighted_avg = np.average(probs, weights=weights)
+
+        # Determine speech state from weighted average
+        is_speech = bool(weighted_avg >= self._threshold)
+
+        # Check if state changed
+        state_changed = self._last_is_speech != is_speech
+
+        if not state_changed:
+            # No change, exit early
+            return
+
+        # Trigger callback function for state change
+        if self._on_state_change:
+            self._trigger_on_state_change(is_speech, weighted_avg)
+
+        # Update state
+        self._last_is_speech = is_speech
+
+    def _trigger_on_state_change(self, is_speech: bool, probability: float) -> None:
+        """
+        Constructs the result object and executes the on_state_change callback
+        function.
+
+        Args:
+            is_speech: True if speech is detected, False otherwise.
+            probability: Speech probability (0.0-1.0).
+        """
+        # Calculate how many milliseconds of audio the window represents
+        duration_ms = len(self._prediction_window) * SILERO_CHUNK_DURATION_MS
+
+        # Determine if speech has ended
+        speech_ended = self._last_is_speech and not is_speech
+
+        # Create VAD result
+        result = SileroVADResult(
+            is_speech=is_speech,
+            probability=round(float(probability), 3),
+            transition_duration_ms=duration_ms,
+            speech_ended=speech_ended,
+        )
+
+        # Trigger callback with result
+        self._on_state_change(result)
+
+    async def process_audio(
+        self, audio_bytes: bytes, sample_rate: int = SILERO_SAMPLE_RATE, sample_width: int = 2
+    ) -> None:
+        """Process incoming audio bytes and invoke callback on state changes.
+
+        This method buffers incomplete chunks and processes all complete SILERO_CHUNK_SIZE-sample chunks.
+        The callback is invoked only once at the end if the VAD state changed during processing.
+
+        Args:
+            audio_bytes: Raw audio bytes.
+            sample_rate: Sample rate of the audio (must be SILERO_SAMPLE_RATE).
+            sample_width: Sample width in bytes (2 for int16).
+        """
+        if not self._validate_input(sample_rate):
+            return
+
+        # Add new bytes to the buffer
+        self._audio_buffer += audio_bytes
+
+        # Process all complete chunks in the buffer
+        for chunk in self._get_audio_chunks(sample_width):
+            audio_f32 = self._prepare_chunk(chunk, sample_width)
 
             try:
-                # Process the chunk and add probability to rolling window
-                probability = self.process_chunk(float32_array)
+                probability = self.process_chunk(audio_f32)
                 self._prediction_window.append(probability)
-
             except Exception as e:
                 logger.error(f"Error processing VAD chunk: {e}")
+                continue
 
-        # After processing all chunks, calculate weighted average from window
-        if len(self._prediction_window) > 0:
-            # Calculate weighted average (most recent predictions have higher weight)
-            weights = np.arange(1, len(self._prediction_window) + 1, dtype=np.float32)
-            weighted_avg = np.average(list(self._prediction_window), weights=weights)
-
-            # Determine speech state from weighted average
-            is_speech = bool(weighted_avg >= self._threshold)
-
-            # Check if state changed
-            state_changed = self._last_is_speech != is_speech
-
-            # Emit callback if state changed
-            if state_changed and self._on_state_change:
-                # Calculate transition duration (window duration)
-                transition_duration = len(self._prediction_window) * SILERO_CHUNK_DURATION_MS
-
-                # Determine if speech ended
-                speech_ended = self._last_is_speech and not is_speech
-
-                # VAD result
-                result = SileroVADResult(
-                    is_speech=is_speech,
-                    probability=round(float(weighted_avg), 3),
-                    transition_duration_ms=transition_duration,
-                    speech_ended=speech_ended,
-                )
-
-                # Trigger callback
-                self._on_state_change(result)
-
-            # Update state after emitting
-            self._last_is_speech = is_speech
+        # Check if VAD state has changed
+        self._evaluate_activity_change()
 
     def reset(self) -> None:
         """Reset the VAD state and clear audio buffer."""

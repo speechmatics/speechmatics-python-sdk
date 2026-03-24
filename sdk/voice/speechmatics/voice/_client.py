@@ -355,6 +355,7 @@ class VoiceAgentClient(AsyncClient):
 
         # Audio sampling info
         self._audio_sample_rate: int = self._audio_format.sample_rate
+        # Todo - establish supported sample_width values
         self._audio_sample_width: int = {
             AudioEncoding.PCM_F32LE: 4,
             AudioEncoding.PCM_S16LE: 2,
