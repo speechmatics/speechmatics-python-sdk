@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from ._models import EndOfTurnConfig
 from ._models import EndOfUtteranceMode
 from ._models import OperatingPoint
 from ._models import SmartTurnConfig
@@ -56,6 +57,7 @@ class VoiceAgentConfigPreset:
                 end_of_utterance_silence_trigger=0.5,
                 end_of_utterance_mode=EndOfUtteranceMode.FIXED,
                 speech_segment_config=SpeechSegmentConfig(emit_sentences=False),
+                end_of_turn_config=EndOfTurnConfig(penalties=[]),
             ),
             overlay,
         )

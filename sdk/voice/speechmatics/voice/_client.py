@@ -330,6 +330,10 @@ class VoiceAgentClient(AsyncClient):
             EndOfUtteranceMode.EXTERNAL,
         ]
 
+        # Time slip for Forced End Of Utterance
+        self._feou_chunk_s: float = 0.360
+        self._feou_padding_s: float = 0.0
+
         # -------------------------------------
         # Diarization / Speakers
         # -------------------------------------
@@ -1072,7 +1076,7 @@ class VoiceAgentClient(AsyncClient):
 
             # Metadata
             metadata = message.get("metadata", {})
-            payload_end_time = metadata.get("end_time", 0)
+            payload_end_time = self._calc_adjusted_time(metadata.get("end_time", 0))
 
             # Iterate over the results in the payload
             for result in message.get("results", []):
@@ -1081,8 +1085,8 @@ class VoiceAgentClient(AsyncClient):
                     # Create the new fragment
                     fragment = SpeechFragment(
                         idx=self._next_fragment_id(),
-                        start_time=result.get("start_time", 0),
-                        end_time=result.get("end_time", 0),
+                        start_time=self._calc_adjusted_time(result.get("start_time", 0)),
+                        end_time=self._calc_adjusted_time(result.get("end_time", 0)),
                         language=alt.get("language", "en"),
                         direction=alt.get("direction", "ltr"),
                         type_=result.get("type", "word"),
@@ -1687,7 +1691,8 @@ class VoiceAgentClient(AsyncClient):
             self._forced_eou_active = True
 
             # Send the force EOU and wait for the response
-            timestamp = await self.force_end_of_utterance()
+            timestamp = await self._calc_force_end_of_utterance()
+            await self.force_end_of_utterance(timestamp=timestamp)
             self._emit_diagnostic_message(f"ForceEndOfUtterance sent - waiting for EndOfUtterance ({timestamp=})")
 
             # Wait for the response
@@ -1701,6 +1706,38 @@ class VoiceAgentClient(AsyncClient):
             pass
         finally:
             self._forced_eou_active = False
+
+    async def _calc_force_end_of_utterance(self) -> float:
+        """Force the end of the current utterance."""
+
+        # Seconds sent
+        timestamp: float = float(self._audio_bytes_sent) / (
+            self._audio_format.sample_rate * self._audio_format.bytes_per_sample
+        )
+
+        # Add padding for transcriber chunk size
+        padding: float = self._feou_chunk_s - (timestamp % self._feou_chunk_s)
+        self._feou_padding_s += padding
+
+        # Send silence
+        padding_silence = b"\x00" * int(padding * self._audio_format.sample_rate * self._audio_format.bytes_per_sample)
+        await self.send_audio(padding_silence)
+
+        # Return the time
+        return timestamp + padding
+
+    def _calc_adjusted_time(self, timestamp: float) -> float:
+        """Calculate the adjusted timestamp.
+
+        As forced end of utterance is used, the time needs to get padded to fill the chunk size processed
+        by the engine. This needs to be kept track of and removed from timestamps that are returned within
+        the conversation.
+        """
+
+        if not self._use_forced_eou:
+            return timestamp
+
+        return round(timestamp - self._feou_padding_s, 4)
 
     # ============================================================================
     # VAD (VOICE ACTIVITY DETECTION) / SPEAKER DETECTION
