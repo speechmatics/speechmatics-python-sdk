@@ -16,6 +16,13 @@ from ._models import SpeakerSegment
 from ._models import SpeakerSegmentView
 from ._models import SpeechFragment
 
+# Constants
+PAUSE_MIN_GAP_S = 0.1  # minimum gap in seconds to consider a pause
+WPM_RECENT_WORD_WINDOW = 10  # number of recent words to estimate WPM from
+WPM_VERY_SLOW_MAX = 80  # wpm < 80 => VERY_SLOW_SPEAKER
+WPM_SLOW_MAX = 110  # 80 <= wpm < 110 => SLOW_SPEAKER
+WPM_FAST_MIN = 250  # wpm > 250 => FAST_SPEAKER
+
 
 class FragmentUtils:
     """Set of utility functions for working with SpeechFragment and SpeakerSegment objects."""
@@ -110,7 +117,7 @@ class FragmentUtils:
                     speaker_groups.append([])
             speaker_groups[-1].append(frag)
 
-        # Create SpeakerFragments objects
+        # Create SpeakerSegment objects
         segments: list[SpeakerSegment] = []
         for group in speaker_groups:
             # Skip if the group is empty
@@ -143,7 +150,7 @@ class FragmentUtils:
                     FragmentUtils.update_segment_text(session=session, segment=segment)
                     segments.append(segment)
 
-        # Return the grouped SpeakerFragments objects
+        # Return the grouped SpeakerSegment objects
         return segments
 
     @staticmethod
@@ -288,17 +295,18 @@ class FragmentUtils:
         # Rate of speech
         if len(words) > 1:
             # Calculate the approximate words-per-minute (for last few words)
-            recent_words = words[-10:]
+            recent_words = words[-WPM_RECENT_WORD_WINDOW:]
             word_time_span = recent_words[-1].end_time - recent_words[0].start_time
-            wpm = (len(recent_words) / word_time_span) * 60
+            if word_time_span != 0:
+                wpm = (len(recent_words) / word_time_span) * 60
 
-            # Categorize the speaker
-            if wpm < 80:
-                result.add(AnnotationFlags.VERY_SLOW_SPEAKER)
-            elif wpm < 110:
-                result.add(AnnotationFlags.SLOW_SPEAKER)
-            elif wpm > 250:
-                result.add(AnnotationFlags.FAST_SPEAKER)
+                # Categorize the speaker
+                if wpm < WPM_VERY_SLOW_MAX:
+                    result.add(AnnotationFlags.VERY_SLOW_SPEAKER)
+                elif wpm < WPM_SLOW_MAX:
+                    result.add(AnnotationFlags.SLOW_SPEAKER)
+                elif wpm > WPM_FAST_MIN:
+                    result.add(AnnotationFlags.FAST_SPEAKER)
 
         # Return the annotation result
         return result
@@ -400,7 +408,7 @@ class FragmentUtils:
                 next_word = words[i + 1]
                 gap_start = word.end_time
                 gap_end = next_word.start_time
-                if gap_end - gap_start > 0.1:
+                if gap_end - gap_start > PAUSE_MIN_GAP_S:
                     segment.fragments.append(
                         SpeechFragment(
                             idx=word.idx + 1,
