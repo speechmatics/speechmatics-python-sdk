@@ -99,6 +99,8 @@ class TranscriptionConfig:
         max_delay_mode: Mode for handling max delay.
         transcript_filtering_config: Configuration for filtering transcription.
             defaults to None.
+        audio_filtering_config: Configuration for limiting the transcription of quiet audio.
+            Defaults to None.
     """
 
     language: str = "en"
@@ -115,11 +117,14 @@ class TranscriptionConfig:
     max_delay: Optional[float] = None
     max_delay_mode: Optional[str] = None
     transcript_filtering_config: Optional[TranscriptFilteringConfig] = None
+    audio_filtering_config: Optional[AudioFilteringConfig] = None
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {k: v for k, v in asdict(self).items() if v is not None}
         if self.transcript_filtering_config is not None:
             result["transcript_filtering_config"] = self.transcript_filtering_config.to_dict()
+        if self.audio_filtering_config is not None:
+            result["audio_filtering_config"] = self.audio_filtering_config.to_dict()
         return result
 
 
@@ -285,6 +290,17 @@ class TranscriptFilteringConfig:
 
 
 @dataclass
+class AudioFilteringConfig:
+    """Configuration for limiting the transcription of quiet audio. 'volume_threshold' supports a range of 0 - 100 where 0 does not filter any audio and 100 removes all audio."""
+
+    volume_threshold: float = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return asdict(self)
+
+
+@dataclass
 class JobConfig:
     """
     Complete configuration for batch transcription jobs.
@@ -368,6 +384,8 @@ class JobConfig:
                 tc_data["transcript_filtering_config"] = TranscriptFilteringConfig(
                     **tc_data["transcript_filtering_config"]
                 )
+            if "audio_filtering_config" in tc_data and isinstance(tc_data["audio_filtering_config"], dict):
+                tc_data["audio_filtering_config"] = AudioFilteringConfig(**tc_data["audio_filtering_config"])
             transcription_config = TranscriptionConfig(**tc_data)
 
         alignment_config = None
