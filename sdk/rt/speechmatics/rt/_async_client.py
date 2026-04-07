@@ -23,6 +23,7 @@ from ._models import TranslationConfig
 
 _UNSET = object()
 
+
 class AsyncClient(_BaseClient):
     """
     Asynchronous client for Speechmatics real-time audio transcription.
@@ -195,7 +196,7 @@ class AsyncClient(_BaseClient):
                 ...     await client.force_end_of_utterance()
         """
 
-        message: dict[str,Any] = {"message": ClientMessageType.FORCE_END_OF_UTTERANCE}
+        message: dict[str, Any] = {"message": ClientMessageType.FORCE_END_OF_UTTERANCE}
 
         if timestamp is _UNSET:
             # default: auto-set from audio_seconds_sent
