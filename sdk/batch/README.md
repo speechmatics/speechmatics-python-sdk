@@ -25,6 +25,8 @@ pip install speechmatics-batch
 
 ### Quick Start
 
+To run transcription, you'll need an audio file. You can find an example file [here](https://github.com/speechmatics/speechmatics-python-sdk/blob/main/examples/example.wav).
+
 ```python
 import asyncio
 from speechmatics.batch import AsyncClient
