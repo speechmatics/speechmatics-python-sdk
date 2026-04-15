@@ -53,7 +53,6 @@ dev = [
     "pytest-asyncio",
     "pytest-cov",
     "pytest-mock",
-    "aiofiles",
     "build",
 ]
 
