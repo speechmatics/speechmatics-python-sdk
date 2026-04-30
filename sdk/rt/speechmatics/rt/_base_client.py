@@ -42,6 +42,7 @@ class _BaseClient(EventEmitter):
         self._recv_task: Optional[asyncio.Task[None]] = None
         self._closed_evt = asyncio.Event()
         self._eos_sent = False
+        self._audio_bytes_sent = 0
         self._seq_no = 0
 
         self._logger = get_logger("speechmatics.rt.base_client")
@@ -122,10 +123,16 @@ class _BaseClient(EventEmitter):
 
         try:
             await self._transport.send_message(payload)
+            self._audio_bytes_sent += len(payload)
             self._seq_no += 1
         except Exception:
             self._closed_evt.set()
             raise
+
+    @property
+    def audio_bytes_sent(self) -> int:
+        """Number of audio bytes sent to the server."""
+        return self._audio_bytes_sent
 
     async def send_message(self, message: dict[str, Any]) -> None:
         """

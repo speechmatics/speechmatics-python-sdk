@@ -97,6 +97,10 @@ class TranscriptionConfig:
         enable_partials: Enable partial transcript results.
         max_delay: Maximum delay for transcript delivery.
         max_delay_mode: Mode for handling max delay.
+        transcript_filtering_config: Configuration for filtering transcription.
+            defaults to None.
+        audio_filtering_config: Configuration for limiting the transcription of quiet audio.
+            Defaults to None.
     """
 
     language: str = "en"
@@ -112,10 +116,16 @@ class TranscriptionConfig:
     enable_partials: Optional[bool] = None
     max_delay: Optional[float] = None
     max_delay_mode: Optional[str] = None
+    transcript_filtering_config: Optional[TranscriptFilteringConfig] = None
+    audio_filtering_config: Optional[AudioFilteringConfig] = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, excluding None values."""
-        return {k: v for k, v in asdict(self).items() if v is not None}
+        result: dict[str, Any] = {k: v for k, v in asdict(self).items() if v is not None}
+        if self.transcript_filtering_config is not None:
+            result["transcript_filtering_config"] = self.transcript_filtering_config.to_dict()
+        if self.audio_filtering_config is not None:
+            result["audio_filtering_config"] = self.audio_filtering_config.to_dict()
+        return result
 
 
 @dataclass
@@ -268,6 +278,29 @@ class AudioEventsConfig:
 
 
 @dataclass
+class TranscriptFilteringConfig:
+    """Configuration for transcript filtering."""
+
+    remove_disfluencies: bool = False
+    replacements: Optional[list[dict[str, str]]] = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary, excluding None values."""
+        return {k: v for k, v in asdict(self).items() if v is not None}
+
+
+@dataclass
+class AudioFilteringConfig:
+    """Configuration for limiting the transcription of quiet audio. 'volume_threshold' supports a range of 0 - 100 where 0 does not filter any audio and 100 removes all audio."""
+
+    volume_threshold: float = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return asdict(self)
+
+
+@dataclass
 class JobConfig:
     """
     Complete configuration for batch transcription jobs.
@@ -337,7 +370,6 @@ class JobConfig:
             config["audio_events_config"] = self.audio_events_config.to_dict()
         if self.output_config:
             config["output_config"] = self.output_config.to_dict()
-
         return config
 
     @classmethod
@@ -347,7 +379,13 @@ class JobConfig:
 
         transcription_config = None
         if "transcription_config" in data:
-            tc_data = data["transcription_config"]
+            tc_data = data["transcription_config"].copy()
+            if "transcript_filtering_config" in tc_data and isinstance(tc_data["transcript_filtering_config"], dict):
+                tc_data["transcript_filtering_config"] = TranscriptFilteringConfig(
+                    **tc_data["transcript_filtering_config"]
+                )
+            if "audio_filtering_config" in tc_data and isinstance(tc_data["audio_filtering_config"], dict):
+                tc_data["audio_filtering_config"] = AudioFilteringConfig(**tc_data["audio_filtering_config"])
             transcription_config = TranscriptionConfig(**tc_data)
 
         alignment_config = None
@@ -405,6 +443,11 @@ class JobConfig:
             fd_data = data["fetch_data"]
             fetch_data = FetchData(**fd_data)
 
+        output_config = None
+        if "output_config" in data:
+            oc_data = data["output_config"]
+            output_config = OutputConfig(**oc_data)
+
         return cls(
             type=job_type,
             fetch_data=fetch_data,
@@ -419,6 +462,7 @@ class JobConfig:
             topic_detection_config=topic_detection_config,
             auto_chapters_config=auto_chapters_config,
             audio_events_config=audio_events_config,
+            output_config=output_config,
         )
 
 

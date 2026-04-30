@@ -183,6 +183,29 @@ class AudioFormat:
     sample_rate: int = 44100
     chunk_size: int = 4096
 
+    _BYTES_PER_SAMPLE = {
+        AudioEncoding.PCM_F32LE: 4,
+        AudioEncoding.PCM_S16LE: 2,
+        AudioEncoding.MULAW: 1,
+    }
+
+    @property
+    def bytes_per_sample(self) -> int:
+        """Number of bytes per audio sample based on encoding.
+
+        Raises:
+            ValueError: If encoding is None (file type) or unrecognized.
+        """
+        if self.encoding is None:
+            raise ValueError(
+                "Cannot determine bytes per sample for file-type audio format. "
+                "Set an explicit encoding on AudioFormat."
+            )
+        try:
+            return self._BYTES_PER_SAMPLE[self.encoding]
+        except KeyError:
+            raise ValueError(f"Unknown encoding: {self.encoding}")
+
     def to_dict(self) -> dict[str, Any]:
         """
         Convert audio format to dictionary.

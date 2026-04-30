@@ -11,6 +11,7 @@ from ._exceptions import ConnectionError
 from ._exceptions import JobError
 from ._exceptions import TimeoutError
 from ._exceptions import TransportError
+from ._models import AudioFilteringConfig
 from ._models import AutoChaptersConfig
 from ._models import ConnectionConfig
 from ._models import FetchData
@@ -30,11 +31,15 @@ from ._models import SpeakerIdentifier
 from ._models import SummarizationConfig
 from ._models import TopicDetectionConfig
 from ._models import Transcript
+from ._models import TranscriptFilteringConfig
 from ._models import TranscriptionConfig
 from ._models import TranslationConfig
+from ._transport import PROCESSING_DATA_HEADER
 
 __all__ = [
+    "AudioFilteringConfig",
     "AsyncClient",
+    "PROCESSING_DATA_HEADER",
     "AuthBase",
     "AuthenticationError",
     "AutoChaptersConfig",
@@ -55,6 +60,7 @@ __all__ = [
     "NotificationContents",
     "NotificationMethod",
     "OperatingPoint",
+    "OutputConfig",
     "SentimentAnalysisConfig",
     "SpeakerIdentifier",
     "StaticKeyAuth",
@@ -64,6 +70,6 @@ __all__ = [
     "Transcript",
     "TranscriptionConfig",
     "TranslationConfig",
-    "OutputConfig",
     "TransportError",
+    "TranscriptFilteringConfig",
 ]
