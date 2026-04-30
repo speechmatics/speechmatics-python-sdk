@@ -645,6 +645,22 @@ class RecognitionResult:
 
 
 @dataclass
+class SpeakerIdentifier:
+    """A unique speaker detected in the transcript."""
+
+    label: str
+    speaker_identifiers: list[str]
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> SpeakerIdentifier:
+        """Create SpeakerIdentifier from dictionary."""
+        return cls(
+            label=data["label"],
+            speaker_identifiers=data["speaker_identifiers"],
+        )
+
+
+@dataclass
 class Transcript:
     """
     Complete transcript result from a batch transcription job.
@@ -657,6 +673,7 @@ class Transcript:
         job: Job information and metadata.
         metadata: Recognition process metadata.
         results: List of recognition results with timing and alternatives.
+        speakers: List of unique speakers detected in the transcript, each with a label and byte identifiers.
         translations: Optional translations by language code.
         summary: Optional transcript summarization.
         sentiment_analysis: Optional sentiment analysis results.
@@ -670,6 +687,7 @@ class Transcript:
     job: JobInfo
     metadata: RecognitionMetadata
     results: list[RecognitionResult]
+    speakers: Optional[list[SpeakerIdentifier]] = None
     translations: Optional[dict[str, Any]] = None
     summary: Optional[dict[str, Any]] = None
     sentiment_analysis: Optional[dict[str, Any]] = None
@@ -795,11 +813,15 @@ class Transcript:
         results_data = data.get("results", [])
         results = [RecognitionResult.from_dict(result) for result in results_data]
 
+        speakers_data = data.get("speakers")
+        speakers = [SpeakerIdentifier.from_dict(s) for s in speakers_data] if speakers_data else None
+
         return cls(
             format=data["format"],
             job=job_info,
             metadata=metadata,
             results=results,
+            speakers=speakers,
             translations=data.get("translations"),
             summary=data.get("summary"),
             sentiment_analysis=data.get("sentiment_analysis"),
