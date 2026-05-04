@@ -101,6 +101,8 @@ class TranscriptionConfig:
             defaults to None.
         audio_filtering_config: Configuration for limiting the transcription of quiet audio.
             Defaults to None.
+        language_hints: Configuration for language hinting, applicable only for the next gen model.
+        language_hints_strict: Configuration for strict language hinting, applicable only for the next gen model.
     """
 
     language: str = "en"
@@ -118,6 +120,8 @@ class TranscriptionConfig:
     max_delay_mode: Optional[str] = None
     transcript_filtering_config: Optional[TranscriptFilteringConfig] = None
     audio_filtering_config: Optional[AudioFilteringConfig] = None
+    language_hints: Optional[list[str]] = None
+    language_hints_strict: Optional[bool] = None
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {k: v for k, v in asdict(self).items() if v is not None}

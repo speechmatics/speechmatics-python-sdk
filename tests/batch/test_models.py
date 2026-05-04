@@ -127,3 +127,64 @@ class TestOutputConfigFromDict:
         data = {"type": "transcription"}
         job_config = JobConfig.from_dict(data)
         assert job_config.output_config is None
+
+
+class TestLanguageHintsToDict:
+    def test_language_hints_serializes_correctly(self):
+        config = TranscriptionConfig(language_hints=["en", "fr"])
+        result = config.to_dict()
+        assert result["language_hints"] == ["en", "fr"]
+
+    def test_language_hints_strict_true_serializes_correctly(self):
+        config = TranscriptionConfig(language_hints=["en"], language_hints_strict=True)
+        result = config.to_dict()
+        assert result["language_hints_strict"] is True
+
+    def test_language_hints_strict_false_included_in_output(self):
+        config = TranscriptionConfig(language_hints=["en"], language_hints_strict=False)
+        result = config.to_dict()
+        assert "language_hints_strict" in result
+        assert result["language_hints_strict"] is False
+
+    def test_language_hints_absent_when_none(self):
+        config = TranscriptionConfig()
+        result = config.to_dict()
+        assert "language_hints" not in result
+        assert "language_hints_strict" not in result
+
+
+class TestLanguageHintsFromDict:
+    def test_language_hints_deserializes_correctly(self):
+        data = {
+            "type": "transcription",
+            "transcription_config": {
+                "language": "en",
+                "language_hints": ["en", "fr"],
+            },
+        }
+        job_config = JobConfig.from_dict(data)
+        assert job_config.transcription_config is not None
+        assert job_config.transcription_config.language_hints == ["en", "fr"]
+
+    def test_language_hints_strict_deserializes_correctly(self):
+        data = {
+            "type": "transcription",
+            "transcription_config": {
+                "language": "en",
+                "language_hints": ["en"],
+                "language_hints_strict": True,
+            },
+        }
+        job_config = JobConfig.from_dict(data)
+        assert job_config.transcription_config is not None
+        assert job_config.transcription_config.language_hints_strict is True
+
+    def test_absent_fields_are_none(self):
+        data = {
+            "type": "transcription",
+            "transcription_config": {"language": "en"},
+        }
+        job_config = JobConfig.from_dict(data)
+        assert job_config.transcription_config is not None
+        assert job_config.transcription_config.language_hints is None
+        assert job_config.transcription_config.language_hints_strict is None
