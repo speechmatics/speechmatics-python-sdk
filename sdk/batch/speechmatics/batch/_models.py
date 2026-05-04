@@ -742,14 +742,20 @@ class Transcript:
             return ""
 
         # Get language pack info for word delimiter
-        word_delimiter = " "  # Default
-        if self.metadata and self.metadata.language_pack_info and "word_delimiter" in self.metadata.language_pack_info:
-            word_delimiter = self.metadata.language_pack_info["word_delimiter"]
+        default_word_delimiter = " "  # Default
+        # Applicable only for the next gen models
+        per_lang_word_delimiter: dict = {}
+        if self.metadata and self.metadata.language_pack_info:
+            if "word_delimiter" in self.metadata.language_pack_info:
+                default_word_delimiter = self.metadata.language_pack_info["word_delimiter"]
+
+            if "per_language_word_delimiters" in self.metadata.language_pack_info:
+                per_lang_word_delimiter = self.metadata.language_pack_info["per_language_word_delimiters"]
 
         # Group results by speaker and process
         transcript_parts = []
         current_speaker = None
-        current_group: list[str] = []
+        current_group: list[tuple[str, str]] = []
 
         for result in self.results:
             if not result.alternatives:
@@ -758,12 +764,15 @@ class Transcript:
             alternative = result.alternatives[0]
             content = alternative.content
             speaker = alternative.speaker
+            word_delimiter = default_word_delimiter
+            if alternative.language and alternative.language in per_lang_word_delimiter:
+                word_delimiter = per_lang_word_delimiter[alternative.language]
 
             # Handle speaker changes
             if speaker != current_speaker:
                 # Process accumulated group for previous speaker
                 if current_group:
-                    text = self._join_content_items(current_group, word_delimiter)
+                    text = self._join_content_items(current_group)
                     if current_speaker:
                         transcript_parts.append(f"SPEAKER {current_speaker}: {text}")  # type: ignore[unreachable]
                     else:
@@ -772,13 +781,13 @@ class Transcript:
 
                 current_speaker = speaker
 
-            # Add content to current group
+            # Add content to current group with its word delimiter
             if content:
-                current_group.append(content)
+                current_group.append((content, word_delimiter))
 
         # Process final group
         if current_group:
-            text = self._join_content_items(current_group, word_delimiter)
+            text = self._join_content_items(current_group)
             if current_speaker:
                 transcript_parts.append(f"SPEAKER {current_speaker}: {text}")
             else:
@@ -786,13 +795,12 @@ class Transcript:
 
         return "\n".join(transcript_parts)
 
-    def _join_content_items(self, content_items: list[str], word_delimiter: str) -> str:
+    def _join_content_items(self, content_items: list[tuple[str, str]]) -> str:
         """
         Join content items with appropriate spacing and punctuation handling.
 
         Args:
-            content_items: List of content strings to join.
-            word_delimiter: Delimiter to use between words.
+            content_items: List of (content, word_delimiter) pairs to join.
 
         Returns:
             Properly formatted text string.
@@ -802,7 +810,7 @@ class Transcript:
 
         result: list[str] = []
 
-        for i, content in enumerate(content_items):
+        for i, (content, word_delimiter) in enumerate(content_items):
             if not content:
                 continue
 
