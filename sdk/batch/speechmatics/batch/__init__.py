@@ -27,6 +27,7 @@ from ._models import NotificationMethod
 from ._models import OperatingPoint
 from ._models import OutputConfig
 from ._models import SentimentAnalysisConfig
+from ._models import SpeakerIdentifier
 from ._models import SummarizationConfig
 from ._models import TopicDetectionConfig
 from ._models import Transcript
@@ -61,6 +62,7 @@ __all__ = [
     "OperatingPoint",
     "OutputConfig",
     "SentimentAnalysisConfig",
+    "SpeakerIdentifier",
     "StaticKeyAuth",
     "SummarizationConfig",
     "TimeoutError",
