@@ -744,13 +744,13 @@ class Transcript:
         # Get language pack info for word delimiter
         default_word_delimiter = " "  # Default
         # Applicable only for the next gen models
-        per_lang_word_delimiter: dict = {}
+        per_lang_word_delimiters: dict = {}
         if self.metadata and self.metadata.language_pack_info:
             if "word_delimiter" in self.metadata.language_pack_info:
                 default_word_delimiter = self.metadata.language_pack_info["word_delimiter"]
 
             if "per_language_word_delimiters" in self.metadata.language_pack_info:
-                per_lang_word_delimiter = self.metadata.language_pack_info["per_language_word_delimiters"]
+                per_lang_word_delimiters = self.metadata.language_pack_info["per_language_word_delimiters"]
 
         # Group results by speaker and process
         transcript_parts = []
@@ -765,8 +765,8 @@ class Transcript:
             content = alternative.content
             speaker = alternative.speaker
             word_delimiter = default_word_delimiter
-            if alternative.language and alternative.language in per_lang_word_delimiter:
-                word_delimiter = per_lang_word_delimiter[alternative.language]
+            if alternative.language and alternative.language in per_lang_word_delimiters:
+                word_delimiter = per_lang_word_delimiters[alternative.language]
 
             # Handle speaker changes
             if speaker != current_speaker:
