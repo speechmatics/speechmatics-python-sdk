@@ -765,6 +765,8 @@ class Transcript:
         # Group results by speaker and process
         transcript_parts = []
         current_speaker = None
+        # Each entry is (word, delimiter), where delimiter is looked up from per_language_word_delimiters
+        # using the word's language code, falling back to the default word delimiter.
         current_group: list[tuple[str, str]] = []
 
         for result in self.results:
