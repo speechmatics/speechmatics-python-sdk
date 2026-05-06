@@ -136,7 +136,9 @@ class TranscriptionConfig:
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {k: v for k, v in asdict(self).items() if v is not None}
         if self.model:
+            # model is an alias for operating_point for omni-v1 models; they cannot coexist in the request.
             result["operating_point"] = self.model
+            result.pop("model")
         if self.transcript_filtering_config is not None:
             result["transcript_filtering_config"] = self.transcript_filtering_config.to_dict()
         if self.audio_filtering_config is not None:

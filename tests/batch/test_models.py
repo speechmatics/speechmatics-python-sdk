@@ -134,6 +134,7 @@ class TestModelToDict:
         config = TranscriptionConfig(model=OperatingPoint.OMNI)
         result = config.to_dict()
         assert result["operating_point"] == OperatingPoint.OMNI
+        assert "model" not in result
 
     def test_model_absent_leaves_operating_point_unchanged(self):
         config = TranscriptionConfig(operating_point=OperatingPoint.ENHANCED)
