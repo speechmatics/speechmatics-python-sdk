@@ -101,8 +101,15 @@ class TranscriptionConfig:
             defaults to None.
         audio_filtering_config: Configuration for limiting the transcription of quiet audio.
             Defaults to None.
-        language_hints: Configuration for language hinting, applicable only for the next gen model.
-        language_hints_strict: Configuration for strict language hinting, applicable only for the next gen model.
+        language_hints: Configuration for the list of languages that are most likely to appear in your audio,
+            This improves accuracy by biasing recognition toward the specified languages.
+            Use ``language_hints_strict`` to control whether other languages can also be detected.
+            Applicable only for omni-v1 models (not yet available).
+        language_hints_strict: Configuration that controls how strictly language hints are applied.
+            When ``True``, the transcript will only contain languages specified in ``language_hints``.
+            When ``False``, recognition is biased toward the specified languages while still allowing other
+            languages to be detected if present.
+            Applicable only for omni-v1 models (not yet available).
     """
 
     language: str = "en"
