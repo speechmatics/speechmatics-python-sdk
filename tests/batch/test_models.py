@@ -185,6 +185,6 @@ class TestLanguageHintsFromDict:
             "transcription_config": {"language": "en"},
         }
         job_config = JobConfig.from_dict(data)
-        assert job_config.transcription_config is not None
+        assert job_config.transcription_config
         assert job_config.transcription_config.language_hints is None
         assert job_config.transcription_config.language_hints_strict is None
