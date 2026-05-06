@@ -1,4 +1,4 @@
-from speechmatics.batch._models import JobConfig, TranscriptFilteringConfig, TranscriptionConfig
+from speechmatics.batch._models import JobConfig, OperatingPoint, TranscriptFilteringConfig, TranscriptionConfig
 
 
 class TestTranscriptFilteringConfigToDict:
@@ -127,6 +127,19 @@ class TestOutputConfigFromDict:
         data = {"type": "transcription"}
         job_config = JobConfig.from_dict(data)
         assert job_config.output_config is None
+
+
+class TestModelToDict:
+    def test_model_serializes_as_operating_point(self):
+        config = TranscriptionConfig(model=OperatingPoint.OMNI)
+        result = config.to_dict()
+        assert result["operating_point"] == OperatingPoint.OMNI
+
+    def test_model_absent_leaves_operating_point_unchanged(self):
+        config = TranscriptionConfig(operating_point=OperatingPoint.ENHANCED)
+        result = config.to_dict()
+        assert result["operating_point"] == OperatingPoint.ENHANCED
+        assert "model" not in result
 
 
 class TestLanguageHintsToDict:

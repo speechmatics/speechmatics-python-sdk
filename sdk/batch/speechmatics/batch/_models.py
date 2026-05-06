@@ -44,6 +44,8 @@ class OperatingPoint(str, Enum):
 
     ENHANCED = "enhanced"
     STANDARD = "standard"
+    # Not yet available for general use. Support for omni-v1 models is coming soon.
+    OMNI = "omni-v1"
 
 
 class NotificationContents(str, Enum):
@@ -104,16 +106,17 @@ class TranscriptionConfig:
         language_hints: Configuration for the list of languages that are most likely to appear in your audio,
             This improves accuracy by biasing recognition toward the specified languages.
             Use ``language_hints_strict`` to control whether other languages can also be detected.
-            Applicable only for omni-v1 models (not yet available).
+            Applicable only for omni-v1 models. Support for omni-v1 models is coming soon.
         language_hints_strict: Configuration that controls how strictly language hints are applied.
             When ``True``, the transcript will only contain languages specified in ``language_hints``.
             When ``False``, recognition is biased toward the specified languages while still allowing other
             languages to be detected if present.
-            Applicable only for omni-v1 models (not yet available).
+            Applicable only for omni-v1 models. Support for omni-v1 models is coming soon.
     """
 
     language: str = "en"
     operating_point: OperatingPoint = OperatingPoint.ENHANCED
+    model: Optional[OperatingPoint] = None
     output_locale: Optional[str] = None
     diarization: Optional[str] = None
     additional_vocab: Optional[list[dict[str, Any]]] = None
@@ -132,6 +135,8 @@ class TranscriptionConfig:
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {k: v for k, v in asdict(self).items() if v is not None}
+        if self.model:
+            result["operating_point"] = self.model
         if self.transcript_filtering_config is not None:
             result["transcript_filtering_config"] = self.transcript_filtering_config.to_dict()
         if self.audio_filtering_config is not None:
