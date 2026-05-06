@@ -721,6 +721,9 @@ class Transcript:
         audio_event_summary: Optional audio event statistics.
     """
 
+    _LANG_PACK_WORD_DELIMITER_KEY = "word_delimiter"
+    _LANG_PACK_PER_LANG_DELIMITERS_KEY = "per_language_word_delimiters"
+
     format: str
     job: JobInfo
     metadata: RecognitionMetadata
@@ -753,11 +756,11 @@ class Transcript:
         # Applicable only for the next gen models
         per_lang_word_delimiters: dict = {}
         if self.metadata and self.metadata.language_pack_info:
-            if "word_delimiter" in self.metadata.language_pack_info:
-                default_word_delimiter = self.metadata.language_pack_info["word_delimiter"]
+            if self._LANG_PACK_WORD_DELIMITER_KEY in self.metadata.language_pack_info:
+                default_word_delimiter = self.metadata.language_pack_info[self._LANG_PACK_WORD_DELIMITER_KEY]
 
-            if "per_language_word_delimiters" in self.metadata.language_pack_info:
-                per_lang_word_delimiters = self.metadata.language_pack_info["per_language_word_delimiters"]
+            if self._LANG_PACK_PER_LANG_DELIMITERS_KEY in self.metadata.language_pack_info:
+                per_lang_word_delimiters = self.metadata.language_pack_info[self._LANG_PACK_PER_LANG_DELIMITERS_KEY]
 
         # Group results by speaker and process
         transcript_parts = []
