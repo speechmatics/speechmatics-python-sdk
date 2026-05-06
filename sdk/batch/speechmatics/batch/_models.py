@@ -767,6 +767,7 @@ class Transcript:
         current_speaker = None
         # Each entry is (word, delimiter), where delimiter is looked up from per_language_word_delimiters
         # using the word's language code, falling back to the default word delimiter.
+        # For example, [("hello", " "), ("world", " ")]
         current_group: list[tuple[str, str]] = []
 
         for result in self.results:
