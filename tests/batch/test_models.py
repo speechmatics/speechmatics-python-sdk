@@ -134,15 +134,18 @@ class TestLanguageHintsToDict:
         config = TranscriptionConfig(language_hints=["en", "fr"])
         result = config.to_dict()
         assert result["language_hints"] == ["en", "fr"]
+        assert "language_hints_strict" not in result
 
     def test_language_hints_strict_true_serializes_correctly(self):
         config = TranscriptionConfig(language_hints=["en"], language_hints_strict=True)
         result = config.to_dict()
+        assert result["language_hints"] == ["en"]
         assert result["language_hints_strict"] is True
 
-    def test_language_hints_strict_false_included_in_output(self):
+    def test_language_hints_strict_false_serializes_correctly(self):
         config = TranscriptionConfig(language_hints=["en"], language_hints_strict=False)
         result = config.to_dict()
+        assert result["language_hints"] == ["en"]
         assert "language_hints_strict" in result
         assert result["language_hints_strict"] is False
 
