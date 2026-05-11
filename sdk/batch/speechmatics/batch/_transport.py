@@ -41,19 +41,16 @@ class Transport:
         url: Base URL for the Speechmatics Batch API.
         conn_config: Connection configuration including URL and timeouts.
         auth: Authentication instance for handling credentials.
-        request_id: Optional unique identifier for request tracking. Generated
-                   automatically if not provided.
 
     Attributes:
         conn_config: The connection configuration object.
-        request_id: Unique identifier for this transport instance.
 
     Examples:
         Basic usage:
             >>> from ._auth import StaticKeyAuth
             >>> conn_config = ConnectionConfig()
             >>> auth = StaticKeyAuth("your-api-key")
-            >>> transport = Transport(conn_config, auth)
+            >>> transport = Transport("https://asr.api.speechmatics.com/v2", conn_config, auth)
             >>> response = await transport.get("/jobs")
             >>> await transport.close()
     """
@@ -63,7 +60,6 @@ class Transport:
         url: str,
         conn_config: ConnectionConfig,
         auth: AuthBase,
-        request_id: Optional[str] = None,
     ) -> None:
         """
         Initialize the transport with connection configuration.
@@ -71,18 +67,15 @@ class Transport:
         Args:
             conn_config: Connection configuration object containing connection parameters.
             auth: Authentication instance for handling credentials.
-            request_id: Optional unique identifier for request tracking.
-                Generated automatically if not provided.
         """
         self._url = url
         self._conn_config = conn_config
         self._auth = auth
-        self._request_id = request_id or str(uuid.uuid4())
         self._session: Optional[aiohttp.ClientSession] = None
         self._closed = False
         self._logger = get_logger(__name__)
 
-        self._logger.debug("Transport initialized (request_id=%s, url=%s)", self._request_id, self._url)
+        self._logger.debug("Transport initialized (url=%s)", self._url)
 
     async def __aenter__(self) -> Transport:
         """Async context manager entry."""
@@ -313,12 +306,10 @@ class Transport:
             Headers dictionary with authentication and tracking info
         """
         auth_headers = await self._auth.get_auth_headers()
-        auth_headers["User-Agent"] = (
-            f"speechmatics-batch-v{get_version()} python/{sys.version_info.major}.{sys.version_info.minor}"
-        )
-
-        if self._request_id:
-            auth_headers["X-Request-Id"] = self._request_id
+        auth_headers[
+            "User-Agent"
+        ] = f"speechmatics-batch-v{get_version()} python/{sys.version_info.major}.{sys.version_info.minor}"
+        auth_headers["X-Request-Id"] = str(uuid.uuid4())
 
         return auth_headers
 
