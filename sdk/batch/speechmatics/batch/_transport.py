@@ -50,7 +50,7 @@ class Transport:
             >>> from ._auth import StaticKeyAuth
             >>> conn_config = ConnectionConfig()
             >>> auth = StaticKeyAuth("your-api-key")
-            >>> transport = Transport("https://asr.api.speechmatics.com/v2", conn_config, auth)
+            >>> transport = Transport(conn_config, auth)
             >>> response = await transport.get("/jobs")
             >>> await transport.close()
     """
@@ -232,15 +232,17 @@ class Transport:
             raise ConnectionError("Failed to create HTTP session")
 
         url = f"{self._url.rstrip('/')}{path}"
-        headers = await self._prepare_headers()
+        request_id = str(uuid.uuid4())
+        headers = await self._prepare_headers(request_id)
         if extra_headers:
             for k, v in extra_headers.items():
                 headers[k] = _json.dumps(v) if isinstance(v, dict) else v
 
         self._logger.debug(
-            "Sending HTTP request %s %s (json=%s, multipart=%s)",
+            "Sending HTTP request %s %s (request_id=%s, json=%s, multipart=%s)",
             method,
             url,
+            request_id,
             json_data is not None,
             multipart_data is not None,
         )
@@ -284,21 +286,25 @@ class Transport:
                 kwargs["data"] = form_data
 
             async with self._session.request(method, url, **kwargs) as response:
-                return await self._handle_response(response)
+                return await self._handle_response(response, request_id)
 
         except asyncio.TimeoutError:
             self._logger.error(
-                "Request timeout %s %s (timeout=%.1fs)", method, path, self._conn_config.operation_timeout
+                "Request timeout %s %s (request_id=%s, timeout=%.1fs)",
+                method,
+                path,
+                request_id,
+                self._conn_config.operation_timeout,
             )
-            raise TransportError(f"Request timeout for {method} {path}") from None
+            raise TransportError(f"Request timeout for {method} {path} (request_id={request_id})") from None
         except aiohttp.ClientError as e:
-            self._logger.error("Request failed %s %s: %s", method, path, e)
-            raise ConnectionError(f"Request failed: {e}") from e
+            self._logger.error("Request failed %s %s (request_id=%s): %s", method, path, request_id, e)
+            raise ConnectionError(f"Request failed (request_id={request_id}): {e}") from e
         except Exception as e:
-            self._logger.error("Unexpected error %s %s: %s", method, path, e)
-            raise TransportError(f"Unexpected error: {e}") from e
+            self._logger.error("Unexpected error %s %s (request_id=%s): %s", method, path, request_id, e)
+            raise TransportError(f"Unexpected error (request_id={request_id}): {e}") from e
 
-    async def _prepare_headers(self) -> dict[str, str]:
+    async def _prepare_headers(self, request_id: str) -> dict[str, str]:
         """
         Prepare HTTP headers for requests.
 
@@ -309,16 +315,17 @@ class Transport:
         auth_headers[
             "User-Agent"
         ] = f"speechmatics-batch-v{get_version()} python/{sys.version_info.major}.{sys.version_info.minor}"
-        auth_headers["X-Request-Id"] = str(uuid.uuid4())
+        auth_headers["X-Request-Id"] = request_id
 
         return auth_headers
 
-    async def _handle_response(self, response: aiohttp.ClientResponse) -> dict[str, Any]:
+    async def _handle_response(self, response: aiohttp.ClientResponse, request_id: str) -> dict[str, Any]:
         """
         Handle HTTP response and extract JSON data.
 
         Args:
             response: HTTP response object
+            request_id: Request ID for correlation in logs and error messages
 
         Returns:
             JSON response as dictionary
@@ -329,13 +336,17 @@ class Transport:
         """
         try:
             if response.status == 401:
-                raise AuthenticationError("Invalid API key - authentication failed")
+                raise AuthenticationError(f"Invalid API key - authentication failed (request_id={request_id})")
             elif response.status == 403:
-                raise AuthenticationError("Access forbidden - check API key permissions")
+                raise AuthenticationError(f"Access forbidden - check API key permissions (request_id={request_id})")
             elif response.status >= 400:
                 error_text = await response.text()
-                self._logger.error("HTTP error %d %s: %s", response.status, response.reason, error_text)
-                raise TransportError(f"HTTP {response.status}: {response.reason} - {error_text}")
+                self._logger.error(
+                    "HTTP error %d %s (request_id=%s): %s", response.status, response.reason, request_id, error_text
+                )
+                raise TransportError(
+                    f"HTTP {response.status}: {response.reason} - {error_text} (request_id={request_id})"
+                )
 
             # Try to parse JSON response
             if (
@@ -345,13 +356,15 @@ class Transport:
                 return await response.json()  # type: ignore[no-any-return]
             else:
                 # For non-JSON responses (like plain text transcripts)
-                self._logger.debug("Parsing text response (content_type=%s)", response.content_type)
+                self._logger.debug(
+                    "Parsing text response (request_id=%s, content_type=%s)", request_id, response.content_type
+                )
                 text = await response.text()
                 return {"content": text, "content_type": response.content_type}
 
         except aiohttp.ContentTypeError as e:
-            self._logger.error("Failed to parse JSON response: %s", e)
-            raise TransportError(f"Failed to parse response: {e}") from e
+            self._logger.error("Failed to parse JSON response (request_id=%s): %s", request_id, e)
+            raise TransportError(f"Failed to parse response (request_id={request_id}): {e}") from e
         except Exception as e:
-            self._logger.error("Error handling response: %s", e)
-            raise TransportError(f"Error handling response: {e}") from e
+            self._logger.error("Error handling response (request_id=%s): %s", request_id, e)
+            raise TransportError(f"Error handling response (request_id={request_id}): {e}") from e
