@@ -47,8 +47,8 @@ class Transport:
             >>> from ._auth import StaticKeyAuth
             >>> conn_config = ConnectionConfig()
             >>> auth = StaticKeyAuth("your-api-key")
-            >>> transport = Transport("https://preview.tts.speechmatics.com", conn_config, auth)
-            >>> response = await transport.post("/v1/audio")
+            >>> transport = Transport(conn_config, auth)
+            >>> response = await transport.generate()
             >>> await transport.close()
     """
 
