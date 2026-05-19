@@ -660,7 +660,13 @@ class VoiceAgentClient(AsyncClient):
 
         # Process with Silero VAD
         if self._silero_detector:
-            asyncio.create_task(self._silero_detector.process_audio(payload))
+            asyncio.create_task(
+                self._silero_detector.process_audio(
+                    payload,
+                    sample_rate=self._audio_sample_rate,
+                    sample_width=self._audio_sample_width,
+                )
+            )
 
         # Add to audio buffer (use put_bytes to handle variable chunk sizes)
         if self._config.audio_buffer_length > 0:
