@@ -671,6 +671,8 @@ class RecognitionResult:
     end_time: Optional[float] = None
     channel: Optional[str] = None
     alternatives: Optional[list[Alternative]] = None
+    is_eos: Optional[bool] = None
+    attaches_to: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> RecognitionResult:
@@ -685,6 +687,8 @@ class RecognitionResult:
             end_time=data.get("end_time"),
             channel=data.get("channel"),
             alternatives=alternatives,
+            is_eos=data.get("is_eos"),
+            attaches_to=data.get("attaches_to"),
         )
 
 
