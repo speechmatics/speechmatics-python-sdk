@@ -14,7 +14,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 from typing import Optional
-from typing import Union
 
 
 class JobType(str, Enum):
@@ -467,29 +466,15 @@ class JobConfig:
 
 
 @dataclass
-class JobError:
+class JobDetailError:
     """Represents a job processing error."""
-
-    type: str
-    message: str
-    details: Optional[dict[str, Any]] = None
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> JobError:
-        """Create JobError from dictionary."""
-        return cls(type=data["type"], message=data["message"], details=data.get("details"))
-
-
-@dataclass
-class FetchDataError:
-    """Represents a fetch data error."""
 
     message: str
     timestamp: str
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> FetchDataError:
-        """Create FetchDataError from dictionary."""
+    def from_dict(cls, data: dict[str, Any]) -> JobDetailError:
+        """Create JobDetailError from dictionary."""
         return cls(message=data["message"], timestamp=data["timestamp"])
 
 
@@ -555,7 +540,7 @@ class JobDetails:
     data_name: str
     duration: Optional[float] = None
     config: Optional[JobConfig] = None
-    errors: Optional[list[Union[JobError, FetchDataError]]] = None
+    errors: Optional[list[JobDetailError]] = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> JobDetails:
@@ -564,12 +549,9 @@ class JobDetails:
         if "config" in data and data["config"]:
             config = JobConfig.from_dict(data["config"])
 
-        errors: list[Union[JobError, FetchDataError]] = []
+        errors: list[JobDetailError] = []
         if "errors" in data and data["errors"]:
-            if config and config.fetch_data:
-                errors = [FetchDataError.from_dict(error) for error in data["errors"]]
-            else:
-                errors = [JobError.from_dict(error) for error in data["errors"]]
+            errors = [JobDetailError.from_dict(error) for error in data["errors"]]
 
         return cls(
             id=data["id"],

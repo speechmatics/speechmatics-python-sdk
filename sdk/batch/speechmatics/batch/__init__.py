@@ -17,6 +17,7 @@ from ._models import ConnectionConfig
 from ._models import FetchData
 from ._models import FormatType
 from ._models import JobConfig
+from ._models import JobDetailError
 from ._models import JobDetails
 from ._models import JobInfo
 from ._models import JobStatus
@@ -50,6 +51,7 @@ __all__ = [
     "FetchData",
     "FormatType",
     "JobConfig",
+    "JobDetailError",
     "JobDetails",
     "JobError",
     "JobInfo",
