@@ -7,6 +7,7 @@ from dataclasses import field
 from enum import Enum
 from typing import Any
 from typing import Optional
+from warnings import deprecated
 
 
 class AudioEncoding(str, Enum):
@@ -30,8 +31,15 @@ class AudioEncoding(str, Enum):
     MULAW = "mulaw"
 
 
+@deprecated("Use Model instead")
 class OperatingPoint(str, Enum):
     """Operating point options for transcription."""
+
+    ENHANCED = "enhanced"
+    STANDARD = "standard"
+
+class Model(str, Enum):
+    """Which model to use for transcription."""
 
     ENHANCED = "enhanced"
     STANDARD = "standard"
@@ -337,7 +345,7 @@ class TranscriptionConfig:
     Attributes:
         language: (Optional) ISO 639-1 language code (e.g., "en", "es", "fr").
             Defaults to "en".
-        operating_point: (Optional) Which acoustic model to use.
+        model: (Optional) Which acoustic model to use.
             Defaults to "enhanced".
         output_locale: (Optional) RFC-5646 language code for transcript output (eg. "en-US").
             Defaults to None.
@@ -373,7 +381,8 @@ class TranscriptionConfig:
             Defaults to None.
         channel_diarization_labels: (Optional) Configuration for channel diarization.
             Defaults to None.
-
+        operating_point: (Deprecated) Legacy argument for specifying the operating point. Use `model` instead going forward
+            Defaults to None.
 
     Examples:
         Basic English transcription:
@@ -382,7 +391,7 @@ class TranscriptionConfig:
         Spanish with partials enabled:
             >>> config = TranscriptionConfig(
             ...     language="es",
-            ...     operating_point="enhanced",
+            ...     model="enhanced",
             ...     enable_partials=True
             ... )
 
@@ -399,7 +408,7 @@ class TranscriptionConfig:
     """
 
     language: str = "en"
-    operating_point: OperatingPoint = OperatingPoint.ENHANCED
+    model: Model = Model.ENHANCED
     output_locale: Optional[str] = None
     diarization: Optional[str] = None
     additional_vocab: Optional[list[dict[str, Any]]] = None
@@ -416,6 +425,7 @@ class TranscriptionConfig:
     conversation_config: Optional[ConversationConfig] = None
     ctrl: Optional[dict] = None
     channel_diarization_labels: Optional[list[str]] = None
+    operating_point: Optional[OperatingPoint]= None
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -440,7 +450,11 @@ class TranscriptionConfig:
             >>> #     "max_delay": 5.0
             >>> # }
         """
-        return asdict(self, dict_factory=lambda x: {k: v for (k, v) in x if v is not None})
+        result = asdict(self, dict_factory=lambda x: {k: v for (k, v) in x if v is not None})
+        # If deprecated `operating_point` specifically passed, remove default `model` property
+        if result["operating_point"] is not None and result["model"] is not None:
+            result.pop("model", None)
+        return result
 
 
 @dataclass

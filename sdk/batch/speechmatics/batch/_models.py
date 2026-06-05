@@ -12,8 +12,10 @@ from __future__ import annotations
 from dataclasses import asdict
 from dataclasses import dataclass
 from enum import Enum
+import logging
 from typing import Any
 from typing import Optional
+from warnings import deprecated
 
 
 class JobType(str, Enum):
@@ -38,7 +40,14 @@ class JobStatus(str, Enum):
     EXPIRED = "expired"
 
 
+@deprecated("Use Model isntead")
 class OperatingPoint(str, Enum):
+    """Operating point options for transcription."""
+
+    ENHANCED = "enhanced"
+    STANDARD = "standard"
+
+class Model(str, Enum):
     """Operating point options for transcription."""
 
     ENHANCED = "enhanced"
@@ -83,7 +92,7 @@ class TranscriptionConfig:
     Attributes:
         language: ISO 639-1 language code (e.g., "en", "es", "fr").
             defaults to "en"
-        operating_point: Which acoustic model to use.
+        model: Which acoustic model to use.
             defaults to "enhanced"
         output_locale: RFC-5646 language code for transcript output.
         diarization: Type of diarization to use. Options: "none", "speaker".
@@ -103,7 +112,7 @@ class TranscriptionConfig:
     """
 
     language: str = "en"
-    operating_point: OperatingPoint = OperatingPoint.ENHANCED
+    model: Model = Model.ENHANCED
     output_locale: Optional[str] = None
     diarization: Optional[str] = None
     additional_vocab: Optional[list[dict[str, Any]]] = None
@@ -117,6 +126,7 @@ class TranscriptionConfig:
     max_delay_mode: Optional[str] = None
     transcript_filtering_config: Optional[TranscriptFilteringConfig] = None
     audio_filtering_config: Optional[AudioFilteringConfig] = None
+    operating_point: Optional[OperatingPoint] = None
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {k: v for k, v in asdict(self).items() if v is not None}
@@ -124,6 +134,9 @@ class TranscriptionConfig:
             result["transcript_filtering_config"] = self.transcript_filtering_config.to_dict()
         if self.audio_filtering_config is not None:
             result["audio_filtering_config"] = self.audio_filtering_config.to_dict()
+        # If operating_point is explicitly set, do not include `model`
+        if self.operating_point is not None:
+            result.pop("model", None)
         return result
 
 

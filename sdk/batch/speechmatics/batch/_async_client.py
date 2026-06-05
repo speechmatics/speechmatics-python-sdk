@@ -8,6 +8,7 @@ speech-to-text transcription using the Speechmatics Batch API.
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import uuid
 from typing import Any
@@ -190,6 +191,10 @@ class AsyncClient:
         if config is None:
             transcription_config = transcription_config or TranscriptionConfig()
             config = JobConfig(type=JobType.TRANSCRIPTION, transcription_config=transcription_config)
+
+
+        if config.transcription_config is not None and config.transcription_config.operating_point is not None:
+            logging.warning("TranscriptionConfig.operating_point is deprecated. Use the model property instead. This will removed in the future.")
 
         # Check for fetch_data configuration
         config_dict = config.to_dict()
