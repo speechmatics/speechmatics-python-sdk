@@ -623,50 +623,124 @@ class RecognitionMetadata:
 
 
 @dataclass
-class Alternative:
-    """Alternative transcription result."""
+class RecognitionDisplay:
+    """Display properties for a recognition alternative."""
+
+    direction: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> RecognitionDisplay:
+        return cls(direction=data["direction"])
+
+
+@dataclass
+class RecognitionAlternative:
+    """List of possible job output item values, ordered by likelihood."""
 
     content: str
-    confidence: Optional[float] = None
-    language: Optional[str] = None
+    confidence: float
+    language: str
+    display: Optional[RecognitionDisplay] = None
     speaker: Optional[str] = None
+    tags: Optional[list[str]] = None
     words: Optional[list[dict[str, Any]]] = None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Alternative:
-        """Create Alternative from dictionary."""
+    def from_dict(cls, data: dict[str, Any]) -> RecognitionAlternative:
+        """Create RecognitionAlternative from dictionary."""
         return cls(
             content=data["content"],
-            confidence=data.get("confidence"),
-            language=data.get("language"),
+            confidence=data["confidence"],
+            language=data["language"],
+            display=RecognitionDisplay.from_dict(data["display"]) if data.get("display") else None,
             speaker=data.get("speaker"),
+            tags=data.get("tags"),
             words=data.get("words"),
         )
 
 
 @dataclass
+class WrittenFormRecognitionResult:
+    """A WrittenFormRecognitionResult describes a simple object which consists solely of 'word' type entries with a start and end time. It can occur only inside the written_form property of a full RecognitionResult."""
+
+    start_time: float
+    end_time: float
+    type: str
+    alternatives: list[RecognitionAlternative]
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> WrittenFormRecognitionResult:
+        return cls(
+            start_time=data["start_time"],
+            end_time=data["end_time"],
+            type=data["type"],
+            alternatives=[RecognitionAlternative.from_dict(a) for a in data["alternatives"]],
+        )
+
+
+@dataclass
+class SpokenFormRecognitionResult:
+    """A SpokenFormRecognitionResult describes a simple object which consists solely of 'word' or 'punctuation' type entries with a start and end time. It can occur only inside the spoken_form property of a full RecognitionResult."""
+
+    start_time: float
+    end_time: float
+    type: str
+    alternatives: list[RecognitionAlternative]
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> SpokenFormRecognitionResult:
+        return cls(
+            start_time=data["start_time"],
+            end_time=data["end_time"],
+            type=data["type"],
+            alternatives=[RecognitionAlternative.from_dict(a) for a in data["alternatives"]],
+        )
+
+
+@dataclass
 class RecognitionResult:
-    """Individual recognition result with alternatives."""
+    """An ASR job output item. The primary item types are `word` and `punctuation`. Other item types may be present, for example to provide semantic information of different forms."""
 
     type: str
-    start_time: Optional[float] = None
-    end_time: Optional[float] = None
+    start_time: float
+    end_time: float
     channel: Optional[str] = None
-    alternatives: Optional[list[Alternative]] = None
+    volume: Optional[float] = None
+    alternatives: Optional[list[RecognitionAlternative]] = None
+    is_eos: Optional[bool] = None
+    attaches_to: Optional[str] = None
+    written_form: Optional[list[WrittenFormRecognitionResult]] = None
+    spoken_form: Optional[list[SpokenFormRecognitionResult]] = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> RecognitionResult:
         """Create RecognitionResult from dictionary."""
-        alternatives = None
-        if "alternatives" in data and data["alternatives"]:
-            alternatives = [Alternative.from_dict(alt) for alt in data["alternatives"]]
+        alternatives = (
+            [RecognitionAlternative.from_dict(alt) for alt in data["alternatives"]]
+            if data.get("alternatives")
+            else None
+        )
+
+        written_form = (
+            [WrittenFormRecognitionResult.from_dict(w) for w in data["written_form"]]
+            if data.get("written_form")
+            else None
+        )
+        spoken_form = (
+            [SpokenFormRecognitionResult.from_dict(s) for s in data["spoken_form"]] if data.get("spoken_form") else None
+        )
 
         return cls(
             type=data["type"],
-            start_time=data.get("start_time"),
-            end_time=data.get("end_time"),
+            start_time=data["start_time"],
+            end_time=data["end_time"],
             channel=data.get("channel"),
+            volume=data.get("volume"),
             alternatives=alternatives,
+            is_eos=data.get("is_eos"),
+            attaches_to=data.get("attaches_to"),
+            written_form=written_form,
+            spoken_form=spoken_form,
         )
 
 
@@ -819,12 +893,7 @@ class Transcript:
     @property
     def confidence(self) -> Optional[float]:
         """Calculate average confidence from all results."""
-        confidences = []
-        for result in self.results:
-            if result.alternatives:
-                conf = result.alternatives[0].confidence
-                if conf is not None:
-                    confidences.append(conf)
+        confidences = [result.alternatives[0].confidence for result in self.results if result.alternatives]
         return sum(confidences) / len(confidences) if confidences else None
 
     @classmethod
@@ -836,8 +905,7 @@ class Transcript:
         metadata_data = data["metadata"]
         metadata = RecognitionMetadata.from_dict(metadata_data)
 
-        results_data = data.get("results", [])
-        results = [RecognitionResult.from_dict(result) for result in results_data]
+        results = [RecognitionResult.from_dict(result) for result in data["results"]]
 
         speakers_data = data.get("speakers")
         speakers = [SpeakerIdentifier.from_dict(s) for s in speakers_data] if speakers_data else None
