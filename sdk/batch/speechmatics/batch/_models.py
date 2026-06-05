@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 from typing import Optional
-from warnings import deprecated
+from typing_extensions import deprecated
 
 
 class JobType(str, Enum):
@@ -39,7 +39,7 @@ class JobStatus(str, Enum):
     EXPIRED = "expired"
 
 
-@deprecated("Use Model isntead")
+@deprecated("Use Model instead")
 class OperatingPoint(str, Enum):
     """Operating point options for transcription."""
 
