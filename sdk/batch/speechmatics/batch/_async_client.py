@@ -31,6 +31,7 @@ from ._models import JobStatus
 from ._models import JobType
 from ._models import Transcript
 from ._models import TranscriptionConfig
+from ._transport import EAR_TAG_HEADER
 from ._transport import PROCESSING_DATA_HEADER
 from ._transport import Transport
 
@@ -142,6 +143,7 @@ class AsyncClient:
         transcription_config: Optional[TranscriptionConfig] = None,
         parallel_engines: Optional[int] = None,
         user_id: Optional[str] = None,
+        ear_tag: Optional[str] = None,
     ) -> JobDetails:
         """
         Submit a new transcription job.
@@ -163,6 +165,7 @@ class AsyncClient:
             user_id: Optional user identifier to associate with this job.
                     Sent as ``{"user_id": "..."}`` in the ``X-SM-Processing-Data`` header.
                     This only applies when using the container onPrem on http batch mode.
+            ear_tag: Optional Early Access Release tag sent as ``X-SM-EAR-Tag`` header.
 
         Returns:
             JobDetails object containing the job ID and initial status.
@@ -210,7 +213,7 @@ class AsyncClient:
                 multipart_data, filename = await self._prepare_file_submission(audio_file, config_dict)
 
             return await self._submit_and_create_job_details(
-                multipart_data, filename, config, parallel_engines, user_id
+                multipart_data, filename, config, parallel_engines, user_id, ear_tag
             )
         except Exception as e:
             if isinstance(e, (AuthenticationError, BatchError)):
@@ -448,6 +451,7 @@ class AsyncClient:
         timeout: Optional[float] = None,
         parallel_engines: Optional[int] = None,
         user_id: Optional[str] = None,
+        ear_tag: Optional[str] = None,
     ) -> Union[Transcript, str]:
         """
         Complete transcription workflow: submit job and wait for completion.
@@ -467,6 +471,7 @@ class AsyncClient:
             user_id: Optional user identifier to associate with this job.
                     Sent as ``{"user_id": "..."}`` in the ``X-SM-Processing-Data`` header.
                     This only applies when using the container onPrem on http batch mode.
+            ear_tag: Optional Early Access Release tag sent as ``X-SM-EAR-Tag`` header.
 
         Returns:
             Transcript object containing the transcript and metadata.
@@ -496,6 +501,7 @@ class AsyncClient:
             transcription_config=transcription_config,
             parallel_engines=parallel_engines,
             user_id=user_id,
+            ear_tag=ear_tag,
         )
 
         # Wait for completion and return result
@@ -555,16 +561,19 @@ class AsyncClient:
         config: JobConfig,
         parallel_engines: Optional[int] = None,
         user_id: Optional[str] = None,
+        ear_tag: Optional[str] = None,
     ) -> JobDetails:
         """Submit job and create JobDetails response."""
-        extra_headers: Optional[dict[str, Any]] = None
+        extra_headers: dict[str, Any] = {}
         processing_data: dict[str, Any] = {}
         if parallel_engines is not None:
             processing_data["parallel_engines"] = parallel_engines
         if user_id is not None:
             processing_data["user_id"] = user_id
         if processing_data:
-            extra_headers = {PROCESSING_DATA_HEADER: processing_data}
+            extra_headers[PROCESSING_DATA_HEADER] = processing_data
+        if ear_tag is not None:
+            extra_headers[EAR_TAG_HEADER] = ear_tag
         response = await self._transport.post("/jobs", multipart_data=multipart_data, extra_headers=extra_headers)
         job_id = response.get("id")
         if not job_id:

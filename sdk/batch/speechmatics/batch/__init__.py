@@ -35,11 +35,13 @@ from ._models import Transcript
 from ._models import TranscriptFilteringConfig
 from ._models import TranscriptionConfig
 from ._models import TranslationConfig
+from ._transport import EAR_TAG_HEADER
 from ._transport import PROCESSING_DATA_HEADER
 
 __all__ = [
     "AudioFilteringConfig",
     "AsyncClient",
+    "EAR_TAG_HEADER",
     "PROCESSING_DATA_HEADER",
     "AuthBase",
     "AuthenticationError",
