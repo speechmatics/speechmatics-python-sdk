@@ -194,7 +194,7 @@ class AsyncClient:
 
         if config.transcription_config is not None and config.transcription_config.operating_point is not None:
             logging.warning(
-                "TranscriptionConfig.operating_point is deprecated. Use the model property instead. This will be removed in the future."
+                "TranscriptionConfig.operating_point is deprecated and will be removed in the future. Please use the model property instead."
             )
 
         # Check for fetch_data configuration
