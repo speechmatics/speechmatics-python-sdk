@@ -197,7 +197,7 @@ class _BaseClient(EventEmitter):
 
         if transcription_config.operating_point is not None:
             logging.warning(
-                "TranscriptionConfig.operating_point is deprecated. Use the model property instead. This will removed in the future."
+                "TranscriptionConfig.operating_point is deprecated and will be removed in the future. Please use the model property instead."
             )
 
         start_recognition_message = build_start_recognition_message(
