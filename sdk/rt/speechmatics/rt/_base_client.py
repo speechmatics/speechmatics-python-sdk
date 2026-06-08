@@ -196,7 +196,9 @@ class _BaseClient(EventEmitter):
         audio_format = audio_format or AudioFormat()
 
         if transcription_config.operating_point is not None:
-            logging.warning("TranscriptionConfig.operating_point is deprecated. Use the model property instead. This will removed in the future.")
+            logging.warning(
+                "TranscriptionConfig.operating_point is deprecated. Use the model property instead. This will removed in the future."
+            )
 
         start_recognition_message = build_start_recognition_message(
             transcription_config=transcription_config,

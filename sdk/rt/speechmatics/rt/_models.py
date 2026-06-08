@@ -7,7 +7,9 @@ from dataclasses import field
 from enum import Enum
 from typing import Any
 from typing import Optional
+from typing import cast
 from warnings import deprecated
+from warnings import warn
 
 
 class AudioEncoding(str, Enum):
@@ -37,6 +39,7 @@ class OperatingPoint(str, Enum):
 
     ENHANCED = "enhanced"
     STANDARD = "standard"
+
 
 class Model(str, Enum):
     """Which model to use for transcription."""
@@ -337,6 +340,9 @@ class SpeakerIdentifier:
     speaker_identifiers: list[str] = field(default_factory=list)
 
 
+_UNSET = cast(Model, object())
+
+
 @dataclass
 class TranscriptionConfig:
     """
@@ -408,7 +414,7 @@ class TranscriptionConfig:
     """
 
     language: str = "en"
-    model: Model = Model.ENHANCED
+    model: Model = _UNSET
     output_locale: Optional[str] = None
     diarization: Optional[str] = None
     additional_vocab: Optional[list[dict[str, Any]]] = None
@@ -425,7 +431,19 @@ class TranscriptionConfig:
     conversation_config: Optional[ConversationConfig] = None
     ctrl: Optional[dict] = None
     channel_diarization_labels: Optional[list[str]] = None
-    operating_point: Optional[OperatingPoint]= None
+    operating_point: Optional[OperatingPoint] = None
+
+    def __post_init__(self) -> None:
+        if self.model is not _UNSET and self.operating_point is not None:
+            raise ValueError("Cannot specify both 'model' and 'operating_point'. Use 'model' instead.")
+        if self.model is _UNSET:
+            self.model = Model.ENHANCED
+        if self.operating_point is not None:
+            warn(
+                "'operating_point' is deprecated, use 'model' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -451,8 +469,7 @@ class TranscriptionConfig:
             >>> # }
         """
         result = asdict(self, dict_factory=lambda x: {k: v for (k, v) in x if v is not None})
-        # If deprecated `operating_point` specifically passed, remove default `model` property
-        if result["operating_point"] is not None and result["model"] is not None:
+        if self.operating_point is not None:
             result.pop("model", None)
         return result
 

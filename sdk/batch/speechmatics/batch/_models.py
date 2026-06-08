@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 from typing import Optional
+from typing import cast
+from warnings import warn
 
 from typing_extensions import deprecated
 
@@ -46,6 +48,7 @@ class OperatingPoint(str, Enum):
 
     ENHANCED = "enhanced"
     STANDARD = "standard"
+
 
 class Model(str, Enum):
     """Operating point options for transcription."""
@@ -84,6 +87,9 @@ class FormatType(str, Enum):
     SRT = "srt"
 
 
+_UNSET = cast(Model, object())
+
+
 @dataclass
 class TranscriptionConfig:
     """
@@ -112,7 +118,7 @@ class TranscriptionConfig:
     """
 
     language: str = "en"
-    model: Model = Model.ENHANCED
+    model: Model = _UNSET
     output_locale: Optional[str] = None
     diarization: Optional[str] = None
     additional_vocab: Optional[list[dict[str, Any]]] = None
@@ -128,13 +134,24 @@ class TranscriptionConfig:
     audio_filtering_config: Optional[AudioFilteringConfig] = None
     operating_point: Optional[OperatingPoint] = None
 
+    def __post_init__(self) -> None:
+        if self.model is not _UNSET and self.operating_point is not None:
+            raise ValueError("Cannot specify both 'model' and 'operating_point'. Use 'model' instead.")
+        if self.model is _UNSET:
+            self.model = Model.ENHANCED
+        if self.operating_point is not None:
+            warn(
+                "'operating_point' is deprecated, use 'model' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {k: v for k, v in asdict(self).items() if v is not None}
         if self.transcript_filtering_config is not None:
             result["transcript_filtering_config"] = self.transcript_filtering_config.to_dict()
         if self.audio_filtering_config is not None:
             result["audio_filtering_config"] = self.audio_filtering_config.to_dict()
-        # If operating_point is explicitly set, do not include `model`
         if self.operating_point is not None:
             result.pop("model", None)
         return result
