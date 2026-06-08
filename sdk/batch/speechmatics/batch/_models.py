@@ -14,6 +14,10 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 from typing import Optional
+from typing import cast
+from warnings import warn
+
+from typing_extensions import deprecated
 
 
 class JobType(str, Enum):
@@ -38,7 +42,15 @@ class JobStatus(str, Enum):
     EXPIRED = "expired"
 
 
+@deprecated("Use Model instead")
 class OperatingPoint(str, Enum):
+    """Operating point options for transcription."""
+
+    ENHANCED = "enhanced"
+    STANDARD = "standard"
+
+
+class Model(str, Enum):
     """Operating point options for transcription."""
 
     ENHANCED = "enhanced"
@@ -75,6 +87,9 @@ class FormatType(str, Enum):
     SRT = "srt"
 
 
+_UNSET = cast(Model, object())
+
+
 @dataclass
 class TranscriptionConfig:
     """
@@ -83,7 +98,7 @@ class TranscriptionConfig:
     Attributes:
         language: ISO 639-1 language code (e.g., "en", "es", "fr").
             defaults to "en"
-        operating_point: Which acoustic model to use.
+        model: Which acoustic model to use.
             defaults to "enhanced"
         output_locale: RFC-5646 language code for transcript output.
         diarization: Type of diarization to use. Options: "none", "speaker".
@@ -103,7 +118,7 @@ class TranscriptionConfig:
     """
 
     language: str = "en"
-    operating_point: OperatingPoint = OperatingPoint.ENHANCED
+    model: Model = _UNSET
     output_locale: Optional[str] = None
     diarization: Optional[str] = None
     additional_vocab: Optional[list[dict[str, Any]]] = None
@@ -117,6 +132,19 @@ class TranscriptionConfig:
     max_delay_mode: Optional[str] = None
     transcript_filtering_config: Optional[TranscriptFilteringConfig] = None
     audio_filtering_config: Optional[AudioFilteringConfig] = None
+    operating_point: Optional[OperatingPoint] = None
+
+    def __post_init__(self) -> None:
+        if self.model is not _UNSET and self.operating_point is not None:
+            raise ValueError("Cannot specify both 'model' and 'operating_point'. Use 'model' instead.")
+        if self.model is _UNSET and self.operating_point is None:
+            self.model = Model.ENHANCED
+        if self.operating_point is not None:
+            warn(
+                "'operating_point' is deprecated, use 'model' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {k: v for k, v in asdict(self).items() if v is not None}

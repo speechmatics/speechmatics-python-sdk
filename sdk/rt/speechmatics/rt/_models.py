@@ -7,6 +7,9 @@ from dataclasses import field
 from enum import Enum
 from typing import Any
 from typing import Optional
+from typing import cast
+from warnings import deprecated
+from warnings import warn
 
 
 class AudioEncoding(str, Enum):
@@ -30,8 +33,16 @@ class AudioEncoding(str, Enum):
     MULAW = "mulaw"
 
 
+@deprecated("Use Model instead")
 class OperatingPoint(str, Enum):
     """Operating point options for transcription."""
+
+    ENHANCED = "enhanced"
+    STANDARD = "standard"
+
+
+class Model(str, Enum):
+    """Which model to use for transcription."""
 
     ENHANCED = "enhanced"
     STANDARD = "standard"
@@ -329,6 +340,9 @@ class SpeakerIdentifier:
     speaker_identifiers: list[str] = field(default_factory=list)
 
 
+_UNSET = cast(Model, object())
+
+
 @dataclass
 class TranscriptionConfig:
     """
@@ -337,7 +351,7 @@ class TranscriptionConfig:
     Attributes:
         language: (Optional) ISO 639-1 language code (e.g., "en", "es", "fr").
             Defaults to "en".
-        operating_point: (Optional) Which acoustic model to use.
+        model: (Optional) Which acoustic model to use.
             Defaults to "enhanced".
         output_locale: (Optional) RFC-5646 language code for transcript output (eg. "en-US").
             Defaults to None.
@@ -373,7 +387,8 @@ class TranscriptionConfig:
             Defaults to None.
         channel_diarization_labels: (Optional) Configuration for channel diarization.
             Defaults to None.
-
+        operating_point: (Deprecated) Legacy argument for specifying the operating point. Use `model` instead going forward
+            Defaults to None.
 
     Examples:
         Basic English transcription:
@@ -382,7 +397,7 @@ class TranscriptionConfig:
         Spanish with partials enabled:
             >>> config = TranscriptionConfig(
             ...     language="es",
-            ...     operating_point="enhanced",
+            ...     model="enhanced",
             ...     enable_partials=True
             ... )
 
@@ -399,7 +414,7 @@ class TranscriptionConfig:
     """
 
     language: str = "en"
-    operating_point: OperatingPoint = OperatingPoint.ENHANCED
+    model: Model = _UNSET
     output_locale: Optional[str] = None
     diarization: Optional[str] = None
     additional_vocab: Optional[list[dict[str, Any]]] = None
@@ -416,6 +431,19 @@ class TranscriptionConfig:
     conversation_config: Optional[ConversationConfig] = None
     ctrl: Optional[dict] = None
     channel_diarization_labels: Optional[list[str]] = None
+    operating_point: Optional[OperatingPoint] = None
+
+    def __post_init__(self) -> None:
+        if self.model is not _UNSET and self.operating_point is not None:
+            raise ValueError("Cannot specify both 'model' and 'operating_point'. Use 'model' instead.")
+        if self.model is _UNSET and self.operating_point is None:
+            self.model = Model.ENHANCED
+        if self.operating_point is not None:
+            warn(
+                "'operating_point' is deprecated, use 'model' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
     def to_dict(self) -> dict[str, Any]:
         """

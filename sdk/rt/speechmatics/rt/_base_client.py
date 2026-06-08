@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import logging
 import os
 import uuid
 from typing import Any
@@ -193,6 +194,11 @@ class _BaseClient(EventEmitter):
     ) -> tuple[TranscriptionConfig, AudioFormat]:
         transcription_config = transcription_config or TranscriptionConfig()
         audio_format = audio_format or AudioFormat()
+
+        if transcription_config.operating_point is not None:
+            logging.warning(
+                "TranscriptionConfig.operating_point is deprecated and will be removed in the future. Please use the model property instead."
+            )
 
         start_recognition_message = build_start_recognition_message(
             transcription_config=transcription_config,
