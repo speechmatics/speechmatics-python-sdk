@@ -468,10 +468,7 @@ class TranscriptionConfig:
             >>> #     "max_delay": 5.0
             >>> # }
         """
-        result = asdict(self, dict_factory=lambda x: {k: v for (k, v) in x if v is not None})
-        if self.operating_point is not None:
-            result.pop("model", None)
-        return result
+        return asdict(self, dict_factory=lambda x: {k: v for (k, v) in x if v is not None})
 
 
 @dataclass

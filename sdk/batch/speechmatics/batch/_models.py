@@ -152,8 +152,6 @@ class TranscriptionConfig:
             result["transcript_filtering_config"] = self.transcript_filtering_config.to_dict()
         if self.audio_filtering_config is not None:
             result["audio_filtering_config"] = self.audio_filtering_config.to_dict()
-        if self.operating_point is not None:
-            result.pop("model", None)
         return result
 
 
