@@ -436,7 +436,7 @@ class TranscriptionConfig:
     def __post_init__(self) -> None:
         if self.model is not _UNSET and self.operating_point is not None:
             raise ValueError("Cannot specify both 'model' and 'operating_point'. Use 'model' instead.")
-        if self.model is _UNSET:
+        if self.model is _UNSET and self.operating_point is None:
             self.model = Model.ENHANCED
         if self.operating_point is not None:
             warn(
