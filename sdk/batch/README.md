@@ -104,7 +104,7 @@ from speechmatics.batch import (
     AsyncClient,
     JobConfig,
     JobType,
-    OperatingPoint,
+    Model,
     TranscriptionConfig,
     TranslationConfig,
     SummarizationConfig
