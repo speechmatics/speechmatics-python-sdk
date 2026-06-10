@@ -13,7 +13,6 @@ from typing import Optional
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ConfigDict
 from pydantic import Field
-from pydantic import model_validator
 from typing_extensions import Self
 
 from speechmatics.rt import AudioEncoding
@@ -261,6 +260,7 @@ class AnnotationFlags(str, Enum):
     SMART_TURN_INACTIVE = "smart_turn_inactive"
     SMART_TURN_TRUE = "smart_turn_true"
     SMART_TURN_FALSE = "smart_turn_false"
+    SMART_TURN_NO_SIGNAL = "smart_turn_no_signal"
 
 
 # ==============================================================================
@@ -410,35 +410,57 @@ class EndOfTurnConfig(BaseModel):
         base_multiplier: Base multiplier for end of turn delay.
         min_end_of_turn_delay: Minimum end of turn delay.
         penalties: List of end of turn penalty items.
-        use_forced_eou: Whether to use forced end of utterance detection.
+        use_forced_eou: Whether to use forced end of utterance detection. (SHOULD ONLY EVER BE TRUE)
     """
 
     base_multiplier: float = 1.0
     min_end_of_turn_delay: float = 0.01
     penalties: list[EndOfTurnPenaltyItem] = Field(
         default_factory=lambda: [
-            # Increase delay
+            #
+            # Speaker rate increases expected TTL
             EndOfTurnPenaltyItem(penalty=3.0, annotation=[AnnotationFlags.VERY_SLOW_SPEAKER]),
             EndOfTurnPenaltyItem(penalty=2.0, annotation=[AnnotationFlags.SLOW_SPEAKER]),
+            #
+            # High / low rate of disfluencies
             EndOfTurnPenaltyItem(penalty=2.5, annotation=[AnnotationFlags.ENDS_WITH_DISFLUENCY]),
             EndOfTurnPenaltyItem(penalty=1.1, annotation=[AnnotationFlags.HAS_DISFLUENCY]),
+            #
+            # We do NOT have an end of sentence character
             EndOfTurnPenaltyItem(
                 penalty=2.0,
                 annotation=[AnnotationFlags.ENDS_WITH_EOS],
                 is_not=True,
             ),
-            # Decrease delay
+            #
+            # We have finals and end of sentence
             EndOfTurnPenaltyItem(
                 penalty=0.5, annotation=[AnnotationFlags.ENDS_WITH_FINAL, AnnotationFlags.ENDS_WITH_EOS]
             ),
-            # Smart Turn + VAD
-            EndOfTurnPenaltyItem(penalty=0.2, annotation=[AnnotationFlags.SMART_TURN_TRUE]),
+            #
+            # Smart Turn - when false, wait longer to prevent premature end of turn
             EndOfTurnPenaltyItem(
-                penalty=0.2, annotation=[AnnotationFlags.VAD_STOPPED, AnnotationFlags.SMART_TURN_INACTIVE]
+                penalty=0.2, annotation=[AnnotationFlags.SMART_TURN_TRUE, AnnotationFlags.SMART_TURN_ACTIVE]
+            ),
+            EndOfTurnPenaltyItem(
+                penalty=2.0, annotation=[AnnotationFlags.SMART_TURN_FALSE, AnnotationFlags.SMART_TURN_ACTIVE]
+            ),
+            EndOfTurnPenaltyItem(
+                penalty=1.5, annotation=[AnnotationFlags.SMART_TURN_NO_SIGNAL, AnnotationFlags.SMART_TURN_ACTIVE]
+            ),
+            #
+            # VAD - only applied when smart turn is not in use and on the speaker stopping
+            EndOfTurnPenaltyItem(
+                penalty=0.2,
+                annotation=[
+                    AnnotationFlags.VAD_STOPPED,
+                    AnnotationFlags.VAD_ACTIVE,
+                    AnnotationFlags.SMART_TURN_INACTIVE,
+                ],
             ),
         ]
     )
-    use_forced_eou: bool = False
+    use_forced_eou: bool = True
 
 
 class VoiceActivityConfig(BaseModel):
@@ -711,10 +733,16 @@ class VoiceAgentConfig(BaseModel):
     audio_encoding: AudioEncoding = AudioEncoding.PCM_S16LE
     chunk_size: int = 160
 
-    # Validation
-    @model_validator(mode="after")  # type: ignore[misc]
-    def validate_config(self) -> Self:
-        """Validate the configuration."""
+    def validate_config(self) -> None:
+        """Validate the configuration.
+
+        Cross-field validation is deferred to this method so that configs can be
+        constructed as overlays (e.g. for presets) without triggering validation
+        on intermediate states. Call this once the final config is ready.
+
+        Raises:
+            ValueError: If any validation errors are found.
+        """
 
         # Validation errors
         errors: list[str] = []
@@ -722,12 +750,6 @@ class VoiceAgentConfig(BaseModel):
         # End of utterance mode cannot be EXTERNAL if smart turn is enabled
         if self.end_of_utterance_mode == EndOfUtteranceMode.EXTERNAL and self.smart_turn_config:
             errors.append("EXTERNAL mode cannot be used in conjunction with SmartTurnConfig")
-
-        # Cannot have FIXED and forced end of utterance enabled without VAD being enabled
-        if (self.end_of_utterance_mode == EndOfUtteranceMode.FIXED and self.end_of_turn_config.use_forced_eou) and not (
-            self.vad_config and self.vad_config.enabled
-        ):
-            errors.append("FIXED mode cannot be used in conjunction with forced end of utterance without VAD enabled")
 
         # Cannot use VAD with external end of utterance mode
         if self.end_of_utterance_mode == EndOfUtteranceMode.EXTERNAL and (self.vad_config and self.vad_config.enabled):
@@ -751,12 +773,13 @@ class VoiceAgentConfig(BaseModel):
         if self.sample_rate not in [8000, 16000]:
             errors.append("sample_rate must be 8000 or 16000")
 
+        # Check that forced end of utterance is set to True
+        if not self.end_of_turn_config.use_forced_eou:
+            errors.append("EndOfTurnConfig.use_forced_eou cannot be False")
+
         # Raise error if any validation errors
         if errors:
             raise ValueError(f"{len(errors)} config error(s): {'; '.join(errors)}")
-
-        # Return validated config
-        return self
 
 
 # ==============================================================================
