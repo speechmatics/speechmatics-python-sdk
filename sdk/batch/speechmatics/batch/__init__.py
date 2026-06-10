@@ -17,6 +17,7 @@ from ._models import ConnectionConfig
 from ._models import FetchData
 from ._models import FormatType
 from ._models import JobConfig
+from ._models import JobDetailError
 from ._models import JobDetails
 from ._models import JobInfo
 from ._models import JobStatus
@@ -27,6 +28,7 @@ from ._models import NotificationMethod
 from ._models import OperatingPoint
 from ._models import OutputConfig
 from ._models import SentimentAnalysisConfig
+from ._models import SpeakerIdentifier
 from ._models import SummarizationConfig
 from ._models import TopicDetectionConfig
 from ._models import Transcript
@@ -49,6 +51,7 @@ __all__ = [
     "FetchData",
     "FormatType",
     "JobConfig",
+    "JobDetailError",
     "JobDetails",
     "JobError",
     "JobInfo",
@@ -61,6 +64,7 @@ __all__ = [
     "OperatingPoint",
     "OutputConfig",
     "SentimentAnalysisConfig",
+    "SpeakerIdentifier",
     "StaticKeyAuth",
     "SummarizationConfig",
     "TimeoutError",
