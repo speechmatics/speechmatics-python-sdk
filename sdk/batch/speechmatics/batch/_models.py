@@ -120,12 +120,12 @@ class TranscriptionConfig:
         language_hints: List of languages that are most likely to appear in your audio,
             This improves accuracy by biasing recognition toward the specified languages.
             Use ``language_hints_strict`` to control whether other languages can also be detected.
-            Applicable only for omni-v1 models. Support for omni-v1 models is coming soon.
+            Applicable only for the next-gen models. Support for next-gen models is coming soon.
         language_hints_strict: Controls how strictly language hints are applied.
             When ``True``, the transcript will only contain languages specified in ``language_hints``.
             When ``False``, recognition is biased toward the specified languages while still allowing other
             languages to be detected if present.
-            Applicable only for omni-v1 models. Support for omni-v1 models is coming soon.
+            Applicable only for the next-gen models. Support for the next-gen models is coming soon.
     """
 
     language: str = "en"
