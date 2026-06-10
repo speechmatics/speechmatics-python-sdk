@@ -1,4 +1,8 @@
-from speechmatics.batch._models import JobConfig, OperatingPoint, TranscriptFilteringConfig, TranscriptionConfig
+import json
+
+import pytest
+
+from speechmatics.batch._models import JobConfig, Model, OperatingPoint, TranscriptFilteringConfig, TranscriptionConfig
 
 
 class TestTranscriptFilteringConfigToDict:
@@ -130,17 +134,27 @@ class TestOutputConfigFromDict:
 
 
 class TestModelToDict:
-    def test_model_serializes_as_operating_point(self):
-        config = TranscriptionConfig(model=OperatingPoint.OMNI)
+    def test_model_gets_serialized(self):
+        config = TranscriptionConfig(model=Model.MELIA_1)
         result = config.to_dict()
-        assert result["operating_point"] == OperatingPoint.OMNI
+        assert result["model"] == Model.MELIA_1
+        assert "operating_point" not in result
+
+    def test_operating_point_gets_serialized(self):
+        config = TranscriptionConfig(operating_point=OperatingPoint.STANDARD)
+        result = config.to_dict()
+        assert result["operating_point"] == OperatingPoint.STANDARD
         assert "model" not in result
 
-    def test_model_absent_leaves_operating_point_unchanged(self):
-        config = TranscriptionConfig(operating_point=OperatingPoint.ENHANCED)
+    def test_default_model_is_enhanced(self):
+        config = TranscriptionConfig()
         result = config.to_dict()
-        assert result["operating_point"] == OperatingPoint.ENHANCED
-        assert "model" not in result
+        assert result["model"] == Model.ENHANCED
+        assert "operating_point" not in result
+
+    def test_model_and_operating_point_raises(self):
+        with pytest.raises(ValueError):
+            TranscriptionConfig(model=Model.STANDARD, operating_point=OperatingPoint.STANDARD)
 
 
 class TestLanguageHintsToDict:

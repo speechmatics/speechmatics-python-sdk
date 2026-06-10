@@ -48,8 +48,7 @@ class OperatingPoint(str, Enum):
 
     ENHANCED = "enhanced"
     STANDARD = "standard"
-    # Not yet available for general use. Support for omni-v1 models is coming soon.
-    OMNI = "omni-v1"
+    MELIA_1 = "melia-1"
 
 
 class Model(str, Enum):
@@ -57,6 +56,7 @@ class Model(str, Enum):
 
     ENHANCED = "enhanced"
     STANDARD = "standard"
+    MELIA_1 = "melia-1"
 
 
 class NotificationContents(str, Enum):
@@ -161,10 +161,8 @@ class TranscriptionConfig:
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {k: v for k, v in asdict(self).items() if v is not None}
-        if self.model:
-            # model is an alias for operating_point for omni-v1 models; they cannot coexist in the request.
-            result["operating_point"] = self.model
-            result.pop("model")
+        if self.model is _UNSET:
+            result.pop("model", None)
         if self.transcript_filtering_config is not None:
             result["transcript_filtering_config"] = self.transcript_filtering_config.to_dict()
         if self.audio_filtering_config is not None:
