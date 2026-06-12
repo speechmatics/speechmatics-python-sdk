@@ -847,7 +847,7 @@ class Transcript:
         # Group results by speaker and process
         transcript_parts = []
         current_speaker = None
-        current_group: list[str] = []
+        current_group: list[RecognitionResult] = []
 
         for result in self.results:
             if not result.alternatives:
@@ -861,9 +861,9 @@ class Transcript:
             if speaker != current_speaker:
                 # Process accumulated group for previous speaker
                 if current_group:
-                    text = self._join_content_items(current_group, word_delimiter)
+                    text = self._join_results(current_group, word_delimiter)
                     if current_speaker:
-                        transcript_parts.append(f"SPEAKER {current_speaker}: {text}")  # type: ignore[unreachable]
+                        transcript_parts.append(f"SPEAKER {current_speaker}: {text}")
                     else:
                         transcript_parts.append(text)
                     current_group = []
@@ -872,11 +872,11 @@ class Transcript:
 
             # Add content to current group
             if content:
-                current_group.append(content)
+                current_group.append(result)
 
         # Process final group
         if current_group:
-            text = self._join_content_items(current_group, word_delimiter)
+            text = self._join_results(current_group, word_delimiter)
             if current_speaker:
                 transcript_parts.append(f"SPEAKER {current_speaker}: {text}")
             else:
@@ -884,39 +884,57 @@ class Transcript:
 
         return "\n".join(transcript_parts)
 
-    def _join_content_items(self, content_items: list[str], word_delimiter: str) -> str:
+    def _join_results(self, results: list[RecognitionResult], word_delimiter: str) -> str:
         """
-        Join content items with appropriate spacing and punctuation handling.
+        Join results with attachment-aware punctuation spacing.
 
         Args:
-            content_items: List of content strings to join.
+            results: List of recognition results to join.
             word_delimiter: Delimiter to use between words.
 
         Returns:
             Properly formatted text string.
         """
-        if not content_items:
+        if not results:
             return ""
 
-        result: list[str] = []
+        output: list[str] = []
+        previous_result: Optional[RecognitionResult] = None
 
-        for i, content in enumerate(content_items):
+        for result in results:
+            if not result.alternatives:
+                continue
+
+            content = result.alternatives[0].content
             if not content:
                 continue
 
-            # Check if this content is punctuation
-            is_punctuation = content.strip() in ".,!?;:()[]{}\"'-"
+            if previous_result and self._needs_word_delimiter(previous_result, result):
+                output.append(word_delimiter)
 
-            # Add delimiter before content unless:
-            # - It's the first item
-            # - It's punctuation
-            # - Previous item ended with whitespace
-            if i > 0 and not is_punctuation and result and not result[-1].endswith(" "):
-                result.append(word_delimiter)
+            output.append(content)
+            previous_result = result
 
-            result.append(content)
+        return "".join(output).strip()
 
-        return "".join(result).strip()
+    def _needs_word_delimiter(self, previous_result: RecognitionResult, result: RecognitionResult) -> bool:
+        previous_attaches_to = self._punctuation_attachment(previous_result)
+        if previous_attaches_to in {"next", "both"}:
+            return False
+
+        attaches_to = self._punctuation_attachment(result)
+        return attaches_to not in {"previous", "both"}
+
+    @staticmethod
+    def _punctuation_attachment(result: RecognitionResult) -> Optional[str]:
+        if result.type != "punctuation":
+            return None
+
+        attaches_to = result.attaches_to or "previous"
+        if attaches_to not in {"previous", "next", "both", "none"}:
+            return "previous"
+
+        return attaches_to
 
     @property
     def confidence(self) -> Optional[float]:
