@@ -1,4 +1,8 @@
-from speechmatics.batch._models import JobConfig, TranscriptFilteringConfig, TranscriptionConfig
+import json
+
+import pytest
+
+from speechmatics.batch._models import JobConfig, Model, OperatingPoint, TranscriptFilteringConfig, TranscriptionConfig
 
 
 class TestTranscriptFilteringConfigToDict:
@@ -127,3 +131,91 @@ class TestOutputConfigFromDict:
         data = {"type": "transcription"}
         job_config = JobConfig.from_dict(data)
         assert job_config.output_config is None
+
+
+class TestModelToDict:
+    def test_model_gets_serialized(self):
+        config = TranscriptionConfig(model=Model.MELIA_1)
+        result = config.to_dict()
+        assert result["model"] == Model.MELIA_1
+        assert "operating_point" not in result
+
+    def test_operating_point_gets_serialized(self):
+        config = TranscriptionConfig(operating_point=OperatingPoint.STANDARD)
+        result = config.to_dict()
+        assert result["operating_point"] == OperatingPoint.STANDARD
+        assert "model" not in result
+
+    def test_default_model_is_enhanced(self):
+        config = TranscriptionConfig()
+        result = config.to_dict()
+        assert result["model"] == Model.ENHANCED
+        assert "operating_point" not in result
+
+    def test_model_and_operating_point_raises(self):
+        with pytest.raises(ValueError):
+            TranscriptionConfig(model=Model.STANDARD, operating_point=OperatingPoint.STANDARD)
+
+
+class TestLanguageHintsToDict:
+    def test_language_hints_serializes_correctly(self):
+        config = TranscriptionConfig(language_hints=["en", "fr"])
+        result = config.to_dict()
+        assert result["language_hints"] == ["en", "fr"]
+        assert "language_hints_strict" not in result
+
+    def test_language_hints_strict_true_serializes_correctly(self):
+        config = TranscriptionConfig(language_hints=["en"], language_hints_strict=True)
+        result = config.to_dict()
+        assert result["language_hints"] == ["en"]
+        assert result["language_hints_strict"] is True
+
+    def test_language_hints_strict_false_serializes_correctly(self):
+        config = TranscriptionConfig(language_hints=["en"], language_hints_strict=False)
+        result = config.to_dict()
+        assert result["language_hints"] == ["en"]
+        assert "language_hints_strict" in result
+        assert result["language_hints_strict"] is False
+
+    def test_language_hints_absent_when_none(self):
+        config = TranscriptionConfig()
+        result = config.to_dict()
+        assert "language_hints" not in result
+        assert "language_hints_strict" not in result
+
+
+class TestLanguageHintsFromDict:
+    def test_language_hints_deserializes_correctly(self):
+        data = {
+            "type": "transcription",
+            "transcription_config": {
+                "language": "en",
+                "language_hints": ["en", "fr"],
+            },
+        }
+        job_config = JobConfig.from_dict(data)
+        assert job_config.transcription_config is not None
+        assert job_config.transcription_config.language_hints == ["en", "fr"]
+
+    def test_language_hints_strict_deserializes_correctly(self):
+        data = {
+            "type": "transcription",
+            "transcription_config": {
+                "language": "en",
+                "language_hints": ["en"],
+                "language_hints_strict": True,
+            },
+        }
+        job_config = JobConfig.from_dict(data)
+        assert job_config.transcription_config is not None
+        assert job_config.transcription_config.language_hints_strict is True
+
+    def test_absent_fields_are_none(self):
+        data = {
+            "type": "transcription",
+            "transcription_config": {"language": "en"},
+        }
+        job_config = JobConfig.from_dict(data)
+        assert job_config.transcription_config
+        assert job_config.transcription_config.language_hints is None
+        assert job_config.transcription_config.language_hints_strict is None

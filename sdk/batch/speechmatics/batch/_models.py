@@ -48,6 +48,7 @@ class OperatingPoint(str, Enum):
 
     ENHANCED = "enhanced"
     STANDARD = "standard"
+    MELIA_1 = "melia-1"
 
 
 class Model(str, Enum):
@@ -55,6 +56,7 @@ class Model(str, Enum):
 
     ENHANCED = "enhanced"
     STANDARD = "standard"
+    MELIA_1 = "melia-1"
 
 
 class NotificationContents(str, Enum):
@@ -115,6 +117,15 @@ class TranscriptionConfig:
             defaults to None.
         audio_filtering_config: Configuration for limiting the transcription of quiet audio.
             Defaults to None.
+        language_hints: List of languages that are most likely to appear in your audio,
+            This improves accuracy by biasing recognition toward the specified languages.
+            Use ``language_hints_strict`` to control whether other languages can also be detected.
+            Applicable only for the next-gen models. Support for next-gen models is coming soon.
+        language_hints_strict: Controls how strictly language hints are applied.
+            When ``True``, the transcript will only contain languages specified in ``language_hints``.
+            When ``False``, recognition is biased toward the specified languages while still allowing other
+            languages to be detected if present.
+            Applicable only for the next-gen models. Support for the next-gen models is coming soon.
     """
 
     language: str = "en"
@@ -133,6 +144,8 @@ class TranscriptionConfig:
     transcript_filtering_config: Optional[TranscriptFilteringConfig] = None
     audio_filtering_config: Optional[AudioFilteringConfig] = None
     operating_point: Optional[OperatingPoint] = None
+    language_hints: Optional[list[str]] = None
+    language_hints_strict: Optional[bool] = None
 
     def __post_init__(self) -> None:
         if self.model is not _UNSET and self.operating_point is not None:
@@ -148,6 +161,8 @@ class TranscriptionConfig:
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {k: v for k, v in asdict(self).items() if v is not None}
+        if self.model is _UNSET:
+            result.pop("model", None)
         if self.transcript_filtering_config is not None:
             result["transcript_filtering_config"] = self.transcript_filtering_config.to_dict()
         if self.audio_filtering_config is not None:
@@ -811,6 +826,9 @@ class Transcript:
         audio_event_summary: Optional audio event statistics.
     """
 
+    _LANG_PACK_WORD_DELIMITER_KEY = "word_delimiter"
+    _LANG_PACK_PER_LANG_DELIMITERS_KEY = "per_language_word_delimiters"
+
     format: str
     job: JobInfo
     metadata: RecognitionMetadata
@@ -840,14 +858,23 @@ class Transcript:
             return ""
 
         # Get language pack info for word delimiter
-        word_delimiter = " "  # Default
-        if self.metadata and self.metadata.language_pack_info and "word_delimiter" in self.metadata.language_pack_info:
-            word_delimiter = self.metadata.language_pack_info["word_delimiter"]
+        default_word_delimiter = " "  # Default
+        # Applicable only for the next gen models
+        per_lang_word_delimiters: dict = {}
+        if self.metadata and self.metadata.language_pack_info:
+            if self._LANG_PACK_WORD_DELIMITER_KEY in self.metadata.language_pack_info:
+                default_word_delimiter = self.metadata.language_pack_info[self._LANG_PACK_WORD_DELIMITER_KEY]
+
+            if self._LANG_PACK_PER_LANG_DELIMITERS_KEY in self.metadata.language_pack_info:
+                per_lang_word_delimiters = self.metadata.language_pack_info[self._LANG_PACK_PER_LANG_DELIMITERS_KEY]
 
         # Group results by speaker and process
         transcript_parts = []
         current_speaker = None
-        current_group: list[str] = []
+        # Each entry is (word, delimiter), where delimiter is looked up from per_language_word_delimiters
+        # using the word's language code, falling back to the default word delimiter.
+        # For example, [("hello", " "), ("world", " ")]
+        current_group: list[tuple[str, str]] = []
 
         for result in self.results:
             if not result.alternatives:
@@ -856,12 +883,15 @@ class Transcript:
             alternative = result.alternatives[0]
             content = alternative.content
             speaker = alternative.speaker
+            word_delimiter = default_word_delimiter
+            if alternative.language and alternative.language in per_lang_word_delimiters:
+                word_delimiter = per_lang_word_delimiters[alternative.language]
 
             # Handle speaker changes
             if speaker != current_speaker:
                 # Process accumulated group for previous speaker
                 if current_group:
-                    text = self._join_content_items(current_group, word_delimiter)
+                    text = self._join_content_items(current_group)
                     if current_speaker:
                         transcript_parts.append(f"SPEAKER {current_speaker}: {text}")  # type: ignore[unreachable]
                     else:
@@ -870,13 +900,13 @@ class Transcript:
 
                 current_speaker = speaker
 
-            # Add content to current group
+            # Add content to current group with its word delimiter
             if content:
-                current_group.append(content)
+                current_group.append((content, word_delimiter))
 
         # Process final group
         if current_group:
-            text = self._join_content_items(current_group, word_delimiter)
+            text = self._join_content_items(current_group)
             if current_speaker:
                 transcript_parts.append(f"SPEAKER {current_speaker}: {text}")
             else:
@@ -884,13 +914,12 @@ class Transcript:
 
         return "\n".join(transcript_parts)
 
-    def _join_content_items(self, content_items: list[str], word_delimiter: str) -> str:
+    def _join_content_items(self, content_items: list[tuple[str, str]]) -> str:
         """
         Join content items with appropriate spacing and punctuation handling.
 
         Args:
-            content_items: List of content strings to join.
-            word_delimiter: Delimiter to use between words.
+            content_items: List of (content, word_delimiter) pairs to join.
 
         Returns:
             Properly formatted text string.
@@ -900,7 +929,7 @@ class Transcript:
 
         result: list[str] = []
 
-        for i, content in enumerate(content_items):
+        for i, (content, word_delimiter) in enumerate(content_items):
             if not content:
                 continue
 
