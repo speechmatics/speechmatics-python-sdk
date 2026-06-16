@@ -22,6 +22,7 @@ from ._models import JobDetails
 from ._models import JobInfo
 from ._models import JobStatus
 from ._models import JobType
+from ._models import Model
 from ._models import NotificationConfig
 from ._models import NotificationContents
 from ._models import NotificationMethod
@@ -58,6 +59,7 @@ __all__ = [
     "JobStatus",
     "JobType",
     "JWTAuth",
+    "Model",
     "NotificationConfig",
     "NotificationContents",
     "NotificationMethod",
