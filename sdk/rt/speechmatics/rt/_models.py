@@ -8,8 +8,9 @@ from enum import Enum
 from typing import Any
 from typing import Optional
 from typing import cast
-from warnings import deprecated
 from warnings import warn
+
+from typing_extensions import deprecated
 
 
 class AudioEncoding(str, Enum):
@@ -468,7 +469,10 @@ class TranscriptionConfig:
             >>> #     "max_delay": 5.0
             >>> # }
         """
-        return asdict(self, dict_factory=lambda x: {k: v for (k, v) in x if v is not None})
+        result = asdict(self, dict_factory=lambda x: {k: v for (k, v) in x if v is not None})
+        if self.model is _UNSET:
+            result.pop("model", None)
+        return result
 
 
 @dataclass
