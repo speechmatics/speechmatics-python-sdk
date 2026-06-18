@@ -10,7 +10,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import uuid
 from typing import Any
 from typing import BinaryIO
 from typing import Optional
@@ -102,11 +101,10 @@ class AsyncClient:
         self._auth = auth or StaticKeyAuth(api_key)
         self._url = url or os.environ.get("SPEECHMATICS_BATCH_URL") or "https://asr.api.speechmatics.com/v2"
         self._conn_config = conn_config or ConnectionConfig()
-        self._request_id = str(uuid.uuid4())
-        self._transport = Transport(self._url, self._conn_config, self._auth, self._request_id)
+        self._transport = Transport(self._url, self._conn_config, self._auth)
 
         self._logger = get_logger(__name__)
-        self._logger.debug("AsyncClient initialized (request_id=%s, url=%s)", self._request_id, self._url)
+        self._logger.debug("AsyncClient initialized (url=%s)", self._url)
 
     async def __aenter__(self) -> AsyncClient:
         """
