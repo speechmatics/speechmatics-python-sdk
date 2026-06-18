@@ -38,12 +38,9 @@ class Transport:
         url: Base URL for the Speechmatics Batch API.
         conn_config: Connection configuration including URL and timeouts.
         auth: Authentication instance for handling credentials.
-        request_id: Optional unique identifier for request tracking. Generated
-                   automatically if not provided.
 
     Attributes:
         conn_config: The connection configuration object.
-        request_id: Unique identifier for this transport instance.
 
     Examples:
         Basic usage:
@@ -51,7 +48,7 @@ class Transport:
             >>> conn_config = ConnectionConfig()
             >>> auth = StaticKeyAuth("your-api-key")
             >>> transport = Transport(conn_config, auth)
-            >>> response = await transport.get("/jobs")
+            >>> response = await transport.generate()
             >>> await transport.close()
     """
 
@@ -60,7 +57,6 @@ class Transport:
         url: str,
         conn_config: ConnectionConfig,
         auth: AuthBase,
-        request_id: Optional[str] = None,
     ) -> None:
         """
         Initialize the transport with connection configuration.
@@ -68,18 +64,15 @@ class Transport:
         Args:
             conn_config: Connection configuration object containing connection parameters.
             auth: Authentication instance for handling credentials.
-            request_id: Optional unique identifier for request tracking.
-                Generated automatically if not provided.
         """
         self._url = url
         self._conn_config = conn_config
         self._auth = auth
-        self._request_id = request_id or str(uuid.uuid4())
         self._session: Optional[aiohttp.ClientSession] = None
         self._closed = False
         self._logger = get_logger(__name__)
 
-        self._logger.debug("Transport initialized (request_id=%s, url=%s)", self._request_id, self._url)
+        self._logger.debug("Transport initialized (url=%s)", self._url)
 
     async def __aenter__(self) -> Transport:
         """Async context manager entry."""
@@ -189,12 +182,14 @@ class Transport:
             raise ConnectionError("Failed to create HTTP session")
 
         url = f"{self._url.rstrip('/')}{path}"
-        headers = await self._prepare_headers()
+        request_id = str(uuid.uuid4())
+        headers = await self._prepare_headers(request_id)
 
         self._logger.debug(
-            "Sending HTTP request %s %s (json=%s, multipart=%s)",
+            "Sending HTTP request %s %s (request_id=%s, json=%s, multipart=%s)",
             method,
             url,
+            request_id,
             json_data is not None,
             multipart_data is not None,
         )
@@ -239,24 +234,28 @@ class Transport:
 
             response = await self._session.request(method, url, **kwargs)
             try:
-                return await self._handle_response(response)
+                return await self._handle_response(response, request_id)
             except Exception:
                 response.close()
                 raise
 
         except asyncio.TimeoutError:
             self._logger.error(
-                "Request timeout %s %s (timeout=%.1fs)", method, path, self._conn_config.operation_timeout
+                "Request timeout %s %s (request_id=%s, timeout=%.1fs)",
+                method,
+                path,
+                request_id,
+                self._conn_config.operation_timeout,
             )
-            raise TransportError(f"Request timeout for {method} {path}") from None
+            raise TransportError(f"Request timeout for {method} {path} (request_id={request_id})") from None
         except aiohttp.ClientError as e:
-            self._logger.error("Request failed %s %s: %s", method, path, e)
-            raise ConnectionError(f"Request failed: {e}") from e
+            self._logger.error("Request failed %s %s (request_id=%s): %s", method, path, request_id, e)
+            raise ConnectionError(f"Request failed (request_id={request_id}): {e}") from e
         except Exception as e:
-            self._logger.error("Unexpected error %s %s: %s", method, path, e)
-            raise TransportError(f"Unexpected error: {e}") from e
+            self._logger.error("Unexpected error %s %s (request_id=%s): %s", method, path, request_id, e)
+            raise TransportError(f"Unexpected error (request_id={request_id}): {e}") from e
 
-    async def _prepare_headers(self) -> dict[str, str]:
+    async def _prepare_headers(self, request_id: str) -> dict[str, str]:
         """
         Prepare HTTP headers for requests.
 
@@ -264,21 +263,20 @@ class Transport:
             Headers dictionary with authentication and tracking info
         """
         auth_headers = await self._auth.get_auth_headers()
-        auth_headers["User-Agent"] = (
-            f"speechmatics-batch-v{get_version()} python/{sys.version_info.major}.{sys.version_info.minor}"
-        )
-
-        if self._request_id:
-            auth_headers["X-Request-Id"] = self._request_id
+        auth_headers[
+            "User-Agent"
+        ] = f"speechmatics-batch-v{get_version()} python/{sys.version_info.major}.{sys.version_info.minor}"
+        auth_headers["X-Request-Id"] = request_id
 
         return auth_headers
 
-    async def _handle_response(self, response: aiohttp.ClientResponse) -> aiohttp.ClientResponse:
+    async def _handle_response(self, response: aiohttp.ClientResponse, request_id: str) -> aiohttp.ClientResponse:
         """
         Handle HTTP response and extract JSON data.
 
         Args:
             response: HTTP response object
+            request_id: Request ID for correlation in logs and error messages
 
         Returns:
             HTTP response object
@@ -289,18 +287,22 @@ class Transport:
         """
         try:
             if response.status == 401:
-                raise AuthenticationError("Invalid API key - authentication failed")
+                raise AuthenticationError(f"Invalid API key - authentication failed (request_id={request_id})")
             elif response.status == 403:
-                raise AuthenticationError("Access forbidden - check API key permissions")
+                raise AuthenticationError(f"Access forbidden - check API key permissions (request_id={request_id})")
             elif response.status >= 400:
                 error_text = await response.text()
-                self._logger.error("HTTP error %d %s: %s", response.status, response.reason, error_text)
-                raise TransportError(f"HTTP {response.status}: {response.reason} - {error_text}")
+                self._logger.error(
+                    "HTTP error %d %s (request_id=%s): %s", response.status, response.reason, request_id, error_text
+                )
+                raise TransportError(
+                    f"HTTP {response.status}: {response.reason} - {error_text} (request_id={request_id})"
+                )
             return response
 
         except aiohttp.ContentTypeError as e:
-            self._logger.error("Failed to parse JSON response: %s", e)
-            raise TransportError(f"Failed to parse response: {e}") from e
+            self._logger.error("Failed to parse JSON response (request_id=%s): %s", request_id, e)
+            raise TransportError(f"Failed to parse response (request_id={request_id}): {e}") from e
         except Exception as e:
-            self._logger.error("Error handling response: %s", e)
-            raise TransportError(f"Error handling response: {e}") from e
+            self._logger.error("Error handling response (request_id=%s): %s", request_id, e)
+            raise TransportError(f"Error handling response (request_id={request_id}): {e}") from e
