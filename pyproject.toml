@@ -1,6 +1,7 @@
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
+extraPaths = ["sdk/batch", "sdk/flow", "sdk/rt", "sdk/tts", "sdk/voice"]
 
 [tool.black]
 line-length = 120

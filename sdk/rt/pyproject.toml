@@ -54,6 +54,9 @@ issues = "https://github.com/speechmatics/speechmatics-python-sdk/issues"
 [tool.setuptools.dynamic]
 version = { attr = "speechmatics.rt.__version__" }
 
+[tool.setuptools.package-data]
+"speechmatics.rt" = ["py.typed"]
+
 [tool.setuptools.packages.find]
 where = ["."]
 
