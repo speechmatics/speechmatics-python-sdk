@@ -147,6 +147,7 @@ type-check-voice:
 # Installation targets
 install-dev:
 	python -m pip install --upgrade pip
+	python -m pip install pip-audit
 	python -m pip install -e sdk/rt[dev]
 	python -m pip install -e sdk/batch[dev]
 	python -m pip install -e sdk/flow[dev]
