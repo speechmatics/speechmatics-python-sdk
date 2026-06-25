@@ -172,3 +172,7 @@ tmp/
 # Examples
 output/
 **/output.wav
+
+# macOS
+.DS_Store
+**/.DS_Store
