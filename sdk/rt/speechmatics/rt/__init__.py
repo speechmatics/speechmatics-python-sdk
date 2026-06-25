@@ -21,6 +21,7 @@ from ._models import AudioFormat
 from ._models import ClientMessageType
 from ._models import ConnectionConfig
 from ._models import ConversationConfig
+from ._models import Model
 from ._models import OperatingPoint
 from ._models import ServerMessageType
 from ._models import SessionInfo
@@ -49,6 +50,7 @@ __all__ = [
     "EventEmitter",
     "JWTAuth",
     "Microphone",
+    "Model",
     "OperatingPoint",
     "ServerMessageType",
     "SessionError",

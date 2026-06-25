@@ -14,7 +14,10 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 from typing import Optional
-from typing import Union
+from typing import cast
+from warnings import warn
+
+from typing_extensions import deprecated
 
 
 class JobType(str, Enum):
@@ -39,11 +42,21 @@ class JobStatus(str, Enum):
     EXPIRED = "expired"
 
 
+@deprecated("Use Model instead")
 class OperatingPoint(str, Enum):
     """Operating point options for transcription."""
 
     ENHANCED = "enhanced"
     STANDARD = "standard"
+    MELIA_1 = "melia-1"
+
+
+class Model(str, Enum):
+    """Operating point options for transcription."""
+
+    ENHANCED = "enhanced"
+    STANDARD = "standard"
+    MELIA_1 = "melia-1"
 
 
 class NotificationContents(str, Enum):
@@ -76,6 +89,9 @@ class FormatType(str, Enum):
     SRT = "srt"
 
 
+_UNSET = cast(Model, object())
+
+
 @dataclass
 class TranscriptionConfig:
     """
@@ -84,7 +100,7 @@ class TranscriptionConfig:
     Attributes:
         language: ISO 639-1 language code (e.g., "en", "es", "fr").
             defaults to "en"
-        operating_point: Which acoustic model to use.
+        model: Which acoustic model to use.
             defaults to "enhanced"
         output_locale: RFC-5646 language code for transcript output.
         diarization: Type of diarization to use. Options: "none", "speaker".
@@ -101,10 +117,19 @@ class TranscriptionConfig:
             defaults to None.
         audio_filtering_config: Configuration for limiting the transcription of quiet audio.
             Defaults to None.
+        language_hints: List of languages that are most likely to appear in your audio,
+            This improves accuracy by biasing recognition toward the specified languages.
+            Use ``language_hints_strict`` to control whether other languages can also be detected.
+            Applicable only for the next-gen models. Support for next-gen models is coming soon.
+        language_hints_strict: Controls how strictly language hints are applied.
+            When ``True``, the transcript will only contain languages specified in ``language_hints``.
+            When ``False``, recognition is biased toward the specified languages while still allowing other
+            languages to be detected if present.
+            Applicable only for the next-gen models. Support for the next-gen models is coming soon.
     """
 
     language: str = "en"
-    operating_point: OperatingPoint = OperatingPoint.ENHANCED
+    model: Model = _UNSET
     output_locale: Optional[str] = None
     diarization: Optional[str] = None
     additional_vocab: Optional[list[dict[str, Any]]] = None
@@ -118,9 +143,26 @@ class TranscriptionConfig:
     max_delay_mode: Optional[str] = None
     transcript_filtering_config: Optional[TranscriptFilteringConfig] = None
     audio_filtering_config: Optional[AudioFilteringConfig] = None
+    operating_point: Optional[OperatingPoint] = None
+    language_hints: Optional[list[str]] = None
+    language_hints_strict: Optional[bool] = None
+
+    def __post_init__(self) -> None:
+        if self.model is not _UNSET and self.operating_point is not None:
+            raise ValueError("Cannot specify both 'model' and 'operating_point'. Use 'model' instead.")
+        if self.model is _UNSET and self.operating_point is None:
+            self.model = Model.ENHANCED
+        if self.operating_point is not None:
+            warn(
+                "'operating_point' is deprecated, use 'model' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {k: v for k, v in asdict(self).items() if v is not None}
+        if self.model is _UNSET:
+            result.pop("model", None)
         if self.transcript_filtering_config is not None:
             result["transcript_filtering_config"] = self.transcript_filtering_config.to_dict()
         if self.audio_filtering_config is not None:
@@ -467,29 +509,15 @@ class JobConfig:
 
 
 @dataclass
-class JobError:
+class JobDetailError:
     """Represents a job processing error."""
-
-    type: str
-    message: str
-    details: Optional[dict[str, Any]] = None
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> JobError:
-        """Create JobError from dictionary."""
-        return cls(type=data["type"], message=data["message"], details=data.get("details"))
-
-
-@dataclass
-class FetchDataError:
-    """Represents a fetch data error."""
 
     message: str
     timestamp: str
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> FetchDataError:
-        """Create FetchDataError from dictionary."""
+    def from_dict(cls, data: dict[str, Any]) -> JobDetailError:
+        """Create JobDetailError from dictionary."""
         return cls(message=data["message"], timestamp=data["timestamp"])
 
 
@@ -555,7 +583,7 @@ class JobDetails:
     data_name: str
     duration: Optional[float] = None
     config: Optional[JobConfig] = None
-    errors: Optional[list[Union[JobError, FetchDataError]]] = None
+    errors: Optional[list[JobDetailError]] = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> JobDetails:
@@ -564,12 +592,9 @@ class JobDetails:
         if "config" in data and data["config"]:
             config = JobConfig.from_dict(data["config"])
 
-        errors: list[Union[JobError, FetchDataError]] = []
+        errors: list[JobDetailError] = []
         if "errors" in data and data["errors"]:
-            if config and config.fetch_data:
-                errors = [FetchDataError.from_dict(error) for error in data["errors"]]
-            else:
-                errors = [JobError.from_dict(error) for error in data["errors"]]
+            errors = [JobDetailError.from_dict(error) for error in data["errors"]]
 
         return cls(
             id=data["id"],
@@ -641,50 +666,140 @@ class RecognitionMetadata:
 
 
 @dataclass
-class Alternative:
-    """Alternative transcription result."""
+class RecognitionDisplay:
+    """Display properties for a recognition alternative."""
+
+    direction: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> RecognitionDisplay:
+        return cls(direction=data["direction"])
+
+
+@dataclass
+class RecognitionAlternative:
+    """List of possible job output item values, ordered by likelihood."""
 
     content: str
-    confidence: Optional[float] = None
-    language: Optional[str] = None
+    confidence: float
+    language: str
+    display: Optional[RecognitionDisplay] = None
     speaker: Optional[str] = None
+    tags: Optional[list[str]] = None
     words: Optional[list[dict[str, Any]]] = None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Alternative:
-        """Create Alternative from dictionary."""
+    def from_dict(cls, data: dict[str, Any]) -> RecognitionAlternative:
+        """Create RecognitionAlternative from dictionary."""
         return cls(
             content=data["content"],
-            confidence=data.get("confidence"),
-            language=data.get("language"),
+            confidence=data["confidence"],
+            language=data["language"],
+            display=RecognitionDisplay.from_dict(data["display"]) if data.get("display") else None,
             speaker=data.get("speaker"),
+            tags=data.get("tags"),
             words=data.get("words"),
         )
 
 
 @dataclass
+class WrittenFormRecognitionResult:
+    """A WrittenFormRecognitionResult describes a simple object which consists solely of 'word' type entries with a start and end time. It can occur only inside the written_form property of a full RecognitionResult."""
+
+    start_time: float
+    end_time: float
+    type: str
+    alternatives: list[RecognitionAlternative]
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> WrittenFormRecognitionResult:
+        return cls(
+            start_time=data["start_time"],
+            end_time=data["end_time"],
+            type=data["type"],
+            alternatives=[RecognitionAlternative.from_dict(a) for a in data["alternatives"]],
+        )
+
+
+@dataclass
+class SpokenFormRecognitionResult:
+    """A SpokenFormRecognitionResult describes a simple object which consists solely of 'word' or 'punctuation' type entries with a start and end time. It can occur only inside the spoken_form property of a full RecognitionResult."""
+
+    start_time: float
+    end_time: float
+    type: str
+    alternatives: list[RecognitionAlternative]
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> SpokenFormRecognitionResult:
+        return cls(
+            start_time=data["start_time"],
+            end_time=data["end_time"],
+            type=data["type"],
+            alternatives=[RecognitionAlternative.from_dict(a) for a in data["alternatives"]],
+        )
+
+
+@dataclass
 class RecognitionResult:
-    """Individual recognition result with alternatives."""
+    """An ASR job output item. The primary item types are `word` and `punctuation`. Other item types may be present, for example to provide semantic information of different forms."""
 
     type: str
-    start_time: Optional[float] = None
-    end_time: Optional[float] = None
+    start_time: float
+    end_time: float
     channel: Optional[str] = None
-    alternatives: Optional[list[Alternative]] = None
+    volume: Optional[float] = None
+    alternatives: Optional[list[RecognitionAlternative]] = None
+    is_eos: Optional[bool] = None
+    attaches_to: Optional[str] = None
+    written_form: Optional[list[WrittenFormRecognitionResult]] = None
+    spoken_form: Optional[list[SpokenFormRecognitionResult]] = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> RecognitionResult:
         """Create RecognitionResult from dictionary."""
-        alternatives = None
-        if "alternatives" in data and data["alternatives"]:
-            alternatives = [Alternative.from_dict(alt) for alt in data["alternatives"]]
+        alternatives = (
+            [RecognitionAlternative.from_dict(alt) for alt in data["alternatives"]]
+            if data.get("alternatives")
+            else None
+        )
+
+        written_form = (
+            [WrittenFormRecognitionResult.from_dict(w) for w in data["written_form"]]
+            if data.get("written_form")
+            else None
+        )
+        spoken_form = (
+            [SpokenFormRecognitionResult.from_dict(s) for s in data["spoken_form"]] if data.get("spoken_form") else None
+        )
 
         return cls(
             type=data["type"],
-            start_time=data.get("start_time"),
-            end_time=data.get("end_time"),
+            start_time=data["start_time"],
+            end_time=data["end_time"],
             channel=data.get("channel"),
+            volume=data.get("volume"),
             alternatives=alternatives,
+            is_eos=data.get("is_eos"),
+            attaches_to=data.get("attaches_to"),
+            written_form=written_form,
+            spoken_form=spoken_form,
+        )
+
+
+@dataclass
+class SpeakerIdentifier:
+    """A unique speaker detected in the transcript."""
+
+    label: str
+    speaker_identifiers: list[str]
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> SpeakerIdentifier:
+        """Create SpeakerIdentifier from dictionary."""
+        return cls(
+            label=data["label"],
+            speaker_identifiers=data["speaker_identifiers"],
         )
 
 
@@ -701,6 +816,7 @@ class Transcript:
         job: Job information and metadata.
         metadata: Recognition process metadata.
         results: List of recognition results with timing and alternatives.
+        speakers: List of unique speakers detected in the transcript, each with a label and byte identifiers.
         translations: Optional translations by language code.
         summary: Optional transcript summarization.
         sentiment_analysis: Optional sentiment analysis results.
@@ -710,10 +826,14 @@ class Transcript:
         audio_event_summary: Optional audio event statistics.
     """
 
+    _LANG_PACK_WORD_DELIMITER_KEY = "word_delimiter"
+    _LANG_PACK_PER_LANG_DELIMITERS_KEY = "per_language_word_delimiters"
+
     format: str
     job: JobInfo
     metadata: RecognitionMetadata
     results: list[RecognitionResult]
+    speakers: Optional[list[SpeakerIdentifier]] = None
     translations: Optional[dict[str, Any]] = None
     summary: Optional[dict[str, Any]] = None
     sentiment_analysis: Optional[dict[str, Any]] = None
@@ -738,14 +858,23 @@ class Transcript:
             return ""
 
         # Get language pack info for word delimiter
-        word_delimiter = " "  # Default
-        if self.metadata and self.metadata.language_pack_info and "word_delimiter" in self.metadata.language_pack_info:
-            word_delimiter = self.metadata.language_pack_info["word_delimiter"]
+        default_word_delimiter = " "  # Default
+        # Applicable only for the next gen models
+        per_lang_word_delimiters: dict = {}
+        if self.metadata and self.metadata.language_pack_info:
+            if self._LANG_PACK_WORD_DELIMITER_KEY in self.metadata.language_pack_info:
+                default_word_delimiter = self.metadata.language_pack_info[self._LANG_PACK_WORD_DELIMITER_KEY]
+
+            if self._LANG_PACK_PER_LANG_DELIMITERS_KEY in self.metadata.language_pack_info:
+                per_lang_word_delimiters = self.metadata.language_pack_info[self._LANG_PACK_PER_LANG_DELIMITERS_KEY]
 
         # Group results by speaker and process
         transcript_parts = []
         current_speaker = None
-        current_group: list[str] = []
+        # Each entry is (word, delimiter), where delimiter is looked up from per_language_word_delimiters
+        # using the word's language code, falling back to the default word delimiter.
+        # For example, [("hello", " "), ("world", " ")]
+        current_group: list[tuple[str, str]] = []
 
         for result in self.results:
             if not result.alternatives:
@@ -754,12 +883,15 @@ class Transcript:
             alternative = result.alternatives[0]
             content = alternative.content
             speaker = alternative.speaker
+            word_delimiter = default_word_delimiter
+            if alternative.language and alternative.language in per_lang_word_delimiters:
+                word_delimiter = per_lang_word_delimiters[alternative.language]
 
             # Handle speaker changes
             if speaker != current_speaker:
                 # Process accumulated group for previous speaker
                 if current_group:
-                    text = self._join_content_items(current_group, word_delimiter)
+                    text = self._join_content_items(current_group)
                     if current_speaker:
                         transcript_parts.append(f"SPEAKER {current_speaker}: {text}")  # type: ignore[unreachable]
                     else:
@@ -768,13 +900,13 @@ class Transcript:
 
                 current_speaker = speaker
 
-            # Add content to current group
+            # Add content to current group with its word delimiter
             if content:
-                current_group.append(content)
+                current_group.append((content, word_delimiter))
 
         # Process final group
         if current_group:
-            text = self._join_content_items(current_group, word_delimiter)
+            text = self._join_content_items(current_group)
             if current_speaker:
                 transcript_parts.append(f"SPEAKER {current_speaker}: {text}")
             else:
@@ -782,13 +914,12 @@ class Transcript:
 
         return "\n".join(transcript_parts)
 
-    def _join_content_items(self, content_items: list[str], word_delimiter: str) -> str:
+    def _join_content_items(self, content_items: list[tuple[str, str]]) -> str:
         """
         Join content items with appropriate spacing and punctuation handling.
 
         Args:
-            content_items: List of content strings to join.
-            word_delimiter: Delimiter to use between words.
+            content_items: List of (content, word_delimiter) pairs to join.
 
         Returns:
             Properly formatted text string.
@@ -798,7 +929,7 @@ class Transcript:
 
         result: list[str] = []
 
-        for i, content in enumerate(content_items):
+        for i, (content, word_delimiter) in enumerate(content_items):
             if not content:
                 continue
 
@@ -819,12 +950,7 @@ class Transcript:
     @property
     def confidence(self) -> Optional[float]:
         """Calculate average confidence from all results."""
-        confidences = []
-        for result in self.results:
-            if result.alternatives:
-                conf = result.alternatives[0].confidence
-                if conf is not None:
-                    confidences.append(conf)
+        confidences = [result.alternatives[0].confidence for result in self.results if result.alternatives]
         return sum(confidences) / len(confidences) if confidences else None
 
     @classmethod
@@ -836,14 +962,17 @@ class Transcript:
         metadata_data = data["metadata"]
         metadata = RecognitionMetadata.from_dict(metadata_data)
 
-        results_data = data.get("results", [])
-        results = [RecognitionResult.from_dict(result) for result in results_data]
+        results = [RecognitionResult.from_dict(result) for result in data["results"]]
+
+        speakers_data = data.get("speakers")
+        speakers = [SpeakerIdentifier.from_dict(s) for s in speakers_data] if speakers_data else None
 
         return cls(
             format=data["format"],
             job=job_info,
             metadata=metadata,
             results=results,
+            speakers=speakers,
             translations=data.get("translations"),
             summary=data.get("summary"),
             sentiment_analysis=data.get("sentiment_analysis"),

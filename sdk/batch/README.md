@@ -104,7 +104,7 @@ from speechmatics.batch import (
     AsyncClient,
     JobConfig,
     JobType,
-    OperatingPoint,
+    Model,
     TranscriptionConfig,
     TranslationConfig,
     SummarizationConfig
@@ -118,7 +118,7 @@ async def main():
             type=JobType.TRANSCRIPTION,
             transcription_config=TranscriptionConfig(
                 language="en",
-                operating_point=OperatingPoint.ENHANCED,
+                model=Model.ENHANCED,
                 enable_entities=True,
                 diarization="speaker",
             ),
