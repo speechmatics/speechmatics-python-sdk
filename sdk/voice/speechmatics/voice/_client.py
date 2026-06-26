@@ -727,11 +727,14 @@ class VoiceAgentClient(AsyncClient):
     # PUBLIC UTTERANCE / TURN MANAGEMENT
     # ============================================================================
 
-    def finalize(self) -> None:
+    def finalize(self, pad: float | None = None) -> None:
         """Finalize segments.
 
         This function will emit segments in the buffer without any further checks
         on the contents of the segments.
+
+        Args:
+            pad: the number of seconds to pad the timestamp for the FEOU (optional)
         """
 
         # Clear smart turn cutoff
@@ -746,7 +749,7 @@ class VoiceAgentClient(AsyncClient):
 
             # Forced end of utterance message (only when no speaker is detected)
             if self._use_forced_eou:
-                await self._await_forced_eou()
+                await self._await_forced_eou(pad=pad)
 
             # Check if the turn has changed
             if self._turn_handler.handler_id != _turn_id:
@@ -1672,7 +1675,7 @@ class VoiceAgentClient(AsyncClient):
         # Return the prediction
         return prediction
 
-    async def _await_forced_eou(self, timeout: float = 1.0) -> None:
+    async def _await_forced_eou(self, timeout: float = 1.0, pad: float | None = None) -> None:
         """Await the forced end of utterance."""
 
         # Received EOU
@@ -1687,17 +1690,20 @@ class VoiceAgentClient(AsyncClient):
             start_time = time.time()
             self._forced_eou_active = True
 
-            # Adjust the timestamp to capture short words (seconds)
-            timestamp_padding_s: float = 0.02
+            # Timings
+            audio_sent = self.audio_seconds_sent
+            # padding = self._config.end_of_turn_config.forced_eou_padding
+            padding = pad if pad else 0.0
 
             # Establish amount of time to wait for EOU
-            timestamp: float = max(self.audio_seconds_sent + timestamp_padding_s, 0.0)
+            timestamp: float = max(audio_sent + padding, 0.0)
+
+            # Info
+            info = {"audio_sent": audio_sent, "padding": padding, "timestamp": timestamp}
 
             # Send the force EOU and wait for the response
             await self.force_end_of_utterance(timestamp=timestamp)
-            self._emit_diagnostic_message(
-                f"ForceEndOfUtterance sent - waiting for EndOfUtterance (timestamp: {timestamp})"
-            )
+            self._emit_diagnostic_message(f"ForceEndOfUtterance sent - waiting for EndOfUtterance ({info})")
 
             # Wait for the response
             await asyncio.wait_for(eou_received.wait(), timeout=timeout)

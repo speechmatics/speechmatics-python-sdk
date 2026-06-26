@@ -411,6 +411,7 @@ class EndOfTurnConfig(BaseModel):
         min_end_of_turn_delay: Minimum end of turn delay.
         penalties: List of end of turn penalty items.
         use_forced_eou: Whether to use forced end of utterance detection. (SHOULD ONLY EVER BE TRUE)
+        forced_eou_padding: the padding to use when sending ForceEndOfUtterance with timestamp
     """
 
     base_multiplier: float = 1.0
@@ -461,6 +462,7 @@ class EndOfTurnConfig(BaseModel):
         ]
     )
     use_forced_eou: bool = True
+    forced_eou_padding: float = 0.2
 
 
 class VoiceActivityConfig(BaseModel):
