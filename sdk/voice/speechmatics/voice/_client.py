@@ -1684,7 +1684,7 @@ class VoiceAgentClient(AsyncClient):
 
             # Timings
             audio_sent = self.audio_seconds_sent
-            padding = pad if pad else 0.0
+            padding = pad if pad else self._config.end_of_turn_config.forced_eou_padding
 
             # Establish amount of time to wait for EOU
             timestamp: float = max(audio_sent + padding, 0.0)
