@@ -1684,7 +1684,16 @@ class VoiceAgentClient(AsyncClient):
 
             # Timings
             audio_sent = self.audio_seconds_sent
-            padding = pad if pad else self._config.end_of_turn_config.forced_eou_padding
+
+            # Padding precedence: explicit `pad` arg > SPEECHMATICS_FEOU_PAD env var > config
+            if pad is not None:
+                padding = pad
+            else:
+                env_pad = os.environ.get("SPEECHMATICS_FEOU_PAD")
+                if env_pad is not None:
+                    padding = float(env_pad)
+                else:
+                    padding = self._config.end_of_turn_config.forced_eou_padding
 
             # Establish amount of time to wait for EOU
             timestamp: float = max(audio_sent + padding, 0.0)
