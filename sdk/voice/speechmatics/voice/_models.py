@@ -372,7 +372,7 @@ class SpeechSegmentConfig(BaseModel):
 
     Parameters:
         add_trailing_eos: Add trailing end of sentence to segments. When enabled, segments are
-            emitted with missing trailing end of sentence added. Defaults to False.
+            emitted with missing trailing end of sentence added. Defaults to True.
 
         emit_sentences: Emit segments when a sentence has ended. A finalized segment is emitted
             as soon as a finalized end of sentence is detected. If a speaker continues to speak during
@@ -384,7 +384,7 @@ class SpeechSegmentConfig(BaseModel):
             Defaults to None.
     """
 
-    add_trailing_eos: bool = False
+    add_trailing_eos: bool = True
     emit_sentences: bool = True
     pause_mark: Optional[str] = None
 
@@ -411,6 +411,7 @@ class EndOfTurnConfig(BaseModel):
         min_end_of_turn_delay: Minimum end of turn delay.
         penalties: List of end of turn penalty items.
         use_forced_eou: Whether to use forced end of utterance detection.
+        forced_eou_padding: the padding to use when sending ForceEndOfUtterance with timestamp
     """
 
     base_multiplier: float = 1.0
@@ -439,6 +440,7 @@ class EndOfTurnConfig(BaseModel):
         ]
     )
     use_forced_eou: bool = False
+    forced_eou_padding: float = 0.2
 
 
 class VoiceActivityConfig(BaseModel):
