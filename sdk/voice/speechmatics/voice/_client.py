@@ -472,11 +472,14 @@ class VoiceAgentClient(AsyncClient):
     # LIFECYCLE METHODS
     # ============================================================================
 
-    async def connect(self) -> None:
+    async def connect(self, ws_headers: Optional[dict] = None) -> None:
         """Connect to the Speechmatics API.
 
         Establishes WebSocket connection and starts the transcription session.
         This must be called before sending audio.
+
+        Args:
+            ws_headers: Optional headers to pass to the WebSocket connection.
 
         Raises:
             Exception: If connection fails.
@@ -521,6 +524,7 @@ class VoiceAgentClient(AsyncClient):
             await self.start_session(
                 transcription_config=self._transcription_config,
                 audio_format=self._audio_format,
+                ws_headers=ws_headers,
             )
             self._is_connected = True
             self._start_metrics_task()
