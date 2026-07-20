@@ -6,7 +6,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-from ._models import EndOfTurnConfig
 from ._models import EndOfUtteranceMode
 from ._models import OperatingPoint
 from ._models import SmartTurnConfig
@@ -82,7 +81,6 @@ class VoiceAgentConfigPreset:
                 end_of_utterance_mode=EndOfUtteranceMode.ADAPTIVE,
                 speech_segment_config=SpeechSegmentConfig(emit_sentences=False),
                 vad_config=VoiceActivityConfig(enabled=True),
-                end_of_turn_config=EndOfTurnConfig(use_forced_eou=True),
             ),
             overlay,
         )
@@ -114,7 +112,6 @@ class VoiceAgentConfigPreset:
                     enabled=True,
                 ),
                 vad_config=VoiceActivityConfig(enabled=True),
-                end_of_turn_config=EndOfTurnConfig(use_forced_eou=True),
             ),
             overlay,
         )
@@ -175,7 +172,6 @@ class VoiceAgentConfigPreset:
                 max_delay=2.0,
                 end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL,
                 speech_segment_config=SpeechSegmentConfig(emit_sentences=False),
-                end_of_turn_config=EndOfTurnConfig(use_forced_eou=True),
             ),
             overlay,
         )
@@ -232,4 +228,10 @@ class VoiceAgentConfigPreset:
             **base.model_dump(exclude_unset=True, exclude_none=True),
             **overlay.model_dump(exclude_unset=True, exclude_none=True),
         }
-        return VoiceAgentConfig.from_dict(merged_dict)
+        config = VoiceAgentConfig.from_dict(merged_dict)
+
+        # Validate the merged config
+        config.validate_config()
+
+        # Return the merged config
+        return config
