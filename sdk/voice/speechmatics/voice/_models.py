@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import datetime
+import warnings
 from enum import Enum
 from typing import Any
 from typing import Literal
@@ -753,11 +754,15 @@ class VoiceAgentConfig(BaseModel):
         if self.sample_rate not in [8000, 16000]:
             errors.append("sample_rate must be 8000 or 16000")
 
-        # Deprecated `operating_point` - move to new `model`
+        # Deprecated `operating_point` - migrate to new `model`
         if self.operating_point:
+            warnings.warn(
+                "`operating_point` is deprecated, use `model` instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             self.model = Model(self.operating_point.value)
             self.operating_point = None
-            errors.append("migrated operating_point to model")
 
         # Raise error if any validation errors
         if errors:
