@@ -1,7 +1,7 @@
 import pytest
 
 from speechmatics.voice import VoiceAgentConfig
-from speechmatics.voice._models import OperatingPoint
+from speechmatics.voice._models import Model
 from speechmatics.voice._models import SpeechSegmentConfig
 from speechmatics.voice._presets import VoiceAgentConfigPreset
 
@@ -42,10 +42,10 @@ async def test_presets():
 async def test_json_presets():
     """Test VoiceAgentConfigPreset JSON presets."""
 
-    # With a JSON string overlay
+    # With a JSON string overlay (using deprecated `operating_point`, internally changed to `model`)
     preset: VoiceAgentConfig = VoiceAgentConfigPreset.load("fast", '{"operating_point": "enhanced"}')
     assert preset is not None
-    assert preset.operating_point == OperatingPoint.ENHANCED
+    assert preset.model == Model.ENHANCED
 
     # Check using incorrect preset name
     with pytest.raises(ValueError):

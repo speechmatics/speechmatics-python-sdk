@@ -17,6 +17,7 @@ from pydantic import model_validator
 from typing_extensions import Self
 
 from speechmatics.rt import AudioEncoding
+from speechmatics.rt import Model
 from speechmatics.rt import OperatingPoint
 from speechmatics.rt import SpeakerIdentifier
 
@@ -487,9 +488,7 @@ class VoiceAgentConfig(BaseModel):
     agent configuration for the `VoiceAgentClient`.
 
     Parameters:
-        operating_point: Operating point for transcription accuracy vs. latency tradeoff. It is
-            recommended to use `OperatingPoint.ENHANCED` for most use cases. Defaults to
-            `OperatingPoint.ENHANCED`.
+        model: Transcription model to use. Defaults to `Model.ENHANCED`.
 
         domain: Domain for Speechmatics API. Defaults to `None`.
 
@@ -651,7 +650,7 @@ class VoiceAgentConfig(BaseModel):
         Complete example with multiple features:
             >>> config = VoiceAgentConfig(
             ...     language="en",
-            ...     operating_point=OperatingPoint.ENHANCED,
+            ...     model=Model.ENHANCED,
             ...     enable_diarization=True,
             ...     speaker_sensitivity=0.7,
             ...     max_speakers=3,
@@ -670,7 +669,7 @@ class VoiceAgentConfig(BaseModel):
     """
 
     # Service configuration
-    operating_point: OperatingPoint = OperatingPoint.ENHANCED
+    model: Model = Model.ENHANCED
     domain: Optional[str] = None
     language: str = "en"
     output_locale: Optional[str] = None
@@ -711,6 +710,9 @@ class VoiceAgentConfig(BaseModel):
     audio_encoding: AudioEncoding = AudioEncoding.PCM_S16LE
     chunk_size: int = 160
 
+    # Deprecated
+    operating_point: Optional[OperatingPoint] = None
+
     # Validation
     @model_validator(mode="after")  # type: ignore[misc]
     def validate_config(self) -> Self:
@@ -750,6 +752,12 @@ class VoiceAgentConfig(BaseModel):
         # Check sample rate
         if self.sample_rate not in [8000, 16000]:
             errors.append("sample_rate must be 8000 or 16000")
+
+        # Deprecated `operating_point` - move to new `model`
+        if self.operating_point:
+            self.model = Model(self.operating_point.value)
+            self.operating_point = None
+            errors.append("migrated operating_point to model")
 
         # Raise error if any validation errors
         if errors:

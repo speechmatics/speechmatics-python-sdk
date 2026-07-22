@@ -7,7 +7,7 @@ from speechmatics.voice._models import AdditionalVocabEntry
 from speechmatics.voice._models import AgentServerMessageType
 from speechmatics.voice._models import AnnotationFlags
 from speechmatics.voice._models import AnnotationResult
-from speechmatics.voice._models import OperatingPoint
+from speechmatics.voice._models import Model
 from speechmatics.voice._models import SessionMetricsMessage
 from speechmatics.voice._models import SpeakerFocusConfig
 from speechmatics.voice._models import SpeakerFocusMode
@@ -55,8 +55,8 @@ async def test_voice_agent_config():
     assert config_from_json.known_speakers[0].label == "John"
 
     # From JSON
-    preset: VoiceAgentConfig = VoiceAgentConfig.from_json('{"operating_point": "enhanced"}')
-    assert preset.operating_point == OperatingPoint.ENHANCED
+    preset: VoiceAgentConfig = VoiceAgentConfig.from_json('{"model": "enhanced"}')
+    assert preset.model == Model.ENHANCED
 
 
 @pytest.mark.asyncio
