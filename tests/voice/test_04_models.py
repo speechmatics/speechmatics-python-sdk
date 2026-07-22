@@ -8,6 +8,7 @@ from speechmatics.voice._models import AgentServerMessageType
 from speechmatics.voice._models import AnnotationFlags
 from speechmatics.voice._models import AnnotationResult
 from speechmatics.voice._models import Model
+from speechmatics.voice._models import OperatingPoint
 from speechmatics.voice._models import SessionMetricsMessage
 from speechmatics.voice._models import SpeakerFocusConfig
 from speechmatics.voice._models import SpeakerFocusMode
@@ -57,6 +58,25 @@ async def test_voice_agent_config():
     # From JSON
     preset: VoiceAgentConfig = VoiceAgentConfig.from_json('{"model": "enhanced"}')
     assert preset.model == Model.ENHANCED
+
+
+@pytest.mark.asyncio
+async def test_operating_point_deprecation():
+    """Test that the deprecated `operating_point` field migrates to `model`."""
+
+    # `operating_point` only -> migrates to `model` with a DeprecationWarning
+    with pytest.warns(DeprecationWarning, match="operating_point"):
+        config = VoiceAgentConfig(operating_point=OperatingPoint.STANDARD)
+    assert config.model == Model.STANDARD
+    assert config.operating_point is None
+
+    # `model` only -> used as-is, no warning
+    config = VoiceAgentConfig(model=Model.STANDARD)
+    assert config.model == Model.STANDARD
+
+    # Both set -> error
+    with pytest.raises(ValueError, match="Cannot specify both 'model' and 'operating_point'"):
+        VoiceAgentConfig(model=Model.ENHANCED, operating_point=OperatingPoint.STANDARD)
 
 
 @pytest.mark.asyncio

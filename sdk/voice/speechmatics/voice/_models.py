@@ -5,11 +5,11 @@
 from __future__ import annotations
 
 import datetime
-import warnings
 from enum import Enum
 from typing import Any
 from typing import Literal
 from typing import Optional
+from warnings import warn
 
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ConfigDict
@@ -755,9 +755,11 @@ class VoiceAgentConfig(BaseModel):
             errors.append("sample_rate must be 8000 or 16000")
 
         # Deprecated `operating_point` - migrate to new `model`
-        if self.operating_point:
-            warnings.warn(
-                "`operating_point` is deprecated, use `model` instead",
+        if self.operating_point is not None:
+            if "model" in self.model_fields_set:
+                raise ValueError("Cannot specify both 'model' and 'operating_point'. Use 'model' instead.")
+            warn(
+                "'operating_point' is deprecated, use 'model' instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
