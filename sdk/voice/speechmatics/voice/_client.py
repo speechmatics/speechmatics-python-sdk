@@ -323,6 +323,11 @@ class VoiceAgentClient(AsyncClient):
         self._forced_eou_active: bool = False
         self._last_forced_eou_latency: float = 0.0
 
+        # Inject aligning silence before each forced EOU to cut its response latency.
+        # Incoming server timestamps are corrected back to real audio time (see
+        # _add_speech_fragments) so the rest of the pipeline is unaffected.
+        self._feou_latency_compensation: bool = self._config.feou_latency_compensation
+
         # Emit EOT prediction
         #   EOT predictions are only relevant when not using the FIXED or EXTERNAL modes,
         #   as these use different triggers to finalize the turn.
@@ -1051,6 +1056,25 @@ class VoiceAgentClient(AsyncClient):
         if not is_final:
             await self._process_speech_fragments(self._change_filter)
 
+    def _real_time(self, timestamp: float) -> float:
+        """Map a server-timeline timestamp back to real audio time.
+
+        FEOU latency compensation injects silence ahead of real time, which pushes
+        the server timeline (and every returned timestamp) ahead of the real audio.
+        When compensation is enabled this delegates to the RT client's adjust_timestamp
+        to undo that offset; when disabled the timestamp is returned unchanged so the
+        pipeline behaves exactly as it did without the feature.
+
+        Args:
+            timestamp: A timestamp in seconds on the server audio timeline.
+
+        Returns:
+            The corresponding real audio time in seconds.
+        """
+        if not self._feou_latency_compensation:
+            return timestamp
+        return float(self.adjust_timestamp(timestamp))
+
     async def _add_speech_fragments(self, message: dict[str, Any], is_final: bool = False) -> bool:
         """Takes a new Partial or Final from the STT engine.
 
@@ -1074,8 +1098,12 @@ class VoiceAgentClient(AsyncClient):
             fragments: list[SpeechFragment] = []
 
             # Metadata
+            #   Timestamps arrive on the server audio timeline. When FEOU latency
+            #   compensation injects silence, that timeline runs ahead of the real
+            #   audio, so map every incoming timestamp back to real audio time.
+            #   With compensation disabled the timestamps are used unchanged.
             metadata = message.get("metadata", {})
-            payload_end_time = metadata.get("end_time", 0)
+            payload_end_time = self._real_time(metadata.get("end_time", 0))
 
             # Iterate over the results in the payload
             for result in message.get("results", []):
@@ -1084,8 +1112,8 @@ class VoiceAgentClient(AsyncClient):
                     # Create the new fragment
                     fragment = SpeechFragment(
                         idx=self._next_fragment_id(),
-                        start_time=result.get("start_time", 0),
-                        end_time=result.get("end_time", 0),
+                        start_time=self._real_time(result.get("start_time", 0)),
+                        end_time=self._real_time(result.get("end_time", 0)),
                         language=alt.get("language", "en"),
                         direction=alt.get("direction", "ltr"),
                         type_=result.get("type", "word"),
@@ -1690,7 +1718,7 @@ class VoiceAgentClient(AsyncClient):
             self._forced_eou_active = True
 
             # Send the force EOU and wait for the response
-            await self.force_end_of_utterance()
+            await self.force_end_of_utterance(compensate_latency=self._feou_latency_compensation)
             self._emit_diagnostic_message("ForceEndOfUtterance sent - waiting for EndOfUtterance")
 
             # Wait for the response

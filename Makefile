@@ -152,6 +152,7 @@ install-dev:
 	python -m pip install -e sdk/flow[dev]
 	python -m pip install -e sdk/tts[dev]
 	python -m pip install -e sdk/voice[dev,smart]
+	python -m pip install --no-deps --force-reinstall -e sdk/rt[dev]
 
 install-build:
 	python -m pip install --upgrade build

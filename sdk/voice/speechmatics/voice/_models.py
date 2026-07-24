@@ -541,6 +541,12 @@ class VoiceAgentConfig(BaseModel):
             end of utterance detection and uses a fallback timer.
             Defaults to `EndOfUtteranceMode.FIXED`.
 
+        feou_latency_compensation: Whether to compensate for forced end of utterance latency.
+            When enabled, silence is injected ahead of real time to align each forced EOU with
+            the engine's decode grid, which roughly halves the forced EOU response time.
+            Returned timestamps are corrected back to real audio time automatically.
+            Defaults to `True`.
+
         additional_vocab: List of additional vocabulary entries. If you supply a list of
             additional vocabulary entries, the this will increase the weight of the words in the
             vocabulary and help the STT engine to better transcribe the words.
@@ -705,6 +711,7 @@ class VoiceAgentConfig(BaseModel):
     end_of_utterance_silence_trigger: float = 0.5
     end_of_utterance_max_delay: float = 10.0
     end_of_utterance_mode: EndOfUtteranceMode = EndOfUtteranceMode.FIXED
+    feou_latency_compensation: bool = True
     additional_vocab: list[AdditionalVocabEntry] = Field(default_factory=list)
     punctuation_overrides: Optional[dict] = None
     enable_entities: bool = False

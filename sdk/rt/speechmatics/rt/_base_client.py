@@ -116,11 +116,21 @@ class _BaseClient(EventEmitter):
             >>> audio_chunk = b""
             >>> await client.send_audio(audio_chunk)
         """
-        if self._closed_evt.is_set() or self._eos_sent:
-            raise TransportError("Client is closed")
-
         if not isinstance(payload, bytes):
             raise ValueError("Payload must be bytes")
+
+        await self._send_audio_bytes(payload)
+
+    async def _send_audio_bytes(self, payload: bytes) -> None:
+        """
+        Write an audio payload to the transport and update the byte/sequence counters.
+
+        Shared by send_audio and internal audio injection (e.g. ForceEndOfUtterance
+        latency compensation) so both keep the server-side audio counters in sync
+        without passing through any subclass send_audio overrides.
+        """
+        if self._closed_evt.is_set() or self._eos_sent:
+            raise TransportError("Client is closed")
 
         try:
             await self._transport.send_message(payload)
