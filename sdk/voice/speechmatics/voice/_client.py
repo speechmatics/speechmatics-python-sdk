@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import inspect
 import os
 import re
 import time
@@ -836,7 +837,7 @@ class VoiceAgentClient(AsyncClient):
 
                 if asyncio.iscoroutine(callback):
                     await callback
-                elif asyncio.iscoroutinefunction(callback):
+                elif inspect.iscoroutinefunction(callback):
                     await callback()
                 elif callable(callback):
                     result = callback()
