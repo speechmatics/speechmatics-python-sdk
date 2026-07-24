@@ -9,13 +9,16 @@ from enum import Enum
 from typing import Any
 from typing import Literal
 from typing import Optional
+from warnings import warn
 
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ConfigDict
 from pydantic import Field
+from pydantic import model_validator
 from typing_extensions import Self
 
 from speechmatics.rt import AudioEncoding
+from speechmatics.rt import Model
 from speechmatics.rt import OperatingPoint
 from speechmatics.rt import SpeakerIdentifier
 
@@ -509,9 +512,7 @@ class VoiceAgentConfig(BaseModel):
     agent configuration for the `VoiceAgentClient`.
 
     Parameters:
-        operating_point: Operating point for transcription accuracy vs. latency tradeoff. It is
-            recommended to use `OperatingPoint.ENHANCED` for most use cases. Defaults to
-            `OperatingPoint.ENHANCED`.
+        model: Transcription model to use. Defaults to `Model.ENHANCED`.
 
         domain: Domain for Speechmatics API. Defaults to `None`.
 
@@ -673,7 +674,7 @@ class VoiceAgentConfig(BaseModel):
         Complete example with multiple features:
             >>> config = VoiceAgentConfig(
             ...     language="en",
-            ...     operating_point=OperatingPoint.ENHANCED,
+            ...     model=Model.ENHANCED,
             ...     enable_diarization=True,
             ...     speaker_sensitivity=0.7,
             ...     max_speakers=3,
@@ -692,7 +693,7 @@ class VoiceAgentConfig(BaseModel):
     """
 
     # Service configuration
-    operating_point: OperatingPoint = OperatingPoint.ENHANCED
+    model: Model = Model.ENHANCED
     domain: Optional[str] = None
     language: str = "en"
     output_locale: Optional[str] = None
@@ -733,16 +734,13 @@ class VoiceAgentConfig(BaseModel):
     audio_encoding: AudioEncoding = AudioEncoding.PCM_S16LE
     chunk_size: int = 160
 
-    def validate_config(self) -> None:
-        """Validate the configuration.
+    # Deprecated
+    operating_point: Optional[OperatingPoint] = None
 
-        Cross-field validation is deferred to this method so that configs can be
-        constructed as overlays (e.g. for presets) without triggering validation
-        on intermediate states. Call this once the final config is ready.
-
-        Raises:
-            ValueError: If any validation errors are found.
-        """
+    # Validation
+    @model_validator(mode="after")  # type: ignore[misc]
+    def validate_config(self) -> Self:
+        """Validate the configuration."""
 
         # Validation errors
         errors: list[str] = []
@@ -773,13 +771,24 @@ class VoiceAgentConfig(BaseModel):
         if self.sample_rate not in [8000, 16000]:
             errors.append("sample_rate must be 8000 or 16000")
 
-        # Check that forced end of utterance is set to True
-        if not self.end_of_turn_config.use_forced_eou:
-            errors.append("EndOfTurnConfig.use_forced_eou cannot be False")
+        # Deprecated `operating_point` - migrate to new `model`
+        if self.operating_point is not None:
+            if "model" in self.model_fields_set:
+                raise ValueError("Cannot specify both 'model' and 'operating_point'. Use 'model' instead.")
+            warn(
+                "'operating_point' is deprecated, use 'model' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self.model = Model(self.operating_point.value)
+            self.operating_point = None
 
         # Raise error if any validation errors
         if errors:
             raise ValueError(f"{len(errors)} config error(s): {'; '.join(errors)}")
+
+        # Return validated config
+        return self
 
 
 # ==============================================================================
