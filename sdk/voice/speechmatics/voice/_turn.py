@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 from typing import Callable
 from typing import Optional
 
@@ -117,7 +118,7 @@ class TurnTaskProcessor:
         # Do the callback
         if self._done_callback:
             try:
-                if asyncio.iscoroutinefunction(self._done_callback):
+                if inspect.iscoroutinefunction(self._done_callback):
                     await self._done_callback()
                 else:
                     self._done_callback()
