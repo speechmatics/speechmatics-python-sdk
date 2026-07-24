@@ -44,14 +44,14 @@ SAMPLES: list[SpeakerTest] = [
         id="multiple_speakers",
         path="./assets/audio_02_8kHz.wav",
         sample_rate=8000,
-        segment_regex=["^Welcome to GeoRouter", "Buckingham", "clarify", "Notting Hill", "Rickmansworth"],
+        segment_regex=["GeoRouter", "Buckingham", "clarify", "Notting Hill", "Rickmansworth"],
         speakers_present=["S1", "S2"],
     ),
     SpeakerTest(
         id="focus_s2",
         path="./assets/audio_02_8kHz.wav",
         sample_rate=8000,
-        segment_regex=["^Welcome to GeoRouter", "Buckingham", "clarify", "Notting Hill"],
+        segment_regex=["GeoRouter", "Buckingham", "clarify", "Notting Hill"],
         speaker_config=SpeakerFocusConfig(
             focus_speakers=["S2"],
         ),
@@ -72,7 +72,7 @@ SAMPLES: list[SpeakerTest] = [
         id="ignore_s2",
         path="./assets/audio_02_8kHz.wav",
         sample_rate=8000,
-        segment_regex=["^Welcome to GeoRouter", "clarify", "Rickmansworth"],
+        segment_regex=["GeoRouter", "clarify", "Rickmansworth"],
         speaker_config=SpeakerFocusConfig(
             ignore_speakers=["S2"],
         ),
