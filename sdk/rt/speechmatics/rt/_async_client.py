@@ -39,6 +39,27 @@ FEOU_CHUNK_PERIOD = 0.360
 FEOU_CHUNK_OFFSET = 0.290
 FEOU_MARGIN = 0.150
 
+# Server messages that carry audio-stream timestamps (start_time/end_time) somewhere
+# in their payload and so must be mapped back to real audio time when FEOU latency
+# compensation has injected silence (see AsyncClient._prepare_incoming_message).
+# High-frequency / timestamp-free messages (AudioAdded, RecognitionStarted, Info,
+# Warning, Error, EndOfTranscript, ...) are deliberately excluded.
+_TIMESTAMPED_SERVER_MESSAGES = frozenset(
+    {
+        ServerMessageType.ADD_TRANSCRIPT,
+        ServerMessageType.ADD_PARTIAL_TRANSCRIPT,
+        ServerMessageType.ADD_TRANSLATION,
+        ServerMessageType.ADD_PARTIAL_TRANSLATION,
+        ServerMessageType.END_OF_UTTERANCE,
+        ServerMessageType.AUDIO_EVENT_STARTED,
+        ServerMessageType.AUDIO_EVENT_ENDED,
+        ServerMessageType.SPEAKERS_RESULT,
+    }
+)
+
+# Payload keys that hold an audio-stream position in seconds.
+_TIMESTAMP_KEYS = ("start_time", "end_time")
+
 
 class AsyncClient(_BaseClient):
     """
@@ -365,6 +386,50 @@ class AsyncClient(_BaseClient):
             else:
                 break
         return timestamp - injected
+
+    def _prepare_incoming_message(self, msg: dict[str, Any]) -> None:
+        """
+        Map server-timeline timestamps on an incoming message back to real audio time.
+
+        When FEOU latency compensation has injected silence, the start_time/end_time
+        fields on transcript, translation, audio-event and end-of-utterance messages
+        run ahead of real audio time. This rewrites them in place (via adjust_timestamp)
+        before the message is emitted, so every listener sees real audio time without
+        needing to correct the values itself. It is a no-op until silence has been
+        injected.
+
+        Each timestamp is adjusted independently by its own audio-stream position, so a
+        single payload whose results span an injection point is handled correctly:
+        values before the injected silence keep the earlier offset, values after it get
+        the later (larger) offset.
+        """
+        # Nothing to correct until compensation has injected silence.
+        if not self._injected_silence_checkpoints:
+            return
+
+        if msg.get("message") not in _TIMESTAMPED_SERVER_MESSAGES:
+            return
+
+        self._adjust_timestamps_in_place(msg)
+
+    def _adjust_timestamps_in_place(self, node: Any) -> None:
+        """
+        Recursively map every audio-stream start_time/end_time within a payload back to
+        real audio time.
+
+        Walks nested dicts/lists so timestamps are corrected wherever they appear
+        (metadata, per-result timings, audio-event fields, ...) without hard-coding each
+        message's structure. Only numeric values are touched.
+        """
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key in _TIMESTAMP_KEYS and isinstance(value, (int, float)) and not isinstance(value, bool):
+                    node[key] = self.adjust_timestamp(value)
+                else:
+                    self._adjust_timestamps_in_place(value)
+        elif isinstance(node, list):
+            for item in node:
+                self._adjust_timestamps_in_place(item)
 
     @property
     def audio_seconds_sent(self) -> float:

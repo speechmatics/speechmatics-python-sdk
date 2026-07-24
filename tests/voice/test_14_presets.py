@@ -42,8 +42,10 @@ async def test_presets():
 async def test_json_presets():
     """Test VoiceAgentConfigPreset JSON presets."""
 
-    # With a JSON string overlay (using deprecated `operating_point`, internally changed to `model`)
-    preset: VoiceAgentConfig = VoiceAgentConfigPreset.load("fast", '{"operating_point": "enhanced"}')
+    # With a JSON string overlay (using deprecated `operating_point`, internally changed to `model`).
+    # The deprecated field is expected to emit a DeprecationWarning.
+    with pytest.warns(DeprecationWarning, match="operating_point"):
+        preset: VoiceAgentConfig = VoiceAgentConfigPreset.load("fast", '{"operating_point": "enhanced"}')
     assert preset is not None
     assert preset.model == Model.ENHANCED
 

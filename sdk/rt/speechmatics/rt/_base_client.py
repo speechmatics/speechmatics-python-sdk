@@ -180,6 +180,7 @@ class _BaseClient(EventEmitter):
                 msg = await self._transport.receive_message()
 
                 if isinstance(msg, dict) and "message" in msg:
+                    self._prepare_incoming_message(msg)
                     self.emit(msg["message"], msg)
         except asyncio.CancelledError:
             pass
@@ -192,6 +193,16 @@ class _BaseClient(EventEmitter):
                 pass  # Ignore close errors - we're already in error state
         finally:
             self._closed_evt.set()
+
+    def _prepare_incoming_message(self, msg: dict[str, Any]) -> None:
+        """
+        Hook to inspect or adjust an incoming server message before it is emitted.
+
+        Called for every server message with a "message" field, immediately before
+        it is dispatched to listeners. Subclasses may mutate the message in place
+        (for example to map timestamps back to real audio time). The base
+        implementation does nothing.
+        """
 
     async def _start_recognition_session(
         self,

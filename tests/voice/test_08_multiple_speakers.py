@@ -183,7 +183,7 @@ async def test_multiple_speakers(sample: SpeakerTest):
 
     # Log ADD_SEGMENT + END_OF_TURN
     client.on(AgentServerMessageType.ADD_SEGMENT, log_final_segment)
-    client.on(AgentServerMessageType.END_OF_TURN, log_end_of_turn)
+    # client.on(AgentServerMessageType.END_OF_TURN, log_end_of_turn)
 
     # HEADER
     if SHOW_LOG:
