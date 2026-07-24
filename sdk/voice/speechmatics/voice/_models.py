@@ -626,6 +626,8 @@ class VoiceAgentConfig(BaseModel):
         audio_encoding: Audio encoding format. Defaults to `AudioEncoding.PCM_S16LE`.
         chunk_size: Audio chunk size in frames. Defaults to `160`.
 
+        operating_point: (Deprecated) Operating point for transcription. Use `model` instead.
+
     Examples:
         Basic configuration:
             >>> config = VoiceAgentConfig(language="en")
