@@ -322,6 +322,11 @@ class VoiceAgentClient(AsyncClient):
         self._forced_eou_active: bool = False
         self._last_forced_eou_latency: float = 0.0
 
+        # Inject aligning silence before each forced EOU to cut its response latency.
+        # The RT client maps incoming server timestamps back to real audio time before
+        # they are emitted, so the rest of the pipeline is unaffected.
+        self._feou_latency_compensation: bool = self._config.feou_latency_compensation
+
         # Emit EOT prediction (uses _uses_forced_eou)
         self._uses_eot_prediction: bool = self._eou_mode not in [
             EndOfUtteranceMode.FIXED,
@@ -1673,11 +1678,16 @@ class VoiceAgentClient(AsyncClient):
         # Received EOU
         eou_received: asyncio.Event = asyncio.Event()
 
-        # Add listener
-        self.once(AgentServerMessageType.END_OF_UTTERANCE, lambda message: eou_received.set())
+        # Only the EndOfUtterance triggered by our ForceEndOfUtterance should satisfy
+        # the wait. The server marks these with `forced: true`, so a natural silence-
+        # based EOU that races in is ignored. A persistent listener is used (rather than
+        # `once`) so a non-forced EOU doesn't consume our one-shot handler; it is removed
+        # again on success or timeout.
+        def _on_end_of_utterance(message: dict[str, Any]) -> None:
+            if message.get("forced"):
+                eou_received.set()
 
-        # Trigger EOU message
-        self._emit_diagnostic_message("ForceEndOfUtterance sent - waiting for EndOfUtterance")
+        self.on(AgentServerMessageType.END_OF_UTTERANCE, _on_end_of_utterance)
 
         # Wait for EOU
         try:
@@ -1686,7 +1696,10 @@ class VoiceAgentClient(AsyncClient):
             self._forced_eou_active = True
 
             # Send the force EOU and wait for the response
-            await self.force_end_of_utterance()
+            await self.force_end_of_utterance(compensate_latency=self._feou_latency_compensation)
+            self._emit_diagnostic_message("ForceEndOfUtterance sent - waiting for EndOfUtterance")
+
+            # Wait for the response
             await asyncio.wait_for(eou_received.wait(), timeout=timeout)
 
             # Record the latency
@@ -1696,6 +1709,7 @@ class VoiceAgentClient(AsyncClient):
         except asyncio.TimeoutError:
             pass
         finally:
+            self.off(AgentServerMessageType.END_OF_UTTERANCE, _on_end_of_utterance)
             self._forced_eou_active = False
 
     # ============================================================================

@@ -116,11 +116,21 @@ class _BaseClient(EventEmitter):
             >>> audio_chunk = b""
             >>> await client.send_audio(audio_chunk)
         """
-        if self._closed_evt.is_set() or self._eos_sent:
-            raise TransportError("Client is closed")
-
         if not isinstance(payload, bytes):
             raise ValueError("Payload must be bytes")
+
+        await self._send_audio_bytes(payload)
+
+    async def _send_audio_bytes(self, payload: bytes) -> None:
+        """
+        Write an audio payload to the transport and update the byte/sequence counters.
+
+        Shared by send_audio and internal audio injection (e.g. ForceEndOfUtterance
+        latency compensation) so both keep the server-side audio counters in sync
+        without passing through any subclass send_audio overrides.
+        """
+        if self._closed_evt.is_set() or self._eos_sent:
+            raise TransportError("Client is closed")
 
         try:
             await self._transport.send_message(payload)
@@ -170,6 +180,7 @@ class _BaseClient(EventEmitter):
                 msg = await self._transport.receive_message()
 
                 if isinstance(msg, dict) and "message" in msg:
+                    self._prepare_incoming_message(msg)
                     self.emit(msg["message"], msg)
         except asyncio.CancelledError:
             pass
@@ -182,6 +193,16 @@ class _BaseClient(EventEmitter):
                 pass  # Ignore close errors - we're already in error state
         finally:
             self._closed_evt.set()
+
+    def _prepare_incoming_message(self, msg: dict[str, Any]) -> None:
+        """
+        Hook to inspect or adjust an incoming server message before it is emitted.
+
+        Called for every server message with a "message" field, immediately before
+        it is dispatched to listeners. Subclasses may mutate the message in place
+        (for example to map timestamps back to real audio time). The base
+        implementation does nothing.
+        """
 
     async def _start_recognition_session(
         self,
