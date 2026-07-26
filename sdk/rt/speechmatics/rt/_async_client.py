@@ -226,6 +226,7 @@ class AsyncClient(_BaseClient):
         self,
         *,
         timestamp: Optional[float] | object = _UNSET,
+        include_timestamp: bool = True,
         compensate_latency: bool = False,
         chunk_period: float = FEOU_CHUNK_PERIOD,
         chunk_offset: float = FEOU_CHUNK_OFFSET,
@@ -254,6 +255,9 @@ class AsyncClient(_BaseClient):
                 (the audio you streamed, excluding any injected silence). It is shifted
                 onto the server timeline by the silence injected so far, so it lines up
                 with what the engine sees. If omitted, the current audio position is used.
+            include_timestamp: Whether to include the resolved timestamp in the message
+                (default True). When False, no timestamp is sent and the engine falls back
+                to its own timing; the marker is still computed for latency compensation.
             compensate_latency: Inject silence to align the marker with the engine's
                 decode grid before sending the FEOU. Ignored when the timestamp is
                 omitted (explicit None).
@@ -301,7 +305,7 @@ class AsyncClient(_BaseClient):
                 margin=margin,
             )
 
-        if marker is not None:
+        if include_timestamp and marker is not None:
             message["timestamp"] = marker
 
         await self.send_message(message)
