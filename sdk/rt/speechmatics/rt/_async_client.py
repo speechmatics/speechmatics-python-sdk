@@ -250,7 +250,10 @@ class AsyncClient(_BaseClient):
         subsequent returned timestamps must be mapped back with adjust_timestamp.
 
         Args:
-            timestamp: Optional timestamp for the request.
+            timestamp: Optional speech-end time in seconds, expressed in real audio time
+                (the audio you streamed, excluding any injected silence). It is shifted
+                onto the server timeline by the silence injected so far, so it lines up
+                with what the engine sees. If omitted, the current audio position is used.
             compensate_latency: Inject silence to align the marker with the engine's
                 decode grid before sending the FEOU. Ignored when the timestamp is
                 omitted (explicit None).
@@ -274,16 +277,17 @@ class AsyncClient(_BaseClient):
 
         message: dict[str, Any] = {"message": ClientMessageType.FORCE_END_OF_UTTERANCE}
 
-        # Resolve the marker (position on the audio-stream timeline). audio_seconds_sent
-        # already includes any silence injected by earlier compensated FEOUs, so it is
-        # the correct server-time position for this speech end.
+        # Resolve the marker as a position on the server audio-stream timeline.
         marker: Optional[float]
         if timestamp is _UNSET:
-            # default: auto-set from audio_seconds_sent
+            # Default: the current audio position. audio_seconds_sent already includes any
+            # silence injected by earlier compensated FEOUs, so it is already server time.
             marker = self.audio_seconds_sent
         elif timestamp is not None:
-            # user provided explicit value
-            marker = float(timestamp)  # type: ignore[arg-type]
+            # Explicit value is a real-audio time; shift it onto the (possibly lengthened)
+            # server timeline by adding the silence injected so far. No-op until silence
+            # has been injected, so uncompensated usage is unaffected.
+            marker = float(timestamp) + self._injected_silence_seconds  # type: ignore[arg-type]
         else:
             # if timestamp is None: omit entirely
             marker = None

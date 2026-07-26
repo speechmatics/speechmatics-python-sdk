@@ -1,3 +1,4 @@
+import json
 import os
 import statistics
 import time
@@ -7,6 +8,9 @@ from _utils import get_client
 from _utils import send_audio_file
 from pydantic import Field
 
+from speechmatics.rt import AsyncClient
+from speechmatics.rt import AudioEncoding
+from speechmatics.rt import AudioFormat
 from speechmatics.voice import AgentServerMessageType
 from speechmatics.voice._models import BaseModel
 from speechmatics.voice._models import VoiceActivityConfig
@@ -17,9 +21,12 @@ from speechmatics.voice._presets import VoiceAgentConfigPreset
 API_KEY = os.getenv("SPEECHMATICS_API_KEY")
 SHOW_LOG = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
 
-# Skip for CI testing
-pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping FEOU latency tests in CI")
-pytestmark = pytest.mark.skipif(API_KEY is None, reason="Skipping when no API key is provided")
+# The live A/B latency test needs an API key and network; the timestamp unit test below
+# is deterministic and offline, so gate only the live test rather than the whole module.
+requires_live = pytest.mark.skipif(
+    API_KEY is None or os.getenv("CI") == "true",
+    reason="Requires a live API key and network; skipped in CI or when no key is set",
+)
 
 
 class TranscriptionSpeaker(BaseModel):
@@ -140,6 +147,7 @@ async def measure_run(endpoint: str, sample: TranscriptionTest, compensate: bool
 
 
 @pytest.mark.asyncio
+@requires_live
 async def test_feou_latency_compensation():
     """Compare FEOU -> EndOfUtterance latency with and without the compensation fix.
 
@@ -180,3 +188,70 @@ async def test_feou_latency_compensation():
         f"Compensation did not reduce latency: {compensated.mean_ms:.1f} ms "
         f"vs baseline {baseline.mean_ms:.1f} ms"
     )
+
+
+class _FakeTransport:
+    """Captures outbound audio bytes and JSON messages without a network."""
+
+    def __init__(self):
+        self.messages: list[dict] = []
+        self.audio_bytes: int = 0
+
+    async def send_message(self, data):
+        if isinstance(data, (bytes, bytearray)):
+            self.audio_bytes += len(data)
+        else:
+            self.messages.append(json.loads(data))
+
+
+def _offline_client(sample_rate: int = 16000) -> AsyncClient:
+    """An RT client wired to a fake transport, ready to send FEOUs offline."""
+    client = AsyncClient(api_key="test")
+    client._transport = _FakeTransport()
+    client._audio_format = AudioFormat(encoding=AudioEncoding.PCM_S16LE, sample_rate=sample_rate)
+    return client
+
+
+@pytest.mark.asyncio
+async def test_explicit_feou_timestamp_shifted_onto_server_timeline():
+    """A manually supplied FEOU timestamp is real-audio time and is mapped correctly.
+
+    When compensation has injected silence, the server audio timeline runs ahead of the
+    real audio. An explicit timestamp (which the caller expresses in real audio time) must
+    be shifted onto the server timeline by the silence injected so far - the inverse of
+    adjust_timestamp - so it stays aligned across successive forced EOUs. This is offline
+    and deterministic (no network).
+    """
+    rate, bps = 16000, 2
+    client = _offline_client(rate)
+
+    # 5.0s of real audio streamed; first compensated FEOU at real speech-end 5.0s.
+    # No silence has been injected yet, so the timestamp is sent unchanged.
+    client._audio_bytes_sent = int(5.0 * rate * bps)
+    await client.force_end_of_utterance(timestamp=5.0, compensate_latency=True)
+    assert client._transport.messages[-1]["timestamp"] == pytest.approx(5.0)
+
+    injected = client.injected_silence_seconds
+    assert injected > 0, "compensation should have injected silence"
+
+    # 3.0s more real audio; next FEOU at real speech-end 8.0s. The explicit real-audio
+    # time is shifted onto the server timeline by the silence injected so far.
+    client._audio_bytes_sent += int(3.0 * rate * bps)
+    await client.force_end_of_utterance(timestamp=8.0, compensate_latency=True)
+    sent = client._transport.messages[-1]["timestamp"]
+    assert sent == pytest.approx(8.0 + injected)
+
+    # ...and it maps straight back to real audio time.
+    assert client.adjust_timestamp(sent) == pytest.approx(8.0)
+
+
+@pytest.mark.asyncio
+async def test_explicit_feou_timestamp_unchanged_without_injection():
+    """Without injected silence an explicit timestamp is sent verbatim (backward compat)."""
+    rate, bps = 16000, 2
+    client = _offline_client(rate)
+    client._audio_bytes_sent = int(4.0 * rate * bps)
+
+    await client.force_end_of_utterance(timestamp=4.0, compensate_latency=False)
+    assert client._transport.messages[-1]["timestamp"] == pytest.approx(4.0)
+    assert client.injected_silence_seconds == 0.0
