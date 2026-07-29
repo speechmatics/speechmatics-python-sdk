@@ -323,6 +323,12 @@ class VoiceAgentClient(AsyncClient):
         self._forced_eou_active: bool = False
         self._last_forced_eou_latency: float = 0.0
 
+        # Guard against a second finalize() duplicating the emit while one is already
+        # in flight. Set synchronously in finalize() (unlike _forced_eou_active, which
+        # is only set later inside the forced-EOU wait) and cleared once the segments
+        # have actually been emitted.
+        self._finalize_in_progress: bool = False
+
         # Inject aligning silence before each forced EOU to cut its response latency.
         # The RT client maps incoming server timestamps back to real audio time before
         # they are emitted, so the rest of the pipeline is unaffected.
@@ -744,6 +750,16 @@ class VoiceAgentClient(AsyncClient):
         # Clear smart turn cutoff
         self._smart_turn_pending_cutoff = None
 
+        # Drop this call if a finalize is already in play: _forced_eou_active covers the
+        # window once the forced-EOU wait has started, and _finalize_in_progress covers
+        # the earlier window between scheduling emit() and that wait beginning. Without
+        # the latter a second finalize() landing in the same tick would emit twice.
+        if self._forced_eou_active or self._finalize_in_progress:
+            return
+
+        # Mark finalize as in progress synchronously so a concurrent call is dropped.
+        self._finalize_in_progress = True
+
         # Current turn
         _turn_id = self._turn_handler.handler_id
 
@@ -751,20 +767,33 @@ class VoiceAgentClient(AsyncClient):
         async def emit() -> None:
             """Wait for EndOfUtterance if needed, then emit segments."""
 
-            # Forced end of utterance message (only when no speaker is detected)
-            if self._use_forced_eou:
-                await self._await_forced_eou()
+            handed_off = False
+            try:
+                # Forced end of utterance message (only when no speaker is detected)
+                if self._use_forced_eou:
+                    await self._await_forced_eou()
 
-            # Check if the turn has changed
-            if self._turn_handler.handler_id != _turn_id:
-                return
+                # Check if the turn has changed
+                if self._turn_handler.handler_id != _turn_id:
+                    return
 
-            # Emit the segments
-            self._stt_message_queue.put_nowait(lambda: self._emit_segments(finalize=True, is_eou=True))
+                # Emit the segments; the in-progress guard is released once they have
+                # actually been emitted, so nothing can duplicate them in the meantime.
+                async def _emit_finalized() -> None:
+                    try:
+                        await self._emit_segments(finalize=True, is_eou=True)
+                    finally:
+                        self._finalize_in_progress = False
 
-        # Call async task (only if not already waiting for forced EOU)
-        if not self._forced_eou_active:
-            asyncio.create_task(emit())
+                self._stt_message_queue.put_nowait(_emit_finalized)
+                handed_off = True
+            finally:
+                # If we never handed off to the emit task (turn changed, timeout, error),
+                # release the guard here so future finalizes are not blocked.
+                if not handed_off:
+                    self._finalize_in_progress = False
+
+        asyncio.create_task(emit())
 
     # ============================================================================
     # EVENT REGISTRATION & HANDLERS
