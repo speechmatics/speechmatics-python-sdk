@@ -132,7 +132,8 @@ class ServerMessageType(str, Enum):
         AddPartialTranslation: Provides interim translation results that
             may change as more context becomes available.
         SpeakerResult: Provides the speaker identification data.
-        LanguageInfo: Provides information about the detected language(s).
+        LanguageInfo: Sent when a new language is detected, providing the
+            word delimiter and writing direction for that language.
         Info: Informational messages from the server.
         Warning: Warning messages that don't stop transcription.
         Error: Error messages indicating transcription failure.
