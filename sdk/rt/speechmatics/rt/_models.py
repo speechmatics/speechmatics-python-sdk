@@ -40,6 +40,7 @@ class OperatingPoint(str, Enum):
 
     ENHANCED = "enhanced"
     STANDARD = "standard"
+    MELIA_1 = "melia-1"
 
 
 class Model(str, Enum):
@@ -47,6 +48,7 @@ class Model(str, Enum):
 
     ENHANCED = "enhanced"
     STANDARD = "standard"
+    MELIA_1 = "melia-1"
 
 
 @dataclass
@@ -130,6 +132,7 @@ class ServerMessageType(str, Enum):
         AddPartialTranslation: Provides interim translation results that
             may change as more context becomes available.
         SpeakerResult: Provides the speaker identification data.
+        LanguageInfo: Provides information about the detected language(s).
         Info: Informational messages from the server.
         Warning: Warning messages that don't stop transcription.
         Error: Error messages indicating transcription failure.
@@ -160,6 +163,7 @@ class ServerMessageType(str, Enum):
     ADD_TRANSLATION = "AddTranslation"
     ADD_PARTIAL_TRANSLATION = "AddPartialTranslation"
     SPEAKERS_RESULT = "SpeakersResult"
+    LANGUAGE_INFO = "LanguageInfo"
     INFO = "Info"
     WARNING = "Warning"
     ERROR = "Error"
