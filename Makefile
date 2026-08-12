@@ -1,13 +1,13 @@
 # Makefile for Speechmatics Python SDKs
 
 .PHONY: help
-.PHONY: test-all test-rt test-batch test-flow test-tts test-voice
-.PHONY: format-all format-rt format-batch format-flow format-tts format-voice
-.PHONY: lint-all lint-rt lint-batch lint-flow lint-tts lint-voice
-.PHONY: type-check-all type-check-rt type-check-batch type-check-flow type-check-tts type-check-voice
-.PHONY: build-all build-rt build-batch build-flow build-tts build-voice
-.PHONY: clean-all clean-rt clean-batch clean-flow clean-tts clean-voice
-.PHONY: install-dev install-dev-rt install-dev-batch install-dev-flow install-dev-tts install-dev-voice
+.PHONY: test-all test-rt test-batch test-flow test-tts test-voice test-agent-stt
+.PHONY: format-all format-rt format-batch format-flow format-tts format-voice format-agent-stt
+.PHONY: lint-all lint-rt lint-batch lint-flow lint-tts lint-voice lint-agent-stt
+.PHONY: type-check-all type-check-rt type-check-batch type-check-flow type-check-tts type-check-voice type-check-agent-stt
+.PHONY: build-all build-rt build-batch build-flow build-tts build-voice build-agent-stt
+.PHONY: clean-all clean-rt clean-batch clean-flow clean-tts clean-voice clean-agent-stt
+.PHONY: install-dev install-dev-rt install-dev-batch install-dev-flow install-dev-tts install-dev-voice install-dev-agent-stt
 
 
 help:
@@ -20,6 +20,7 @@ help:
 	@echo "  test-flow         Run tests for Flow SDK"
 	@echo "  test-tts          Run tests for TTS SDK"
 	@echo "  test-voice        Run tests for Voice Agent SDK"
+	@echo "  test-agent-stt    Run tests for Agent STT SDK"
 	@echo ""
 	@echo "Code formatting:"
 	@echo "  format-all        Auto-fix formatting for all SDKs"
@@ -28,6 +29,7 @@ help:
 	@echo "  format-flow       Auto-fix formatting for Flow SDK"
 	@echo "  format-tts        Auto-fix formatting for TTS SDK"
 	@echo "  format-voice      Auto-fix formatting for Voice Agent SDK"
+	@echo "  format-agent-stt  Auto-fix formatting for Agent STT SDK"
 	@echo ""
 	@echo "Linting:"
 	@echo "  lint-all          Run linting for all SDKs"
@@ -36,6 +38,7 @@ help:
 	@echo "  lint-flow         Run linting for Flow SDK"
 	@echo "  lint-tts          Run linting for TTS SDK"
 	@echo "  lint-voice        Run linting for Voice Agent SDK"
+	@echo "  lint-agent-stt    Run linting for Agent STT SDK"
 	@echo ""
 	@echo "Type checking:"
 	@echo "  type-check-all    Run type checking for all SDKs"
@@ -44,6 +47,7 @@ help:
 	@echo "  type-check-flow   Run type checking for Flow SDK"
 	@echo "  type-check-tts    Run type checking for TTS SDK"
 	@echo "  type-check-voice  Run type checking for Voice Agent SDK"
+	@echo "  type-check-agent-stt Run type checking for Agent STT SDK"
 	@echo ""
 	@echo "Building:"
 	@echo "  build-all         Build all SDKs"
@@ -52,6 +56,7 @@ help:
 	@echo "  build-flow        Build Flow SDK"
 	@echo "  build-tts         Build TTS SDK"
 	@echo "  build-voice       Build Voice Agent SDK"
+	@echo "  build-agent-stt   Build Agent STT SDK"
 	@echo ""
 	@echo "Cleaning:"
 	@echo "  clean-all         Clean all SDKs"
@@ -60,10 +65,11 @@ help:
 	@echo "  clean-flow        Clean Flow SDK build artifacts"
 	@echo "  clean-tts         Clean TTS SDK build artifacts"
 	@echo "  clean-voice       Clean Voice Agent SDK build artifacts"
+	@echo "  clean-agent-stt   Clean Agent STT SDK build artifacts"
 	@echo ""
 
 # Testing targets
-test-all: test-rt test-batch test-flow test-tts test-voice
+test-all: test-rt test-batch test-flow test-tts test-voice test-agent-stt
 test-rt:
 	pytest tests/rt/ -v -s
 
@@ -79,8 +85,11 @@ test-tts:
 test-voice:
 	pytest tests/voice/ -v -s
 
+test-agent-stt:
+	pytest tests/agent_stt/ -v -s
+
 # Formatting targets
-format-all: format-rt format-batch format-flow format-tts format-voice format-tests format-examples
+format-all: format-rt format-batch format-flow format-tts format-voice format-agent-stt format-tests format-examples
 
 format-rt:
 	cd sdk/rt/speechmatics && black .
@@ -102,6 +111,10 @@ format-voice:
 	cd sdk/voice/speechmatics && black .
 	cd sdk/voice/speechmatics && ruff check --fix .
 
+format-agent-stt:
+	cd sdk/agent_stt/speechmatics && black .
+	cd sdk/agent_stt/speechmatics && ruff check --fix .
+
 format-tests:
 	cd tests && black .
 	cd tests && ruff check --fix .
@@ -111,7 +124,7 @@ format-examples:
 	cd examples && ruff check --fix .
 
 # Linting targets
-lint-all: lint-rt lint-batch lint-flow lint-tts lint-voice
+lint-all: lint-rt lint-batch lint-flow lint-tts lint-voice lint-agent-stt
 
 lint-rt:
 	cd sdk/rt/speechmatics && ruff check .
@@ -128,8 +141,11 @@ lint-tts:
 lint-voice:
 	cd sdk/voice/speechmatics && ruff check .
 
+lint-agent-stt:
+	cd sdk/agent_stt/speechmatics && ruff check .
+
 # Type checking targets
-type-check-all: type-check-rt type-check-batch type-check-flow type-check-tts type-check-voice
+type-check-all: type-check-rt type-check-batch type-check-flow type-check-tts type-check-voice type-check-agent-stt
 type-check-rt:
 	cd sdk/rt/speechmatics && mypy .
 
@@ -145,13 +161,16 @@ type-check-tts:
 type-check-voice:
 	cd sdk/voice/speechmatics && mypy .
 
+type-check-agent-stt:
+	cd sdk/agent_stt/speechmatics && mypy .
+
 # Installation targets
 #
 # voice depends on speechmatics-rt>=0.5.3; the local rt package's own dev version (0.0.0)
 # never satisfies that, so pip silently replaces the editable rt install with a published
 # PyPI wheel the moment voice[dev] installs after it. rt must always be the LAST install
 # in any sequence that also installs voice, so the local editable copy is what's left active.
-install-dev: install-dev-batch install-dev-flow install-dev-tts install-dev-voice install-dev-rt
+install-dev: install-dev-batch install-dev-flow install-dev-tts install-dev-voice install-dev-agent-stt install-dev-rt
 
 install-dev-rt:
 	python -m pip install --upgrade pip
@@ -174,11 +193,16 @@ install-dev-voice:
 	python -m pip install -e sdk/voice[dev]
 	python -m pip install -e sdk/rt
 
+install-dev-agent-stt:
+	python -m pip install --upgrade pip
+	python -m pip install -e sdk/agent_stt[dev]
+	python -m pip install -e sdk/rt
+
 install-build:
 	python -m pip install --upgrade build
 
 # Building targets
-build-all: build-rt build-batch build-flow build-tts build-voice
+build-all: build-rt build-batch build-flow build-tts build-voice build-agent-stt
 
 build-rt: install-build
 	cd sdk/rt && python -m build
@@ -195,8 +219,11 @@ build-tts: install-build
 build-voice: install-build
 	cd sdk/voice && python -m build
 
+build-agent-stt: install-build
+	cd sdk/agent_stt && python -m build
+
 # Cleaning targets
-clean-all: clean-rt clean-batch clean-flow clean-tts clean-voice clean-test clean-examples
+clean-all: clean-rt clean-batch clean-flow clean-tts clean-voice clean-agent-stt clean-test clean-examples
 clean-rt:
 	rm -rf sdk/rt/dist sdk/rt/build sdk/rt/*.egg-info
 	find sdk/rt -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
@@ -216,6 +243,10 @@ clean-tts:
 clean-voice:
 	rm -rf sdk/voice/dist sdk/voice/build sdk/voice/*.egg-info
 	find sdk/voice -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+
+clean-agent-stt:
+	rm -rf sdk/agent_stt/dist sdk/agent_stt/build sdk/agent_stt/*.egg-info
+	find sdk/agent_stt -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 
 clean-test:
 	find tests -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
