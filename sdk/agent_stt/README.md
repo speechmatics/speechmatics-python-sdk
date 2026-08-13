@@ -45,11 +45,11 @@ config = TranscriptionConfig(
     vad_config=VADConfig(window=0.2, onset_threshold=0.5, offset_threshold=0.35),
 )
 
-# Your VAD - Pipecat, LiveKit, or your own. The service's VAD stays off.
+# Your endpointing - Pipecat, LiveKit, or your own. The service's VAD stays off.
 config = TranscriptionConfig(vad_mode=VADMode.CLIENT)
 ```
 
-With `VADMode.CLIENT`, close each turn when your VAD reports end of speech:
+With `VADMode.CLIENT`, close each turn when your side decides speech has ended:
 
 ```python
 client.finalize()              # from a sync callback
@@ -57,8 +57,11 @@ await client.force_end_of_utterance()   # from async code
 ```
 
 Either sends `ForceEndOfUtterance` stamped with the audio position at the moment of the call, so
-the service cuts the turn where your VAD heard the end of speech rather than wherever the send
-lands. The flushed segment comes back as a normal `AddSegment`.
+the service cuts the turn where you heard the end of speech rather than wherever the send lands.
+The flushed segment comes back as a normal `AddSegment`.
+
+What decides that is entirely yours - a VAD, an ML turn model, or a push-to-talk button. The SDK
+only cares that something calls `finalize()`.
 
 ## Session output
 

@@ -104,13 +104,15 @@ TIMED_MESSAGES = (
 
 class VADMode(str, Enum):
     """
-    Where turn boundaries come from. This SDK never runs a VAD itself.
+    Where turn boundaries come from. This SDK never detects them itself.
 
     Attributes:
         SERVER: The service runs its own VAD and turn detection, emitting SpeechStarted,
             SpeechEnded, StartOfTurn and EndOfTurn, and closing segments itself.
-        CLIENT: The client runs its own VAD (Pipecat, LiveKit, ...) and closes each turn by
-            calling `finalize()`, which sends ForceEndOfUtterance with an audio timestamp.
+        CLIENT: The application closes each turn by calling `finalize()`, which sends
+            ForceEndOfUtterance with an audio timestamp. Whatever produced that signal is up to
+            the application - a VAD, a turn model, or a push-to-talk button - so a host
+            framework's own endpointing (Pipecat, LiveKit, ...) works unchanged.
     """
 
     SERVER = "server"
