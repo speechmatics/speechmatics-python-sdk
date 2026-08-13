@@ -5,6 +5,7 @@ from dataclasses import field
 from enum import Enum
 from typing import Any
 from typing import Optional
+from typing import Union
 from warnings import warn
 
 from speechmatics.rt import Model
@@ -136,6 +137,23 @@ class VADConfig:
 
 
 @dataclass
+class AdditionalVocabEntry:
+    """
+    A word to bias the engine towards, optionally with pronunciation hints.
+
+    Attributes:
+        content: The word or phrase.
+        sounds_like: Alternative pronunciations, written as they sound.
+
+    Examples:
+        >>> AdditionalVocabEntry(content="Speechmatics", sounds_like=["speech matics"])
+    """
+
+    content: str
+    sounds_like: Optional[list[str]] = None
+
+
+@dataclass
 class TranscriptionConfig(RTTranscriptionConfig):
     """
     Transcription config for the Agent STT service.
@@ -148,6 +166,8 @@ class TranscriptionConfig(RTTranscriptionConfig):
         vad_config: Tuning for the service's VAD, used when `vad_mode` is `SERVER`.
         emit_sentences: Close a segment on every sentence boundary, not just at the turn
             boundary.
+        additional_vocab: Words to bias the engine towards, as `AdditionalVocabEntry` objects
+            or raw dicts.
         model: Left unset by default. The service's profile pins the model for the session,
             and sending it alongside the profile's `operating_point` would put both keys in
             the resolved StartRecognition.
@@ -161,6 +181,7 @@ class TranscriptionConfig(RTTranscriptionConfig):
     """
 
     model: Optional[Model] = None
+    additional_vocab: Optional[list[Union[AdditionalVocabEntry, dict[str, Any]]]] = None
     vad_mode: VADMode = VADMode.SERVER
     vad_config: VADConfig = field(default_factory=VADConfig)
     emit_sentences: Optional[bool] = None

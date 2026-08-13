@@ -43,6 +43,7 @@ from ._models import DEFAULT_SAMPLE_RATE
 from ._models import DEFAULT_WORD_DELIMITER
 from ._models import SEGMENT_MESSAGES
 from ._models import TIMED_MESSAGES
+from ._models import AdditionalVocabEntry
 from ._models import ClientMessageType
 from ._models import LanguagePackInfo
 from ._models import Segment
@@ -68,6 +69,7 @@ __all__ = [
     "AgentSTTClient",
     "AsyncClient",
     # Config
+    "AdditionalVocabEntry",
     "AudioEncoding",
     "AudioEventsConfig",
     "AudioFormat",
