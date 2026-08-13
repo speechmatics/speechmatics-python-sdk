@@ -116,20 +116,39 @@ unset the message carries only the profile's locked `operating_point` - no confl
 touched by this change. The migration:
 
 - swap the import block to `speechmatics.agent_stt`
-- `TurnDetectionMode.EXTERNAL` -> `VADMode.CLIENT` + `force_end_of_utterance()` on
-  `VADUserStoppedSpeakingFrame`; `ADAPTIVE`/`SMART_TURN` -> `VADMode.SERVER` and let
-  `StartOfTurn`/`EndOfTurn` drive `ProposedUserStartedSpeakingFrame`/`ProposedUserStoppedSpeakingFrame`
+- collapse `TurnDetectionMode` onto the two modes that exist:
+  - `EXTERNAL` -> `VADMode.CLIENT`, with `finalize()` on `VADUserStoppedSpeakingFrame`
+  - `ADAPTIVE` -> `VADMode.SERVER`, with `StartOfTurn`/`EndOfTurn` driving
+    `ProposedUserStartedSpeakingFrame`/`ProposedUserStoppedSpeakingFrame`
+  - `FIXED` -> removed (see below)
 - `AddPartialSegment` -> `InterimTranscriptionFrame`, `AddSegment` -> `TranscriptionFrame`
 - drop the `pipecat-ai[speechmatics]` onnxruntime/transformers extras that only existed for the
   bundled VAD and smart-turn models
-- keep `SpeechmaticsSTTSettings` as the public surface so user code doesn't change
+- drop `end_of_utterance_silence_trigger` and `end_of_utterance_max_delay` from
+  `SpeechmaticsSTTSettings` and `InputParams`, along with the passthrough at
+  `stt.py:788` and `stt.py:1252` - engine silence-based end of utterance is off for this
+  service, so both are no-ops
+- `_enable_vad` (`stt.py:530`) becomes `vad_mode is VADMode.CLIENT`, since that is now the only
+  mode where Pipecat's own VAD drives the boundary
+- otherwise keep `SpeechmaticsSTTSettings` as the public surface so user code doesn't change
+
+### `FIXED` mode is removed
+
+`end_of_utterance_silence_trigger` is off for this service: the default profile pins it to `0.0`,
+the service consumes `EndOfUtterance` rather than forwarding it, and a non-forced end of utterance
+does not close a segment. So there is nothing for `TurnDetectionMode.FIXED` to mean here and it
+goes away rather than being aliased to another mode.
+
+Turns end in exactly two ways, which is what `VADMode` models: the service's VAD, or the
+client calling `finalize()`.
 
 Open questions to settle before starting milestone 2:
 
 - ~~speaker-focus / known-speaker features in the Pipecat service have no service-side
   equivalent yet~~ - dropped for now, to be added in a later service release. `known_speakers`
   still works, since `speaker_diarization_config.speakers` passes straight through.
-- non-forced `EndOfUtterance` no longer flushes a segment (the default profile sets
-  `end_of_utterance_silence_trigger: 0.0`), so engine-silence endpointing is not available -
-  confirm that is intended for the `FIXED` mode Pipecat exposes. If it is, `FIXED` has to map
-  onto `VADMode.SERVER` (or be removed for this service) rather than onto engine silence.
+- ~~engine-silence endpointing / `FIXED` mode~~ - removed, see above.
+- `SMART_TURN` has no service-side equivalent either: the ML turn model ran in-process in the
+  `voice` SDK, and this SDK loads no models. It cannot be honoured as specified, so it either
+  goes the same way as `FIXED`, or maps to `VADMode.SERVER` with a deprecation warning - a
+  behaviour downgrade for anyone relying on it, so worth calling out in the changelog either way.

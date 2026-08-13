@@ -105,6 +105,10 @@ Passed through from the RT engine: `RecognitionStarted`, `AudioAdded`, `AddTrans
 
 `model` is left unset by default: the service profile pins the model for the session.
 
+Engine silence-based end of utterance is off for this service, and `EndOfUtterance` is not
+forwarded, so `conversation_config.end_of_utterance_silence_trigger` does not close segments. A
+turn ends either because the service's VAD said so, or because you called `finalize()`.
+
 ## Endpoint
 
 The Agent STT endpoint is the RT endpoint plus `/agent`, optionally followed by a service
