@@ -106,7 +106,18 @@ Passed through from the RT engine: `RecognitionStarted`, `AudioAdded`, `AddTrans
 | `vad_config` | `window`, `onset_threshold`, `offset_threshold` for the service's VAD |
 | `emit_sentences` | Close a segment on every sentence boundary, not only at the turn boundary |
 
-`model` is left unset by default: the service profile pins the model for the session.
+`model` takes an Agent STT `Model` and defaults to `DEFAULT_MODEL` (`Model.LINDEN_1`):
+
+```python
+from speechmatics.agent_stt import Model, TranscriptionConfig
+
+config = TranscriptionConfig(model=Model.LINDEN_1)
+```
+
+The proxy in front of the service resolves the Agent STT model name onto the engine's operating
+point, so the transcriber never sees a name it has no notion of. The RT models (`enhanced`,
+`standard`) are not Agent STT models and are not accepted here; the deprecated `operating_point`
+still passes through, and suppresses the `model` default so the two never arrive together.
 
 Engine silence-based end of utterance is off for this service, and `EndOfUtterance` is not
 forwarded, so `conversation_config.end_of_utterance_silence_trigger` does not close segments. A

@@ -76,9 +76,12 @@ reconnect-free lifecycle, `send_audio`, `transcribe`, `stop_session`,
 What the subclass adds:
 
 1. URL resolution (`/agent` + profile, `SPEECHMATICS_AGENT_STT_URL` env override).
-2. `TranscriptionConfig` with `vad_mode`, `vad_config`, `emit_sentences`, and `model` left
-   **unset** by default - the service's default profile pins `operating_point: enhanced` and
-   locks it, so sending `model` too would put both keys in the merged `StartRecognition`.
+2. `TranscriptionConfig` with `vad_mode`, `vad_config`, `emit_sentences`, and an Agent STT
+   `Model` enum defaulting to `linden-1`. The request goes to the proxy rather than the service
+   websocket directly, and the proxy resolves the Agent STT model name onto the engine's
+   operating point, so the transcriber never sees a name it has no notion of. The deprecated
+   `operating_point` suppresses the `model` default, so the merged `StartRecognition` never
+   carries both keys. `linden-2` lands as one more enum member.
 3. Segment-level transcript accumulation, so `client.transcript` reads like the RT flow does.
 4. A raw event log (`client.events`) capturing every server message, including ones this SDK
    version doesn't model yet - that is the "accept and save the other messages" requirement.
@@ -105,9 +108,13 @@ mode: `/v2/agent/default` routing, three `ForceEndOfUtterance` turns each flushi
 `AddSegment`, speaker labels, the event log, and `client.transcript` coming out as
 `"Hello there. How are you today? Goodbye."`.
 
-The StartRecognition the service forwarded downstream confirmed the two design points that
-mattered: `vad_config` and `emit_sentences` are stripped, and because the SDK leaves `model`
-unset the message carries only the profile's locked `operating_point` - no conflicting pair.
+The StartRecognition the service forwarded downstream confirmed that `vad_config` and
+`emit_sentences` are stripped before it reaches the RT engine.
+
+That run predates the `linden-1` default, so it sent no `model` at all and the message carried
+only the profile's locked `operating_point`. Model resolution happens in the proxy ahead of the
+service, which this stub setup does not exercise, so it still needs verifying against the real
+proxy.
 
 ## Milestone 2 - Pipecat (not in this change)
 

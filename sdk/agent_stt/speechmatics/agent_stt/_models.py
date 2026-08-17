@@ -6,14 +6,30 @@ from enum import Enum
 from typing import Any
 from typing import Optional
 from typing import Union
+from typing import cast
 from warnings import warn
 
-from speechmatics.rt import Model
 from speechmatics.rt import TranscriptionConfig as RTTranscriptionConfig
 
 DEFAULT_SAMPLE_RATE = 16000
 DEFAULT_CHUNK_SIZE = 1024
 DEFAULT_WORD_DELIMITER = " "
+
+
+class Model(str, Enum):
+    """
+    Models available on the Agent STT service.
+
+    Attributes:
+        LINDEN_1: The first Agent STT model.
+    """
+
+    LINDEN_1 = "linden-1"
+
+
+DEFAULT_MODEL = Model.LINDEN_1
+
+_UNSET = cast(Model, object())
 
 
 class ClientMessageType(str, Enum):
@@ -168,9 +184,9 @@ class TranscriptionConfig(RTTranscriptionConfig):
             boundary.
         additional_vocab: Words to bias the engine towards, as `AdditionalVocabEntry` objects
             or raw dicts.
-        model: Left unset by default. The service's profile pins the model for the session,
-            and sending it alongside the profile's `operating_point` would put both keys in
-            the resolved StartRecognition.
+        model: Agent STT model, defaulting to `DEFAULT_MODEL`. The proxy in front of the
+            service resolves the name to the engine's operating point, so a model the
+            transcriber has no notion of still routes correctly.
 
     Examples:
         Service VAD, sentence-level segments:
@@ -180,15 +196,17 @@ class TranscriptionConfig(RTTranscriptionConfig):
             >>> config = TranscriptionConfig(language="en", vad_mode=VADMode.CLIENT)
     """
 
-    model: Optional[Model] = None
+    model: Model = _UNSET
     additional_vocab: Optional[list[Union[AdditionalVocabEntry, dict[str, Any]]]] = None
     vad_mode: VADMode = VADMode.SERVER
     vad_config: VADConfig = field(default_factory=VADConfig)
     emit_sentences: Optional[bool] = None
 
     def __post_init__(self) -> None:
-        if self.model is not None and self.operating_point is not None:
+        if self.model is not _UNSET and self.operating_point is not None:
             raise ValueError("Cannot specify both 'model' and 'operating_point'. Use 'model' instead.")
+        if self.model is _UNSET and self.operating_point is None:
+            self.model = DEFAULT_MODEL
         if self.operating_point is not None:
             warn("'operating_point' is deprecated, use 'model' instead.", DeprecationWarning, stacklevel=2)
 
@@ -201,6 +219,8 @@ class TranscriptionConfig(RTTranscriptionConfig):
             from `vad_mode` and `vad_mode` itself dropped.
         """
         result = super().to_dict()
+        if self.model is _UNSET:
+            result.pop("model", None)
         result.pop("vad_mode", None)
         vad_config = result.pop("vad_config", None) or {}
         vad_config["enabled"] = self.vad_mode is VADMode.SERVER

@@ -26,7 +26,6 @@ from speechmatics.rt import ConversationConfig
 from speechmatics.rt import EventEmitter
 from speechmatics.rt import JWTAuth
 from speechmatics.rt import Microphone
-from speechmatics.rt import Model
 from speechmatics.rt import SessionError
 from speechmatics.rt import SpeakerDiarizationConfig
 from speechmatics.rt import SpeakerIdentifier
@@ -39,6 +38,7 @@ from speechmatics.rt import TransportError
 from ._client import AgentSTTClient
 from ._client import AsyncClient
 from ._models import DEFAULT_CHUNK_SIZE
+from ._models import DEFAULT_MODEL
 from ._models import DEFAULT_SAMPLE_RATE
 from ._models import DEFAULT_WORD_DELIMITER
 from ._models import SEGMENT_MESSAGES
@@ -46,6 +46,7 @@ from ._models import TIMED_MESSAGES
 from ._models import AdditionalVocabEntry
 from ._models import ClientMessageType
 from ._models import LanguagePackInfo
+from ._models import Model
 from ._models import Segment
 from ._models import ServerMessageType
 from ._models import SessionInfo
@@ -60,6 +61,7 @@ from ._url import resolve_url
 __all__ = [
     "DEFAULT_AGENT_STT_URL",
     "DEFAULT_CHUNK_SIZE",
+    "DEFAULT_MODEL",
     "DEFAULT_SAMPLE_RATE",
     "DEFAULT_WORD_DELIMITER",
     "SEGMENT_MESSAGES",
