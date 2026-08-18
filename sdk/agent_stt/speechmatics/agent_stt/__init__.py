@@ -21,7 +21,6 @@ from speechmatics.rt import AuthenticationError
 from speechmatics.rt import ConfigurationError
 from speechmatics.rt import ConnectionConfig
 from speechmatics.rt import ConnectionError
-from speechmatics.rt import ConversationConfig
 from speechmatics.rt import EventEmitter
 from speechmatics.rt import JWTAuth
 from speechmatics.rt import Microphone
@@ -71,7 +70,6 @@ __all__ = [
     "AudioEncoding",
     "AudioFormat",
     "ConnectionConfig",
-    "ConversationConfig",
     "SpeakerDiarizationConfig",
     "SpeakerIdentifier",
     "TranscriptionConfig",
