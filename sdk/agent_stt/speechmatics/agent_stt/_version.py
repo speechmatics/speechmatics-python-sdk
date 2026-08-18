@@ -7,8 +7,12 @@ def get_version() -> str:
     """
     Get the installed version of the speechmatics-agent-stt package.
 
+    This function attempts to retrieve the package version using multiple
+    fallback strategies to ensure it works in various deployment scenarios.
+
     Returns:
-        The package version, or "0.0.0" when it cannot be determined.
+        str: The package version string (e.g., "1.2.3"), or "0.0.0" if
+             version cannot be determined.
     """
     try:
         return importlib.metadata.version("speechmatics-agent-stt")
