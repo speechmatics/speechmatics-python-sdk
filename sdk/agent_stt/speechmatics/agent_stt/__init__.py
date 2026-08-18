@@ -15,7 +15,6 @@ __version__ = "0.0.0"
 
 from speechmatics.rt import AudioEncoding
 from speechmatics.rt import AudioError
-from speechmatics.rt import AudioEventsConfig
 from speechmatics.rt import AudioFormat
 from speechmatics.rt import AuthBase
 from speechmatics.rt import AuthenticationError
@@ -32,7 +31,6 @@ from speechmatics.rt import SpeakerIdentifier
 from speechmatics.rt import StaticKeyAuth
 from speechmatics.rt import TimeoutError
 from speechmatics.rt import TranscriptionError
-from speechmatics.rt import TranslationConfig
 from speechmatics.rt import TransportError
 
 from ._client import AgentSttAsyncClient
@@ -71,14 +69,12 @@ __all__ = [
     # Config
     "AdditionalVocabEntry",
     "AudioEncoding",
-    "AudioEventsConfig",
     "AudioFormat",
     "ConnectionConfig",
     "ConversationConfig",
     "SpeakerDiarizationConfig",
     "SpeakerIdentifier",
     "TranscriptionConfig",
-    "TranslationConfig",
     "TurnDetectionMode",
     "Model",
     "VADConfig",

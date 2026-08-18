@@ -9,14 +9,12 @@ from typing import Optional
 
 from speechmatics.rt import AsyncClient as RTAsyncClient
 from speechmatics.rt import AudioEncoding
-from speechmatics.rt import AudioEventsConfig
 from speechmatics.rt import AudioFormat
 from speechmatics.rt import AuthBase
 from speechmatics.rt import ConnectionConfig
 from speechmatics.rt import StaticKeyAuth
 from speechmatics.rt import TimeoutError as RTTimeoutError
 from speechmatics.rt import TranscriptionConfig as RTTranscriptionConfig
-from speechmatics.rt import TranslationConfig
 from speechmatics.rt import TransportError
 
 from ._logging import get_logger
@@ -211,8 +209,6 @@ class AgentSttAsyncClient(RTAsyncClient):
         *,
         transcription_config: Optional[RTTranscriptionConfig] = None,
         audio_format: Optional[AudioFormat] = None,
-        translation_config: Optional[TranslationConfig] = None,
-        audio_events_config: Optional[AudioEventsConfig] = None,
         ws_headers: Optional[dict] = None,
     ) -> None:
         """
@@ -221,8 +217,6 @@ class AgentSttAsyncClient(RTAsyncClient):
         Args:
             transcription_config: Transcription config for the session.
             audio_format: Audio format. Must be 16 kHz raw PCM for the Agent STT service.
-            translation_config: Optional translation config.
-            audio_events_config: Optional audio event detection config.
             ws_headers: Additional WebSocket handshake headers.
 
         Raises:
@@ -232,8 +226,6 @@ class AgentSttAsyncClient(RTAsyncClient):
         await super().start_session(
             transcription_config=transcription_config or self._config,
             audio_format=audio_format or self._audio_format,
-            translation_config=translation_config,
-            audio_events_config=audio_events_config,
             ws_headers=ws_headers,
         )
 
@@ -325,8 +317,6 @@ class AgentSttAsyncClient(RTAsyncClient):
         *,
         transcription_config: Optional[RTTranscriptionConfig] = None,
         audio_format: Optional[AudioFormat] = None,
-        translation_config: Optional[TranslationConfig] = None,
-        audio_events_config: Optional[AudioEventsConfig] = None,
         ws_headers: Optional[dict] = None,
         timeout: Optional[float] = None,
     ) -> None:
@@ -338,8 +328,6 @@ class AgentSttAsyncClient(RTAsyncClient):
                 audio format.
             transcription_config: Transcription config for the session.
             audio_format: Audio format. Must be 16 kHz raw PCM for the Agent STT service.
-            translation_config: Optional translation config.
-            audio_events_config: Optional audio event detection config.
             ws_headers: Additional WebSocket handshake headers.
             timeout: Maximum time in seconds to wait for the stream to finish.
 
@@ -361,8 +349,6 @@ class AgentSttAsyncClient(RTAsyncClient):
             await self.start_session(
                 transcription_config=self._config,
                 audio_format=self._audio_format,
-                translation_config=translation_config,
-                audio_events_config=audio_events_config,
                 ws_headers=ws_headers,
             )
             self._is_connected = True
