@@ -70,7 +70,7 @@ class Clock:
             if record:
                 self.segment_lags.append(behind)
             lag = f"+{behind * 1000:>5.0f}ms"
-        print(f"[{self.elapsed:6.2f}s] {tag:<10}{lag:<10} {text}")
+        print(f"[{self.elapsed:6.2f}s] {tag:<17}{lag:<10} {text}")
 
 
 def build_client(args: argparse.Namespace, clock: Clock) -> AgentSttAsyncClient:
@@ -100,20 +100,20 @@ def build_client(args: argparse.Namespace, clock: Clock) -> AgentSttAsyncClient:
 
     @client.on(ServerMessageType.SPEECH_STARTED)
     def handle_speech_started(message):
-        clock.log("[speech]", f"started at {message['metadata']['start_time']:.2f}s")
+        clock.log("[speech started]", f"{message['metadata']['start_time']:.2f}s")
 
     @client.on(ServerMessageType.SPEECH_ENDED)
     def handle_speech_ended(message):
-        clock.log("[speech]", f"ended at {message['metadata']['end_time']:.2f}s")
+        clock.log("[speech ended]", f"{message['metadata']['end_time']:.2f}s")
 
     @client.on(ServerMessageType.START_OF_TURN)
     def handle_start_of_turn(message):
-        clock.log("[turn]", f"start at {message['metadata']['start_time']:.2f}s")
+        clock.log("[turn started]", f"{message['metadata']['start_time']:.2f}s")
 
     @client.on(ServerMessageType.END_OF_TURN)
     def handle_end_of_turn(message):
         end_time = message["metadata"]["end_time"]
-        clock.log("[turn]", f"end at {end_time:.2f}s", audio_time=end_time)
+        clock.log("[turn ended]", f"{end_time:.2f}s", audio_time=end_time)
 
     @client.on(ServerMessageType.ERROR)
     def handle_error(message):
