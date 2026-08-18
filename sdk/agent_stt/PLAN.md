@@ -26,7 +26,7 @@ Client -> server: unchanged (`StartRecognition`, binary audio, `EndOfStream`,
 `ForceEndOfUtterance`). No new client messages.
 
 `StartRecognition.transcription_config` gains two service-only fields, stripped by the service
-before it forwards to the RT engine (`_profiles/_rt_conversion.NON_RT_API_FIELDS`):
+before it forwards to the RT engine:
 
 - `vad_config`: `{enabled, window, onset_threshold, offset_threshold}`
 - `emit_sentences`: `bool` - close a segment on sentence boundaries mid-turn
