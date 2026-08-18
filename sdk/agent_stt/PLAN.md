@@ -11,8 +11,8 @@ The SDK does **no VAD and no turn detection of its own**. Boundaries come from o
 
 | Mode | Who decides the turn boundary | Wire behaviour |
 | --- | --- | --- |
-| `VADMode.SERVER` | the service's own (Silero) VAD | `transcription_config.vad_config.enabled = true`; service emits `SpeechStarted`/`SpeechEnded`/`StartOfTurn`/`EndOfTurn` and forces end-of-utterance internally |
-| `VADMode.CLIENT` | the host framework (Pipecat, LiveKit, ...) | `transcription_config.vad_config.enabled = false`; the host calls `client.force_end_of_utterance()` on its own VAD's stop-speaking event |
+| `TurnDetectionMode.VAD` | the service's own (Silero) VAD | `transcription_config.vad_config.enabled = true`; service emits `SpeechStarted`/`SpeechEnded`/`StartOfTurn`/`EndOfTurn` and forces end-of-utterance internally |
+| `TurnDetectionMode.EXTERNAL` | the host framework (Pipecat, LiveKit, ...) | `transcription_config.vad_config.enabled = false`; the host calls `client.force_end_of_utterance()` on its own VAD's stop-speaking event |
 
 This is the whole reason the SDK exists as a separate package: the `voice` SDK bundles VAD +
 smart-turn models in-process, which duplicates what Pipecat/LiveKit already run and what the
@@ -77,7 +77,7 @@ reconnect-free lifecycle, `send_audio`, `transcribe`, `stop_session`,
 What the subclass adds:
 
 1. URL resolution (`/agent` + profile, on top of the `SPEECHMATICS_RT_URL` endpoint).
-2. `TranscriptionConfig` with `vad_mode`, `vad_config`, `emit_sentences`, and an Agent STT
+2. `TranscriptionConfig` with `turn_detection_mode`, `vad_config`, `emit_sentences`, and an Agent STT
    `Model` enum defaulting to `linden-1`. The request goes to the proxy rather than the service
    websocket directly, and the proxy resolves the Agent STT model name onto the engine's
    operating point, so the transcriber never sees a name it has no notion of. The deprecated
@@ -124,9 +124,10 @@ proxy.
 touched by this change. The migration:
 
 - swap the import block to `speechmatics.agent_stt`
-- collapse `TurnDetectionMode` onto the two modes that exist:
-  - `EXTERNAL` -> `VADMode.CLIENT`, with `finalize()` on `VADUserStoppedSpeakingFrame`
-  - `ADAPTIVE` -> `VADMode.SERVER`, with `StartOfTurn`/`EndOfTurn` driving
+- collapse Pipecat's own `TurnDetectionMode` onto the two modes that exist:
+  - its `EXTERNAL` -> `TurnDetectionMode.EXTERNAL`, with `finalize()` on
+    `VADUserStoppedSpeakingFrame`
+  - its `ADAPTIVE` -> `TurnDetectionMode.VAD`, with `StartOfTurn`/`EndOfTurn` driving
     `ProposedUserStartedSpeakingFrame`/`ProposedUserStoppedSpeakingFrame`
   - `FIXED` and `SMART_TURN` -> removed (see below)
 - `AddPartialSegment` -> `InterimTranscriptionFrame`, `AddSegment` -> `TranscriptionFrame`
@@ -136,7 +137,7 @@ touched by this change. The migration:
   `SpeechmaticsSTTSettings` and `InputParams`, along with the passthrough at
   `stt.py:788` and `stt.py:1252` - engine silence-based end of utterance is off for this
   service, so both are no-ops
-- `_enable_vad` (`stt.py:530`) becomes `vad_mode is VADMode.CLIENT`, since that is now the only
+- `_enable_vad` (`stt.py:530`) becomes `turn_detection_mode is TurnDetectionMode.EXTERNAL`, since that is now the only
   mode where Pipecat's own VAD drives the boundary
 - otherwise keep `SpeechmaticsSTTSettings` as the public surface so user code doesn't change
 
@@ -149,14 +150,14 @@ goes away rather than being aliased to another mode.
 
 `SMART_TURN` goes for the same reason: the service has no smart-turn endpoint yet (planned for a
 later release), and this SDK loads no models, so the mode cannot be honoured as specified. It
-comes back when the service does, as a `VADMode.SERVER` variant.
+comes back when the service does, as a `TurnDetectionMode.SMART_TURN` member alongside `TurnDetectionMode.VAD`.
 
 Removing it costs Pipecat users nothing, because Pipecat's own turn analyzer still works: any
 host-side endpointing - VAD, ML turn model, push-to-talk - reaches the service the same way,
-through `finalize()`. `VADMode.CLIENT` is agnostic about what produced the signal.
+through `finalize()`. `TurnDetectionMode.EXTERNAL` is agnostic about what produced the signal.
 
-Turns therefore end in exactly two ways, which is what `VADMode` models: the service's VAD, or
-the client calling `finalize()`.
+Turns therefore end in exactly two ways, which is what `TurnDetectionMode` models: the service's VAD, or
+the application calling `finalize()`.
 
 Open questions to settle before starting milestone 2:
 
@@ -165,6 +166,6 @@ Open questions to settle before starting milestone 2:
   still works, since `speaker_diarization_config.speakers` passes straight through.
 - ~~engine-silence endpointing / `FIXED` mode~~ - removed, see above.
 - ~~`SMART_TURN`~~ - removed until the service implements it. Host-side turn models keep working
-  through `VADMode.CLIENT`.
+  through `TurnDetectionMode.EXTERNAL`.
 
 Both removals are user-visible, so they need a changelog entry when the Pipecat change lands.

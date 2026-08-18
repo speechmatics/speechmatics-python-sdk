@@ -2,21 +2,21 @@ import pytest
 
 from speechmatics.agent_stt import Model
 from speechmatics.agent_stt import TranscriptionConfig
+from speechmatics.agent_stt import TurnDetectionMode
 from speechmatics.agent_stt import VADConfig
-from speechmatics.agent_stt import VADMode
 
 
-def test_server_vad_is_the_default():
+def test_service_vad_is_the_default():
     assert TranscriptionConfig().to_dict()["vad_config"] == {"enabled": True}
 
 
-def test_client_vad_disables_service_vad():
-    config = TranscriptionConfig(vad_mode=VADMode.CLIENT)
+def test_external_mode_disables_service_vad():
+    config = TranscriptionConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL)
     assert config.to_dict()["vad_config"] == {"enabled": False}
 
 
-def test_vad_mode_is_not_sent():
-    assert "vad_mode" not in TranscriptionConfig().to_dict()
+def test_turn_detection_mode_is_not_sent():
+    assert "turn_detection_mode" not in TranscriptionConfig().to_dict()
 
 
 def test_vad_tuning_passed_through():

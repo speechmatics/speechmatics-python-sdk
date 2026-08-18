@@ -46,7 +46,8 @@ class AsyncClient(RTAsyncClient):
     Extends the RT client to talk to the Agent STT endpoint (`/agent`), which works in
     segments rather than word groups and reports speech and turn events. The client runs no
     VAD and no turn detection of its own: either the service's VAD closes turns
-    (`VADMode.SERVER`) or the application's does, by calling `finalize()` (`VADMode.CLIENT`).
+    (`TurnDetectionMode.VAD`) or the application's does, by calling `finalize()`
+    (`TurnDetectionMode.EXTERNAL`).
 
     Args:
         auth: Authentication instance. Defaults to `StaticKeyAuth` built from `api_key` or the
@@ -72,8 +73,8 @@ class AsyncClient(RTAsyncClient):
             ...     await client.send_audio(frame)
             >>> print(client.transcript)
 
-        Client VAD (Pipecat, LiveKit):
-            >>> config = TranscriptionConfig(vad_mode=VADMode.CLIENT)
+        External endpointing (Pipecat, LiveKit):
+            >>> config = TranscriptionConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL)
             >>> client = AsyncClient(api_key="your-key", config=config)
             >>> await client.connect()
             >>> await client.send_audio(frame)
@@ -273,8 +274,8 @@ class AsyncClient(RTAsyncClient):
         rather than wherever the send happens to land. The flushed segment arrives as a normal
         AddSegment message.
 
-        Use this when the application brings its own VAD (`VADMode.CLIENT`); with
-        `VADMode.SERVER` the service closes turns itself.
+        Use this when the application brings its own VAD (`TurnDetectionMode.EXTERNAL`); with
+        `TurnDetectionMode.VAD` the service closes turns itself.
 
         Args:
             timestamp: Audio timestamp in seconds for the end of the utterance. Defaults to

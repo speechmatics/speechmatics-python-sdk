@@ -52,8 +52,8 @@ from ._models import ServerMessageType
 from ._models import SessionInfo
 from ._models import TimedEvent
 from ._models import TranscriptionConfig
+from ._models import TurnDetectionMode
 from ._models import VADConfig
-from ._models import VADMode
 from ._transcript import Transcript
 from ._url import resolve_url
 
@@ -79,9 +79,9 @@ __all__ = [
     "SpeakerIdentifier",
     "TranscriptionConfig",
     "TranslationConfig",
+    "TurnDetectionMode",
     "Model",
     "VADConfig",
-    "VADMode",
     # Auth
     "AuthBase",
     "JWTAuth",

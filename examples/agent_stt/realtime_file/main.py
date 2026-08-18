@@ -17,8 +17,8 @@ from typing import Optional
 from speechmatics.agent_stt import AsyncClient
 from speechmatics.agent_stt import ServerMessageType
 from speechmatics.agent_stt import TranscriptionConfig
+from speechmatics.agent_stt import TurnDetectionMode
 from speechmatics.agent_stt import VADConfig
-from speechmatics.agent_stt import VADMode
 
 DEFAULT_AUDIO_FILE = "./tests/voice/assets/audio_01_16kHz.wav"
 SAMPLE_RATE = 16000
@@ -34,14 +34,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--language", default="en")
     parser.add_argument("--chunk-ms", type=float, default=20.0, help="audio frame size in milliseconds")
     parser.add_argument(
-        "--vad",
-        choices=[VADMode.SERVER.value, VADMode.CLIENT.value],
-        default=VADMode.SERVER.value,
-        help="who closes turns: the service, or this script calling finalize()",
+        "--turn-detection",
+        choices=[TurnDetectionMode.VAD.value, TurnDetectionMode.EXTERNAL.value],
+        default=TurnDetectionMode.VAD.value,
+        help="which mechanism closes turns: the service's VAD, or this script calling finalize()",
     )
     parser.add_argument("--vad-window", type=float, help="silence in seconds before the service closes a turn")
     parser.add_argument(
-        "--turn-seconds", type=float, default=5.0, help="fake client-VAD turn length, --vad client only"
+        "--turn-seconds", type=float, default=5.0, help="fake turn length, --turn-detection external only"
     )
     parser.add_argument("--no-partials", action="store_true")
     parser.add_argument("--emit-sentences", action="store_true", help="close a segment on every sentence boundary")
@@ -77,7 +77,7 @@ def build_client(args: argparse.Namespace, clock: Clock) -> AsyncClient:
     config = TranscriptionConfig(
         language=args.language,
         enable_partials=not args.no_partials,
-        vad_mode=VADMode(args.vad),
+        turn_detection_mode=TurnDetectionMode(args.turn_detection),
         vad_config=VADConfig(window=args.vad_window) if args.vad_window is not None else None,
         emit_sentences=args.emit_sentences,
     )
@@ -139,8 +139,8 @@ async def stream(client: AsyncClient, wav: wave.Wave_read, args: argparse.Namesp
 
         await client.send_audio(frame)
 
-        if args.vad == VADMode.CLIENT.value and client.audio_seconds_sent >= next_turn_end:
-            clock.log("[client]", f"end of turn at {client.audio_seconds_sent:.2f}s")
+        if args.turn_detection == TurnDetectionMode.EXTERNAL.value and client.audio_seconds_sent >= next_turn_end:
+            clock.log("[external]", f"end of turn at {client.audio_seconds_sent:.2f}s")
             await client.force_end_of_utterance()
             next_turn_end += args.turn_seconds
 

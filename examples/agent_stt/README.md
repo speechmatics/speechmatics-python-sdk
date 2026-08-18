@@ -11,7 +11,7 @@ The service needs 16 kHz raw PCM, so the file examples take a 16 kHz WAV and def
 | --- | --- |
 | [file/main.py](file/main.py) | File transcription with the service's VAD; segments, turn events, transcript at the end |
 | [realtime_file/main.py](realtime_file/main.py) | The same file paced at wall-clock speed, with the lag of each message behind the audio |
-| [client_vad/main.py](client_vad/main.py) | The client owns turn boundaries and calls `finalize()`, as Pipecat and LiveKit do |
+| [client_vad/main.py](client_vad/main.py) | `TurnDetectionMode.EXTERNAL`: the application owns turn boundaries and calls `finalize()`, as Pipecat and LiveKit do |
 | [microphone/main.py](microphone/main.py) | Live microphone with diarization and speaker-labelled transcript (needs `pyaudio`) |
 | [microphone_windows/main.py](microphone_windows/main.py) | The same, set up for Windows: device selection, in-place partials, Ctrl+C shutdown |
 

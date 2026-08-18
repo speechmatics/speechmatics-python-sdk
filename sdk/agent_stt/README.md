@@ -37,19 +37,19 @@ asyncio.run(main())
 The service needs a boundary to close a segment on. Pick where it comes from:
 
 ```python
-from speechmatics.agent_stt import TranscriptionConfig, VADConfig, VADMode
+from speechmatics.agent_stt import TranscriptionConfig, TurnDetectionMode, VADConfig
 
 # The service's VAD (default). It emits SpeechStarted/SpeechEnded and StartOfTurn/EndOfTurn.
 config = TranscriptionConfig(
-    vad_mode=VADMode.SERVER,
+    turn_detection_mode=TurnDetectionMode.VAD,
     vad_config=VADConfig(window=0.2, onset_threshold=0.5, offset_threshold=0.35),
 )
 
 # Your endpointing - Pipecat, LiveKit, or your own. The service's VAD stays off.
-config = TranscriptionConfig(vad_mode=VADMode.CLIENT)
+config = TranscriptionConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL)
 ```
 
-With `VADMode.CLIENT`, close each turn when your side decides speech has ended:
+With `TurnDetectionMode.EXTERNAL`, close each turn when your side decides speech has ended:
 
 ```python
 client.finalize()              # from a sync callback
@@ -106,7 +106,7 @@ under its name.
 
 | Field | Meaning |
 | --- | --- |
-| `vad_mode` | `VADMode.SERVER` (default) or `VADMode.CLIENT` |
+| `turn_detection_mode` | `TurnDetectionMode.VAD` (default) or `TurnDetectionMode.EXTERNAL` |
 | `vad_config` | `window`, `onset_threshold`, `offset_threshold` for the service's VAD |
 | `emit_sentences` | Close a segment on every sentence boundary, not only at the turn boundary |
 

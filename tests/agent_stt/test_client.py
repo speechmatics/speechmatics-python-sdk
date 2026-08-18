@@ -7,7 +7,7 @@ from speechmatics.agent_stt import AudioEncoding
 from speechmatics.agent_stt import ClientMessageType
 from speechmatics.agent_stt import ServerMessageType
 from speechmatics.agent_stt import TranscriptionConfig
-from speechmatics.agent_stt import VADMode
+from speechmatics.agent_stt import TurnDetectionMode
 
 API_KEY = "test-key"
 
@@ -228,10 +228,10 @@ async def test_finalize_latency_measured_against_the_flushed_segment(client):
 
 
 @pytest.mark.asyncio
-async def test_client_vad_mode_config_reaches_start_recognition(client):
+async def test_external_turn_detection_reaches_start_recognition(client):
     transport = StubTransport()
     client._transport = transport
-    client._config = TranscriptionConfig(language="en", vad_mode=VADMode.CLIENT)
+    client._config = TranscriptionConfig(language="en", turn_detection_mode=TurnDetectionMode.EXTERNAL)
 
     await client.send_message(
         {

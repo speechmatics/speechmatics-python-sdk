@@ -1,4 +1,4 @@
-"""Drive turn boundaries from the client instead of the service.
+"""Drive turn boundaries from the application instead of the service.
 
 This is the mode host frameworks use: Pipecat, LiveKit and others already run a VAD, so the
 service's VAD is switched off and each turn is closed by calling `finalize()`, which sends
@@ -16,7 +16,7 @@ import wave
 from speechmatics.agent_stt import AsyncClient
 from speechmatics.agent_stt import ServerMessageType
 from speechmatics.agent_stt import TranscriptionConfig
-from speechmatics.agent_stt import VADMode
+from speechmatics.agent_stt import TurnDetectionMode
 
 DEFAULT_AUDIO_FILE = "./tests/voice/assets/audio_01_16kHz.wav"
 CHUNK_SIZE = 1024
@@ -24,7 +24,7 @@ TURN_SECONDS = 5.0
 
 
 async def main(path: str) -> None:
-    config = TranscriptionConfig(language="en", enable_partials=True, vad_mode=VADMode.CLIENT)
+    config = TranscriptionConfig(language="en", enable_partials=True, turn_detection_mode=TurnDetectionMode.EXTERNAL)
 
     # Uses SPEECHMATICS_API_KEY from the environment
     async with AsyncClient(config=config) as client:

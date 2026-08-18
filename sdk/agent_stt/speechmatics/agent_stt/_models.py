@@ -106,27 +106,31 @@ TIMED_MESSAGES = (
 )
 
 
-class VADMode(str, Enum):
+class TurnDetectionMode(str, Enum):
     """
-    Where turn boundaries come from. This SDK never detects them itself.
+    Which mechanism closes a turn. This SDK never detects turn boundaries itself.
+
+    The mode names the mechanism rather than the side it runs on, so a second service-side
+    mechanism - smart turn, once the service implements it - joins as another member without
+    changing what the existing ones mean.
 
     Attributes:
-        SERVER: The service runs its own VAD and turn detection, emitting SpeechStarted,
-            SpeechEnded, StartOfTurn and EndOfTurn, and closing segments itself.
-        CLIENT: The application closes each turn by calling `finalize()`, which sends
+        VAD: The service's own VAD closes turns, emitting SpeechStarted, SpeechEnded,
+            StartOfTurn and EndOfTurn, and closing segments itself.
+        EXTERNAL: The application closes each turn by calling `finalize()`, which sends
             ForceEndOfUtterance with an audio timestamp. Whatever produced that signal is up to
             the application - a VAD, a turn model, or a push-to-talk button - so a host
             framework's own endpointing (Pipecat, LiveKit, ...) works unchanged.
     """
 
-    SERVER = "server"
-    CLIENT = "client"
+    VAD = "vad"
+    EXTERNAL = "external"
 
 
 @dataclass
 class VADConfig:
     """
-    Tuning for the service's VAD. Only applied when `VADMode.SERVER` is in use.
+    Tuning for the service's VAD. Only applied when `TurnDetectionMode.VAD` is in use.
 
     Attributes:
         window: Silence in seconds before the service closes the turn.
@@ -165,8 +169,8 @@ class TranscriptionConfig(RTTranscriptionConfig):
     `emit_sentences`). See `speechmatics.rt.TranscriptionConfig` for the inherited fields.
 
     Attributes:
-        vad_mode: Whether the service or the client decides turn boundaries.
-        vad_config: Tuning for the service's VAD, used when `vad_mode` is `SERVER`.
+        turn_detection_mode: Which mechanism closes a turn: the service's VAD, or the application.
+        vad_config: Tuning for the service's VAD, used when `turn_detection_mode` is `VAD`.
         emit_sentences: Close a segment on every sentence boundary, not just at the turn
             boundary.
         additional_vocab: Words to bias the engine towards, as `AdditionalVocabEntry` objects
@@ -179,13 +183,13 @@ class TranscriptionConfig(RTTranscriptionConfig):
         Service VAD, sentence-level segments:
             >>> config = TranscriptionConfig(language="en", emit_sentences=True)
 
-        Client VAD (Pipecat, LiveKit):
-            >>> config = TranscriptionConfig(language="en", vad_mode=VADMode.CLIENT)
+        External endpointing (Pipecat, LiveKit):
+            >>> config = TranscriptionConfig(language="en", turn_detection_mode=TurnDetectionMode.EXTERNAL)
     """
 
     model: Model = _UNSET
     additional_vocab: Optional[list[Union[AdditionalVocabEntry, dict[str, Any]]]] = None
-    vad_mode: VADMode = VADMode.SERVER
+    turn_detection_mode: TurnDetectionMode = TurnDetectionMode.VAD
     vad_config: VADConfig = field(default_factory=VADConfig)
     emit_sentences: Optional[bool] = None
 
@@ -202,15 +206,16 @@ class TranscriptionConfig(RTTranscriptionConfig):
         Convert to the wire form of `StartRecognition.transcription_config`.
 
         Returns:
-            The config as a dict, excluding None values, with `vad_config.enabled` derived
-            from `vad_mode` and `vad_mode` itself dropped.
+            The config as a dict, excluding None values. `vad_config.enabled` is derived
+            from `turn_detection_mode` - on unless the application closes turns itself - and
+            the mode itself is dropped.
         """
         result = super().to_dict()
         if self.model is _UNSET:
             result.pop("model", None)
-        result.pop("vad_mode", None)
+        result.pop("turn_detection_mode", None)
         vad_config = result.pop("vad_config", None) or {}
-        vad_config["enabled"] = self.vad_mode is VADMode.SERVER
+        vad_config["enabled"] = self.turn_detection_mode is not TurnDetectionMode.EXTERNAL
         result["vad_config"] = vad_config
         return result
 
