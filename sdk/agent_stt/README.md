@@ -93,8 +93,7 @@ Emitted by the service:
 | `StartOfTurn` / `EndOfTurn` | `metadata.start_time` / `metadata.end_time` (service turn detection) |
 
 Passed through from the RT engine: `RecognitionStarted`, `AudioAdded`, `EndOfTranscript`,
-`SpeakersResult`, `Info`, `Warning`, `Error`. `EndOfUtterance` is consumed by the service and
-not forwarded.
+`SpeakersResult`, `Info`, `Warning`, `Error`.
 
 Anything else the engine sends - the word-level `AddTranscript`/`AddPartialTranscript`, audio
 events - is not modelled here, but still reaches `client.events` and any handler registered
@@ -123,9 +122,9 @@ point, so the transcriber never sees a name it has no notion of. The RT models (
 `standard`) are not Agent STT models and are not accepted here; the deprecated `operating_point`
 still passes through, and suppresses the `model` default so the two never arrive together.
 
-Engine silence-based end of utterance is off for this service, and `EndOfUtterance` is not
-forwarded, so `conversation_config.end_of_utterance_silence_trigger` does not close segments. A
-turn ends either because the service's VAD said so, or because you called `finalize()`.
+Engine silence-based end of utterance is off for this service, so
+`conversation_config.end_of_utterance_silence_trigger` does not close segments. A turn ends
+either because the service's VAD said so, or because you called `finalize()`.
 
 ## Endpoint
 

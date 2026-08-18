@@ -41,7 +41,6 @@ Server -> client, new messages (`voice_agent_api/_service_messages.py`):
 
 Server -> client, RT passthrough: `RecognitionStarted`, `AudioAdded`, `AddTranscript`,
 `AddPartialTranscript`, `EndOfTranscript`, `Info`, `Warning`, `Error`, audio events.
-`EndOfUtterance` is consumed by the service and never reaches the client.
 
 Note: the service still forwards `AddTranscript`/`AddPartialTranscript` verbatim today. The SDK
 accumulates its transcript from **segments only** and models neither those nor audio events;
@@ -142,9 +141,8 @@ touched by this change. The migration:
 
 ### `FIXED` and `SMART_TURN` are removed
 
-`end_of_utterance_silence_trigger` is off for this service: the service pins it to `0.0`,
-the service consumes `EndOfUtterance` rather than forwarding it, and a non-forced end of utterance
-does not close a segment. So there is nothing for `TurnDetectionMode.FIXED` to mean here and it
+`end_of_utterance_silence_trigger` is off for this service: the service pins it to `0.0`, and a
+non-forced end of utterance does not close a segment. So there is nothing for `TurnDetectionMode.FIXED` to mean here and it
 goes away rather than being aliased to another mode.
 
 `SMART_TURN` goes for the same reason: the service has no smart-turn endpoint yet (planned for a

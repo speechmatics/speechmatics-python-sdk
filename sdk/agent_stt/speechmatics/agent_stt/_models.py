@@ -66,8 +66,6 @@ class ServerMessageType(str, Enum):
         SPEECH_ENDED: The service's VAD detected speech offset.
         START_OF_TURN: The service's turn detection opened a turn.
         END_OF_TURN: The service's turn detection closed a turn.
-        END_OF_UTTERANCE: Consumed by the service for segmentation and not forwarded; listed
-            so handlers stay valid against a direct RT endpoint.
         END_OF_TRANSCRIPT: The service has finished sending messages.
         SPEAKERS_RESULT: Response to GetSpeakers.
         INFO: Informational message.
@@ -88,7 +86,6 @@ class ServerMessageType(str, Enum):
     SPEECH_ENDED = "SpeechEnded"
     START_OF_TURN = "StartOfTurn"
     END_OF_TURN = "EndOfTurn"
-    END_OF_UTTERANCE = "EndOfUtterance"
     END_OF_TRANSCRIPT = "EndOfTranscript"
     SPEAKERS_RESULT = "SpeakersResult"
     INFO = "Info"
