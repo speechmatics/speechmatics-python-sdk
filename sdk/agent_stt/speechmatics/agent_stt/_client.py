@@ -36,10 +36,10 @@ from ._url import resolve_url
 
 _UNSET = object()
 
-DISCONNECT_TIMEOUT = 5.0
+DISCONNECT_TIMEOUT_S = 5.0
 
 
-class AsyncClient(RTAsyncClient):
+class AgentSttAsyncClient(RTAsyncClient):
     """
     Asynchronous client for the Speechmatics Agent STT service.
 
@@ -65,7 +65,7 @@ class AsyncClient(RTAsyncClient):
 
     Examples:
         Service VAD, transcript at the end:
-            >>> async with AsyncClient(api_key="your-key") as client:
+            >>> async with AgentSttAsyncClient(api_key="your-key") as client:
             ...     @client.on(ServerMessageType.ADD_SEGMENT)
             ...     def handle_segment(message):
             ...         print(message["segment"]["transcript"])
@@ -74,7 +74,7 @@ class AsyncClient(RTAsyncClient):
 
         External endpointing (Pipecat, LiveKit):
             >>> config = TranscriptionConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL)
-            >>> client = AsyncClient(api_key="your-key", config=config)
+            >>> client = AgentSttAsyncClient(api_key="your-key", config=config)
             >>> await client.connect()
             >>> await client.send_audio(frame)
             >>> client.finalize()  # on the application's own end-of-speech signal
@@ -163,7 +163,7 @@ class AsyncClient(RTAsyncClient):
             TimeoutError: If the service does not accept the session in time.
 
         Examples:
-            >>> client = AsyncClient(api_key="your-key")
+            >>> client = AgentSttAsyncClient(api_key="your-key")
             >>> await client.connect()
         """
         if self._is_connected:
@@ -190,14 +190,14 @@ class AsyncClient(RTAsyncClient):
 
         self._is_ready_for_audio = False
         try:
-            await asyncio.wait_for(self.stop_session(), timeout=DISCONNECT_TIMEOUT)
+            await asyncio.wait_for(self.stop_session(), timeout=DISCONNECT_TIMEOUT_S)
         except Exception as e:
             self._logger.warning("Error closing session: %s", e)
             await self.close()
         finally:
             self._is_connected = False
 
-    async def __aenter__(self) -> AsyncClient:
+    async def __aenter__(self) -> AgentSttAsyncClient:
         """Open the session on entry."""
         await self.connect()
         return self
@@ -485,4 +485,4 @@ class AsyncClient(RTAsyncClient):
         await super().close()
 
 
-AgentSTTClient = AsyncClient
+AgentSTTClient = AgentSttAsyncClient

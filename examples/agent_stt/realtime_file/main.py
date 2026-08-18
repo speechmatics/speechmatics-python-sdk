@@ -14,7 +14,7 @@ import time
 import wave
 from typing import Optional
 
-from speechmatics.agent_stt import AsyncClient
+from speechmatics.agent_stt import AgentSttAsyncClient
 from speechmatics.agent_stt import ServerMessageType
 from speechmatics.agent_stt import TranscriptionConfig
 from speechmatics.agent_stt import TurnDetectionMode
@@ -73,7 +73,7 @@ class Clock:
         print(f"[{self.elapsed:6.2f}s] {tag:<10}{lag:<10} {text}")
 
 
-def build_client(args: argparse.Namespace, clock: Clock) -> AsyncClient:
+def build_client(args: argparse.Namespace, clock: Clock) -> AgentSttAsyncClient:
     config = TranscriptionConfig(
         language=args.language,
         enable_partials=not args.no_partials,
@@ -83,7 +83,7 @@ def build_client(args: argparse.Namespace, clock: Clock) -> AsyncClient:
     )
 
     # Uses SPEECHMATICS_API_KEY, and SPEECHMATICS_RT_URL to point at a local service
-    client = AsyncClient(config=config)
+    client = AgentSttAsyncClient(config=config)
 
     @client.on(ServerMessageType.ADD_PARTIAL_SEGMENT)
     def handle_partial_segment(message):
@@ -122,7 +122,7 @@ def build_client(args: argparse.Namespace, clock: Clock) -> AsyncClient:
     return client
 
 
-async def stream(client: AsyncClient, wav: wave.Wave_read, args: argparse.Namespace, clock: Clock) -> None:
+async def stream(client: AgentSttAsyncClient, wav: wave.Wave_read, args: argparse.Namespace, clock: Clock) -> None:
     """Send the file frame by frame, releasing each frame no earlier than its capture time."""
     frames_per_chunk = int(SAMPLE_RATE * args.chunk_ms / 1000)
     next_turn_end = args.turn_seconds

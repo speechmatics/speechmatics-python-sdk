@@ -15,11 +15,11 @@ pip install speechmatics-agent-stt
 
 ```python
 import asyncio
-from speechmatics.agent_stt import AsyncClient, ServerMessageType, TranscriptionConfig
+from speechmatics.agent_stt import AgentSttAsyncClient, ServerMessageType, TranscriptionConfig
 
 async def main():
     # Uses SPEECHMATICS_API_KEY from the environment
-    async with AsyncClient(config=TranscriptionConfig(language="en", enable_partials=True)) as client:
+    async with AgentSttAsyncClient(config=TranscriptionConfig(language="en", enable_partials=True)) as client:
         @client.on(ServerMessageType.ADD_SEGMENT)
         def handle_segment(message):
             print(message["segment"]["transcript"])
@@ -78,7 +78,7 @@ client.session_info        # session id and the language pack the service report
 client.transcript_text(speaker_labels=True, include_partial=False)
 ```
 
-Pass `record_events=False` to `AsyncClient` for long-running sessions where the raw log is not
+Pass `record_events=False` to `AgentSttAsyncClient` for long-running sessions where the raw log is not
 wanted.
 
 ## Messages
@@ -132,9 +132,9 @@ turn ends either because the service's VAD said so, or because you called `final
 The Agent STT endpoint is the RT endpoint plus `/agent`:
 
 ```python
-AsyncClient(url="wss://eu2.rt.speechmatics.com/v2")  # -> /v2/agent
-AsyncClient(url="ws://localhost:8000/v2")            # -> /v2/agent
-AsyncClient(app="pipecat/1.0")                       # reported as sm-app
+AgentSttAsyncClient(url="wss://eu2.rt.speechmatics.com/v2")  # -> /v2/agent
+AgentSttAsyncClient(url="ws://localhost:8000/v2")            # -> /v2/agent
+AgentSttAsyncClient(app="pipecat/1.0")                       # reported as sm-app
 ```
 
 Resolution order: the `url` argument, `SPEECHMATICS_RT_URL`, then the EU endpoint. The `/agent`

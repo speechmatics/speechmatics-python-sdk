@@ -10,7 +10,7 @@ import asyncio
 import sys
 import wave
 
-from speechmatics.agent_stt import AsyncClient
+from speechmatics.agent_stt import AgentSttAsyncClient
 from speechmatics.agent_stt import ServerMessageType
 from speechmatics.agent_stt import TranscriptionConfig
 
@@ -29,7 +29,7 @@ class WavSource:
 
 async def main(path: str) -> None:
     # Uses SPEECHMATICS_API_KEY from the environment
-    client = AsyncClient(config=TranscriptionConfig(language="en", enable_partials=True))
+    client = AgentSttAsyncClient(config=TranscriptionConfig(language="en", enable_partials=True))
 
     @client.on(ServerMessageType.ADD_PARTIAL_SEGMENT)
     def handle_partial_segment(message):

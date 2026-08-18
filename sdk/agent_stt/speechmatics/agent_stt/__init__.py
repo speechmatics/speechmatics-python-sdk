@@ -35,8 +35,8 @@ from speechmatics.rt import TranscriptionError
 from speechmatics.rt import TranslationConfig
 from speechmatics.rt import TransportError
 
+from ._client import AgentSttAsyncClient
 from ._client import AgentSTTClient
-from ._client import AsyncClient
 from ._models import DEFAULT_CHUNK_SIZE
 from ._models import DEFAULT_MODEL
 from ._models import DEFAULT_SAMPLE_RATE
@@ -67,7 +67,7 @@ __all__ = [
     "__version__",
     # Client
     "AgentSTTClient",
-    "AsyncClient",
+    "AgentSttAsyncClient",
     # Config
     "AdditionalVocabEntry",
     "AudioEncoding",

@@ -19,7 +19,7 @@ import asyncio
 import signal
 import sys
 
-from speechmatics.agent_stt import AsyncClient
+from speechmatics.agent_stt import AgentSttAsyncClient
 from speechmatics.agent_stt import Microphone
 from speechmatics.agent_stt import ServerMessageType
 from speechmatics.agent_stt import TranscriptionConfig
@@ -66,7 +66,7 @@ def list_devices() -> None:
         print(f"  {device['index']:>2}  {device['name']} ({device['channels']} ch)")
 
 
-def build_client(args: argparse.Namespace, console: Console) -> AsyncClient:
+def build_client(args: argparse.Namespace, console: Console) -> AgentSttAsyncClient:
     config = TranscriptionConfig(
         language=args.language,
         enable_partials=not args.no_partials,
@@ -74,7 +74,7 @@ def build_client(args: argparse.Namespace, console: Console) -> AsyncClient:
     )
 
     # Uses SPEECHMATICS_API_KEY, and SPEECHMATICS_RT_URL to point at a local service
-    client = AsyncClient(config=config)
+    client = AgentSttAsyncClient(config=config)
 
     @client.on(ServerMessageType.ADD_PARTIAL_SEGMENT)
     def handle_partial_segment(message):
@@ -97,7 +97,7 @@ def build_client(args: argparse.Namespace, console: Console) -> AsyncClient:
     return client
 
 
-async def capture(client: AsyncClient, mic: Microphone, stop: asyncio.Event) -> None:
+async def capture(client: AgentSttAsyncClient, mic: Microphone, stop: asyncio.Event) -> None:
     """Pump microphone frames until Ctrl+C, which sets `stop`."""
     while not stop.is_set():
         await client.send_audio(await mic.read(CHUNK_SIZE))

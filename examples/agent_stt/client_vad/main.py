@@ -13,7 +13,7 @@ import asyncio
 import sys
 import wave
 
-from speechmatics.agent_stt import AsyncClient
+from speechmatics.agent_stt import AgentSttAsyncClient
 from speechmatics.agent_stt import ServerMessageType
 from speechmatics.agent_stt import TranscriptionConfig
 from speechmatics.agent_stt import TurnDetectionMode
@@ -27,7 +27,7 @@ async def main(path: str) -> None:
     config = TranscriptionConfig(language="en", enable_partials=True, turn_detection_mode=TurnDetectionMode.EXTERNAL)
 
     # Uses SPEECHMATICS_API_KEY from the environment
-    async with AsyncClient(config=config) as client:
+    async with AgentSttAsyncClient(config=config) as client:
 
         @client.on(ServerMessageType.ADD_SEGMENT)
         def handle_segment(message):

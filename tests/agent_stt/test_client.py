@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from speechmatics.agent_stt import AsyncClient
+from speechmatics.agent_stt import AgentSttAsyncClient
 from speechmatics.agent_stt import AudioEncoding
 from speechmatics.agent_stt import ClientMessageType
 from speechmatics.agent_stt import ServerMessageType
@@ -37,7 +37,7 @@ class StubTransport:
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.delenv("SPEECHMATICS_RT_URL", raising=False)
-    return AsyncClient(api_key=API_KEY)
+    return AgentSttAsyncClient(api_key=API_KEY)
 
 
 def recognition_started(word_delimiter=" "):
@@ -75,7 +75,7 @@ async def test_endpoint_is_the_agent_path(client):
 @pytest.mark.asyncio
 async def test_app_reaches_the_url(monkeypatch):
     monkeypatch.delenv("SPEECHMATICS_RT_URL", raising=False)
-    client = AsyncClient(api_key=API_KEY, app="pipecat/1.0")
+    client = AgentSttAsyncClient(api_key=API_KEY, app="pipecat/1.0")
     assert "/v2/agent" in client._transport._url
     assert "sm-app=pipecat%2F1.0" in client._transport._url
 
@@ -158,7 +158,7 @@ async def test_every_message_is_recorded(client):
 @pytest.mark.asyncio
 async def test_event_recording_can_be_disabled(monkeypatch):
     monkeypatch.delenv("SPEECHMATICS_RT_URL", raising=False)
-    client = AsyncClient(api_key=API_KEY, record_events=False)
+    client = AgentSttAsyncClient(api_key=API_KEY, record_events=False)
     start_session(client)
     assert client.events == []
     assert client.session_info.session_id == "session-1"

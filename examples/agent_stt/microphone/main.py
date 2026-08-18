@@ -8,7 +8,7 @@ Run with: python examples/agent_stt/microphone/main.py
 
 import asyncio
 
-from speechmatics.agent_stt import AsyncClient
+from speechmatics.agent_stt import AgentSttAsyncClient
 from speechmatics.agent_stt import Microphone
 from speechmatics.agent_stt import ServerMessageType
 from speechmatics.agent_stt import TranscriptionConfig
@@ -26,7 +26,7 @@ async def main() -> None:
     config = TranscriptionConfig(language="en", enable_partials=True, diarization="speaker")
 
     # Uses SPEECHMATICS_API_KEY from the environment
-    async with AsyncClient(config=config) as client:
+    async with AgentSttAsyncClient(config=config) as client:
 
         @client.on(ServerMessageType.ADD_PARTIAL_SEGMENT)
         def handle_partial_segment(message):

@@ -60,7 +60,7 @@ sdk/agent_stt/
   PLAN.md                   this file
   speechmatics/agent_stt/
     __init__.py             public API
-    _client.py              AsyncClient (subclasses rt.AsyncClient)
+    _client.py              AgentSttAsyncClient (subclasses rt.AsyncClient)
     _models.py              message enums, TranscriptionConfig, VADConfig, Segment, TimedEvent
     _transcript.py          Transcript - final segments, live partial, timeline, raw event log
     _transport.py           AgentTransport - stamps sm-sdk=python-agent-stt-sdk-vX
