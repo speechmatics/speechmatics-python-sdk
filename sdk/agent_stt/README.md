@@ -92,9 +92,13 @@ Emitted by the service:
 | `SpeechStarted` / `SpeechEnded` | `metadata.start_time` / `metadata.end_time` (service VAD) |
 | `StartOfTurn` / `EndOfTurn` | `metadata.start_time` / `metadata.end_time` (service turn detection) |
 
-Passed through from the RT engine: `RecognitionStarted`, `AudioAdded`, `AddTranscript`,
-`AddPartialTranscript`, `EndOfTranscript`, `SpeakersResult`, `Info`, `Warning`, `Error`.
-`EndOfUtterance` is consumed by the service and not forwarded.
+Passed through from the RT engine: `RecognitionStarted`, `AudioAdded`, `EndOfTranscript`,
+`SpeakersResult`, `Info`, `Warning`, `Error`. `EndOfUtterance` is consumed by the service and
+not forwarded.
+
+Anything else the engine sends - the word-level `AddTranscript`/`AddPartialTranscript`, audio
+events - is not modelled here, but still reaches `client.events` and any handler registered
+under its name.
 
 ## Configuration
 

@@ -45,8 +45,9 @@ Server -> client, RT passthrough: `RecognitionStarted`, `AudioAdded`, `AddTransc
 `EndOfUtterance` is consumed by the service and never reaches the client.
 
 Note: the service still forwards `AddTranscript`/`AddPartialTranscript` verbatim today. The SDK
-accumulates its transcript from **segments only**, but the transcript messages remain available
-via handlers and the event log, so nothing is lost if a future profile mutes them.
+accumulates its transcript from **segments only** and models neither those nor audio events;
+they still reach the event log and any handler registered under their name, so nothing is lost
+if a future profile mutes them.
 
 Constraints the service imposes: `audio_format.type` must be `raw`, sample rate `16000`
 (Silero), encoding `pcm_s16le` or `pcm_f32le` (no mulaw). The SDK defaults to exactly that.

@@ -36,22 +36,17 @@ class ClientMessageType(str, Enum):
     """
     Message types that can be sent from client to the Agent STT service.
 
-    The Agent STT service adds no client messages of its own; these are the RT messages
-    it forwards downstream.
-
     Attributes:
         START_RECOGNITION: Starts the session, carrying the audio and transcription config.
         END_OF_STREAM: Signals that no more audio will be sent.
         FORCE_END_OF_UTTERANCE: Closes the current turn immediately, flushing the buffered
             segment. Sent by clients that run their own VAD.
-        SET_RECOGNITION_CONFIG: Updates the transcription config mid-session.
         GET_SPEAKERS: Requests the session's speaker data.
     """
 
     START_RECOGNITION = "StartRecognition"
     END_OF_STREAM = "EndOfStream"
     FORCE_END_OF_UTTERANCE = "ForceEndOfUtterance"
-    SET_RECOGNITION_CONFIG = "SetRecognitionConfig"
     GET_SPEAKERS = "GetSpeakers"
 
 
@@ -71,14 +66,10 @@ class ServerMessageType(str, Enum):
         SPEECH_ENDED: The service's VAD detected speech offset.
         START_OF_TURN: The service's turn detection opened a turn.
         END_OF_TURN: The service's turn detection closed a turn.
-        ADD_TRANSCRIPT: Word-level final transcript, passed through from the RT engine.
-        ADD_PARTIAL_TRANSCRIPT: Word-level partial transcript, passed through from the RT engine.
         END_OF_UTTERANCE: Consumed by the service for segmentation and not forwarded; listed
             so handlers stay valid against a direct RT endpoint.
         END_OF_TRANSCRIPT: The service has finished sending messages.
         SPEAKERS_RESULT: Response to GetSpeakers.
-        AUDIO_EVENT_STARTED: Start of a detected audio event.
-        AUDIO_EVENT_ENDED: End of a detected audio event.
         INFO: Informational message.
         WARNING: Warning; the session continues, possibly with adjusted config.
         ERROR: Error; the session is over.
@@ -97,13 +88,9 @@ class ServerMessageType(str, Enum):
     SPEECH_ENDED = "SpeechEnded"
     START_OF_TURN = "StartOfTurn"
     END_OF_TURN = "EndOfTurn"
-    ADD_TRANSCRIPT = "AddTranscript"
-    ADD_PARTIAL_TRANSCRIPT = "AddPartialTranscript"
     END_OF_UTTERANCE = "EndOfUtterance"
     END_OF_TRANSCRIPT = "EndOfTranscript"
     SPEAKERS_RESULT = "SpeakersResult"
-    AUDIO_EVENT_STARTED = "AudioEventStarted"
-    AUDIO_EVENT_ENDED = "AudioEventEnded"
     INFO = "Info"
     WARNING = "Warning"
     ERROR = "Error"
