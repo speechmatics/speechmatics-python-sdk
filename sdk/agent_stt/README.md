@@ -129,13 +129,12 @@ turn ends either because the service's VAD said so, or because you called `final
 
 ## Endpoint
 
-The Agent STT endpoint is the RT endpoint plus `/agent`, optionally followed by a service
-profile:
+The Agent STT endpoint is the RT endpoint plus `/agent`:
 
 ```python
-AsyncClient(url="wss://eu2.rt.speechmatics.com/v2")           # -> /v2/agent
-AsyncClient(url="ws://localhost:8000/v2", profile="default")  # -> /v2/agent/default
-AsyncClient(app="pipecat/1.0")                                # reported as sm-app
+AsyncClient(url="wss://eu2.rt.speechmatics.com/v2")  # -> /v2/agent
+AsyncClient(url="ws://localhost:8000/v2")            # -> /v2/agent
+AsyncClient(app="pipecat/1.0")                       # reported as sm-app
 ```
 
 Resolution order: the `url` argument, `SPEECHMATICS_RT_URL`, then the EU endpoint. The `/agent`

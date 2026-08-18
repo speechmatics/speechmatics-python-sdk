@@ -20,8 +20,7 @@ service now does server-side.
 
 ## Protocol delta vs the RT SDK
 
-Endpoint: RT URL + `/agent`, optionally + `/{profile}`
-(`wss://eu2.rt.speechmatics.com/v2/agent`, service route is `/v2/agent/{profile:path}`).
+Endpoint: RT URL + `/agent` (`wss://eu2.rt.speechmatics.com/v2/agent`).
 
 Client -> server: unchanged (`StartRecognition`, binary audio, `EndOfStream`,
 `ForceEndOfUtterance`). No new client messages.
@@ -38,7 +37,7 @@ Server -> client, new messages (`voice_agent_api/_service_messages.py`):
 - `AddPartialSegment` - same shape, interim
 - `SpeechStarted` / `SpeechEnded` - `{metadata: {start_time|end_time}}` (VAD)
 - `StartOfTurn` / `EndOfTurn` - `{metadata: {start_time|end_time}}` (turn detection)
-- `Warning` - RT shape, also emitted by the service for profile/lock adjustments
+- `Warning` - RT shape, also emitted by the service for config adjustments
 
 Server -> client, RT passthrough: `RecognitionStarted`, `AudioAdded`, `AddTranscript`,
 `AddPartialTranscript`, `EndOfTranscript`, `Info`, `Warning`, `Error`, audio events.
@@ -47,7 +46,7 @@ Server -> client, RT passthrough: `RecognitionStarted`, `AudioAdded`, `AddTransc
 Note: the service still forwards `AddTranscript`/`AddPartialTranscript` verbatim today. The SDK
 accumulates its transcript from **segments only** and models neither those nor audio events;
 they still reach the event log and any handler registered under their name, so nothing is lost
-if a future profile mutes them.
+if the service stops sending them.
 
 Constraints the service imposes: `audio_format.type` must be `raw`, sample rate `16000`
 (Silero), encoding `pcm_s16le` or `pcm_f32le` (no mulaw). The SDK defaults to exactly that.
@@ -65,7 +64,7 @@ sdk/agent_stt/
     _models.py              message enums, TranscriptionConfig, VADConfig, Segment, TimedEvent
     _transcript.py          Transcript - final segments, live partial, timeline, raw event log
     _transport.py           AgentTransport - stamps sm-sdk=python-agent-stt-sdk-vX
-    _url.py                 URL/profile resolution
+    _url.py                 URL resolution
 tests/agent_stt/            offline unit tests (no API key needed)
 examples/agent_stt/         server-VAD and client-VAD (BYO) examples
 ```
@@ -76,7 +75,7 @@ reconnect-free lifecycle, `send_audio`, `transcribe`, `stop_session`,
 
 What the subclass adds:
 
-1. URL resolution (`/agent` + profile, on top of the `SPEECHMATICS_RT_URL` endpoint).
+1. URL resolution (`/agent` on top of the `SPEECHMATICS_RT_URL` endpoint).
 2. `TranscriptionConfig` with `turn_detection_mode`, `vad_config`, `emit_sentences`, and an Agent STT
    `Model` enum defaulting to `linden-1`. The request goes to the proxy rather than the service
    websocket directly, and the proxy resolves the Agent STT model name onto the engine's
@@ -113,7 +112,7 @@ The StartRecognition the service forwarded downstream confirmed that `vad_config
 `emit_sentences` are stripped before it reaches the RT engine.
 
 That run predates the `linden-1` default, so it sent no `model` at all and the message carried
-only the profile's locked `operating_point`. Model resolution happens in the proxy ahead of the
+only the service's locked `operating_point`. Model resolution happens in the proxy ahead of the
 service, which this stub setup does not exercise, so it still needs verifying against the real
 proxy.
 
@@ -143,7 +142,7 @@ touched by this change. The migration:
 
 ### `FIXED` and `SMART_TURN` are removed
 
-`end_of_utterance_silence_trigger` is off for this service: the default profile pins it to `0.0`,
+`end_of_utterance_silence_trigger` is off for this service: the service pins it to `0.0`,
 the service consumes `EndOfUtterance` rather than forwarding it, and a non-forced end of utterance
 does not close a segment. So there is nothing for `TurnDetectionMode.FIXED` to mean here and it
 goes away rather than being aliased to another mode.

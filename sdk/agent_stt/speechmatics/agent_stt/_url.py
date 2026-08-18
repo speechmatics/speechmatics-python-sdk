@@ -15,19 +15,16 @@ AGENT_PATH_SEGMENT = "agent"
 
 def resolve_url(
     url: Optional[str] = None,
-    profile: Optional[str] = None,
     app: Optional[str] = None,
 ) -> str:
     """
     Resolve the Agent STT WebSocket URL.
 
-    The Agent STT endpoint is the RT endpoint plus an `/agent` path segment, optionally
-    followed by a service profile name.
+    The Agent STT endpoint is the RT endpoint plus an `/agent` path segment.
 
     Args:
         url: Explicit endpoint. Falls back to the `SPEECHMATICS_RT_URL` environment
             variable, then the EU endpoint.
-        profile: Optional service profile, appended as a final path segment.
         app: Optional application name reported to the service as `sm-app`.
 
     Returns:
@@ -36,31 +33,25 @@ def resolve_url(
     Examples:
         >>> resolve_url()
         'wss://eu2.rt.speechmatics.com/v2/agent?sm-app=agent-stt-sdk%2F0.0.0'
-        >>> resolve_url("wss://host/v2", profile="default", app="pipecat/1.0")
-        'wss://host/v2/agent/default?sm-app=pipecat%2F1.0'
+        >>> resolve_url("wss://host/v2", app="pipecat/1.0")
+        'wss://host/v2/agent?sm-app=pipecat%2F1.0'
     """
     base = url or os.getenv("SPEECHMATICS_RT_URL") or DEFAULT_RT_URL
     parsed = urlparse(base)
     return urlunparse(
         parsed._replace(
-            path=_resolve_path(parsed.path, profile),
+            path=_resolve_path(parsed.path),
             query=_resolve_query(parsed.query, app),
         )
     )
 
 
-def _resolve_path(path: str, profile: Optional[str]) -> str:
-    """Append the /agent segment and the profile to the path, skipping any already present."""
+def _resolve_path(path: str) -> str:
+    """Append the /agent segment, skipping any already present."""
     segments = [segment for segment in path.split("/") if segment]
 
     if AGENT_PATH_SEGMENT not in segments:
         segments.append(AGENT_PATH_SEGMENT)
-
-    if profile:
-        normalized = profile.strip("/")
-        if normalized and segments[-1] != normalized:
-            segments.append(normalized)
-
     return "/" + "/".join(segments)
 
 

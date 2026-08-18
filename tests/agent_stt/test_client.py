@@ -73,10 +73,10 @@ async def test_endpoint_is_the_agent_path(client):
 
 
 @pytest.mark.asyncio
-async def test_profile_and_app_reach_the_url(monkeypatch):
+async def test_app_reaches_the_url(monkeypatch):
     monkeypatch.delenv("SPEECHMATICS_RT_URL", raising=False)
-    client = AsyncClient(api_key=API_KEY, profile="default", app="pipecat/1.0")
-    assert "/v2/agent/default" in client._transport._url
+    client = AsyncClient(api_key=API_KEY, app="pipecat/1.0")
+    assert "/v2/agent" in client._transport._url
     assert "sm-app=pipecat%2F1.0" in client._transport._url
 
 

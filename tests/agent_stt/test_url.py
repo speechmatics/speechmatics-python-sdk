@@ -44,18 +44,6 @@ def test_trailing_slash_normalized():
     assert _path(resolve_url("wss://example.com/v2/")) == "/v2/agent"
 
 
-def test_profile_appended():
-    assert _path(resolve_url("wss://example.com/v2", profile="default")) == "/v2/agent/default"
-
-
-def test_profile_not_duplicated():
-    assert _path(resolve_url("wss://example.com/v2/agent/default", profile="default")) == "/v2/agent/default"
-
-
-def test_profile_slashes_stripped():
-    assert _path(resolve_url("wss://example.com/v2", profile="/default/")) == "/v2/agent/default"
-
-
 def test_app_reported():
     params = parse_qs(urlparse(resolve_url("wss://example.com/v2", app="pipecat/1.0")).query)
     assert params["sm-app"] == ["pipecat/1.0"]

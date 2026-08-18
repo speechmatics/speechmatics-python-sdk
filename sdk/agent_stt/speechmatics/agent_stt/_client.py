@@ -55,7 +55,6 @@ class AsyncClient(RTAsyncClient):
         api_key: Speechmatics API key, used when `auth` is not given.
         url: WebSocket endpoint. Defaults to `SPEECHMATICS_RT_URL`, then the EU endpoint.
             An `/agent` segment is appended if absent.
-        profile: Service profile, appended to the endpoint path.
         app: Application name reported to the service as `sm-app`.
         config: Transcription config for the session, normally an
             `agent_stt.TranscriptionConfig`.
@@ -87,7 +86,6 @@ class AsyncClient(RTAsyncClient):
         *,
         api_key: Optional[str] = None,
         url: Optional[str] = None,
-        profile: Optional[str] = None,
         app: Optional[str] = None,
         config: Optional[RTTranscriptionConfig] = None,
         audio_format: Optional[AudioFormat] = None,
@@ -97,7 +95,7 @@ class AsyncClient(RTAsyncClient):
         super().__init__(
             auth,
             api_key=api_key,
-            url=resolve_url(url, profile=profile, app=app),
+            url=resolve_url(url, app=app),
             conn_config=conn_config,
         )
 
