@@ -134,8 +134,8 @@ AsyncClient(url="ws://localhost:8000/v2", profile="default")  # -> /v2/agent/def
 AsyncClient(app="pipecat/1.0")                                # reported as sm-app
 ```
 
-Resolution order: the `url` argument, `SPEECHMATICS_AGENT_STT_URL`, `SPEECHMATICS_RT_URL`, then
-the EU endpoint. The `/agent` segment is appended when it is missing.
+Resolution order: the `url` argument, `SPEECHMATICS_RT_URL`, then the EU endpoint. The `/agent`
+segment is appended when it is missing.
 
 ## Audio
 

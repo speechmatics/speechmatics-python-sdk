@@ -75,7 +75,7 @@ reconnect-free lifecycle, `send_audio`, `transcribe`, `stop_session`,
 
 What the subclass adds:
 
-1. URL resolution (`/agent` + profile, `SPEECHMATICS_AGENT_STT_URL` env override).
+1. URL resolution (`/agent` + profile, on top of the `SPEECHMATICS_RT_URL` endpoint).
 2. `TranscriptionConfig` with `vad_mode`, `vad_config`, `emit_sentences`, and an Agent STT
    `Model` enum defaulting to `linden-1`. The request goes to the proxy rather than the service
    websocket directly, and the proxy resolves the Agent STT model name onto the engine's

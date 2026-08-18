@@ -55,11 +55,9 @@ from ._models import TranscriptionConfig
 from ._models import VADConfig
 from ._models import VADMode
 from ._transcript import Transcript
-from ._url import DEFAULT_AGENT_STT_URL
 from ._url import resolve_url
 
 __all__ = [
-    "DEFAULT_AGENT_STT_URL",
     "DEFAULT_CHUNK_SIZE",
     "DEFAULT_MODEL",
     "DEFAULT_SAMPLE_RATE",

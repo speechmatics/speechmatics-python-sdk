@@ -9,7 +9,7 @@ from urllib.parse import urlunparse
 
 from ._version import get_version
 
-DEFAULT_AGENT_STT_URL = "wss://eu2.rt.speechmatics.com/v2/agent"
+DEFAULT_RT_URL = "wss://eu2.rt.speechmatics.com/v2"
 AGENT_PATH_SEGMENT = "agent"
 
 
@@ -25,8 +25,8 @@ def resolve_url(
     followed by a service profile name.
 
     Args:
-        url: Explicit endpoint. Falls back to the `SPEECHMATICS_AGENT_STT_URL` environment
-            variable, then `SPEECHMATICS_RT_URL`, then the EU endpoint.
+        url: Explicit endpoint. Falls back to the `SPEECHMATICS_RT_URL` environment
+            variable, then the EU endpoint.
         profile: Optional service profile, appended as a final path segment.
         app: Optional application name reported to the service as `sm-app`.
 
@@ -39,7 +39,7 @@ def resolve_url(
         >>> resolve_url("wss://host/v2", profile="default", app="pipecat/1.0")
         'wss://host/v2/agent/default?sm-app=pipecat%2F1.0'
     """
-    base = url or os.getenv("SPEECHMATICS_AGENT_STT_URL") or os.getenv("SPEECHMATICS_RT_URL") or DEFAULT_AGENT_STT_URL
+    base = url or os.getenv("SPEECHMATICS_RT_URL") or DEFAULT_RT_URL
     parsed = urlparse(base)
     return urlunparse(
         parsed._replace(

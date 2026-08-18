@@ -52,8 +52,8 @@ class AsyncClient(RTAsyncClient):
         auth: Authentication instance. Defaults to `StaticKeyAuth` built from `api_key` or the
             `SPEECHMATICS_API_KEY` environment variable.
         api_key: Speechmatics API key, used when `auth` is not given.
-        url: WebSocket endpoint. Defaults to `SPEECHMATICS_AGENT_STT_URL`, then
-            `SPEECHMATICS_RT_URL`, then the EU endpoint. An `/agent` segment is appended if absent.
+        url: WebSocket endpoint. Defaults to `SPEECHMATICS_RT_URL`, then the EU endpoint.
+            An `/agent` segment is appended if absent.
         profile: Service profile, appended to the endpoint path.
         app: Application name reported to the service as `sm-app`.
         config: Transcription config for the session, normally an

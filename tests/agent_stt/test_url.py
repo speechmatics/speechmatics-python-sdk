@@ -3,13 +3,11 @@ from urllib.parse import urlparse
 
 import pytest
 
-from speechmatics.agent_stt import DEFAULT_AGENT_STT_URL
 from speechmatics.agent_stt import resolve_url
 
 
 @pytest.fixture(autouse=True)
 def _clear_env(monkeypatch):
-    monkeypatch.delenv("SPEECHMATICS_AGENT_STT_URL", raising=False)
     monkeypatch.delenv("SPEECHMATICS_RT_URL", raising=False)
 
 
@@ -18,7 +16,9 @@ def _path(url):
 
 
 def test_default_url():
-    assert _path(resolve_url()) == _path(DEFAULT_AGENT_STT_URL)
+    url = urlparse(resolve_url())
+    assert url.hostname == "eu2.rt.speechmatics.com"
+    assert url.path == "/v2/agent"
 
 
 def test_agent_segment_appended_to_rt_url(monkeypatch):
@@ -26,16 +26,13 @@ def test_agent_segment_appended_to_rt_url(monkeypatch):
     assert _path(resolve_url()) == "/v2/agent"
 
 
-def test_agent_stt_env_takes_precedence(monkeypatch):
-    monkeypatch.setenv("SPEECHMATICS_RT_URL", "wss://rt.example.com/v2")
-    monkeypatch.setenv("SPEECHMATICS_AGENT_STT_URL", "wss://agent.example.com/v2/agent")
-    url = resolve_url()
-    assert urlparse(url).hostname == "agent.example.com"
-    assert _path(url) == "/v2/agent"
+def test_agent_segment_not_duplicated_on_rt_url(monkeypatch):
+    monkeypatch.setenv("SPEECHMATICS_RT_URL", "wss://example.com/v2/agent")
+    assert _path(resolve_url()) == "/v2/agent"
 
 
 def test_explicit_url_wins_over_env(monkeypatch):
-    monkeypatch.setenv("SPEECHMATICS_AGENT_STT_URL", "wss://agent.example.com/v2/agent")
+    monkeypatch.setenv("SPEECHMATICS_RT_URL", "wss://rt.example.com/v2")
     assert urlparse(resolve_url("wss://custom.example.com/v2")).hostname == "custom.example.com"
 
 

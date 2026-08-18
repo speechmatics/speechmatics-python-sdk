@@ -82,7 +82,7 @@ def build_client(args: argparse.Namespace, clock: Clock) -> AsyncClient:
         emit_sentences=args.emit_sentences,
     )
 
-    # Uses SPEECHMATICS_API_KEY, and SPEECHMATICS_AGENT_STT_URL to point at a local service
+    # Uses SPEECHMATICS_API_KEY, and SPEECHMATICS_RT_URL to point at a local service
     client = AsyncClient(config=config)
 
     @client.on(ServerMessageType.ADD_PARTIAL_SEGMENT)

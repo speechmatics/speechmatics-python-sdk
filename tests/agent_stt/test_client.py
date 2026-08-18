@@ -36,7 +36,6 @@ class StubTransport:
 
 @pytest.fixture
 def client(monkeypatch):
-    monkeypatch.delenv("SPEECHMATICS_AGENT_STT_URL", raising=False)
     monkeypatch.delenv("SPEECHMATICS_RT_URL", raising=False)
     return AsyncClient(api_key=API_KEY)
 
@@ -75,7 +74,6 @@ async def test_endpoint_is_the_agent_path(client):
 
 @pytest.mark.asyncio
 async def test_profile_and_app_reach_the_url(monkeypatch):
-    monkeypatch.delenv("SPEECHMATICS_AGENT_STT_URL", raising=False)
     monkeypatch.delenv("SPEECHMATICS_RT_URL", raising=False)
     client = AsyncClient(api_key=API_KEY, profile="default", app="pipecat/1.0")
     assert "/v2/agent/default" in client._transport._url
@@ -159,7 +157,7 @@ async def test_every_message_is_recorded(client):
 
 @pytest.mark.asyncio
 async def test_event_recording_can_be_disabled(monkeypatch):
-    monkeypatch.delenv("SPEECHMATICS_AGENT_STT_URL", raising=False)
+    monkeypatch.delenv("SPEECHMATICS_RT_URL", raising=False)
     client = AsyncClient(api_key=API_KEY, record_events=False)
     start_session(client)
     assert client.events == []

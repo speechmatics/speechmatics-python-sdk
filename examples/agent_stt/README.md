@@ -1,7 +1,8 @@
 # Agent STT examples
 
 Set `SPEECHMATICS_API_KEY` first. To point at a local Voice Agent Service, set
-`SPEECHMATICS_AGENT_STT_URL` (for example `ws://localhost:8000/v2/agent`).
+`SPEECHMATICS_RT_URL` (for example `ws://localhost:8000/v2`); the `/agent` segment is appended
+when it is missing.
 
 The service needs 16 kHz raw PCM, so the file examples take a 16 kHz WAV and default to
 `tests/voice/assets/audio_01_16kHz.wav`.
