@@ -22,7 +22,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
-        run: make install-dev
+        run: make install-dev-rt
       - name: Lint RT SDK
         run: make lint-rt
       - name: Test RT SDK
@@ -42,7 +42,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
-        run: make install-dev
+        run: make install-dev-batch
       - name: Lint Batch SDK
         run: make lint-batch
       - name: Test Batch SDK
@@ -62,7 +62,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
-        run: make install-dev
+        run: make install-dev-flow
       - name: Lint Flow SDK
         run: make lint-flow
       - name: Test Flow SDK
@@ -82,7 +82,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
-        run: make install-dev
+        run: make install-dev-voice
       - name: Lint Voice Agent SDK
         run: make lint-voice
       - name: Test Voice Agent SDK
@@ -102,7 +102,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
-        run: make install-dev
+        run: make install-dev-tts
       - name: Lint TTS SDK
         run: make lint-tts
       - name: Test TTS SDK
