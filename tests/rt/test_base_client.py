@@ -8,6 +8,7 @@ from speechmatics.rt import AsyncMultiChannelClient
 from speechmatics.rt import ServerMessageType
 from speechmatics.rt import TimeoutError as RTTimeoutError
 from speechmatics.rt import TranscriptionError
+from speechmatics.rt._exceptions import TransportError
 
 API_KEY = "test-key"
 
@@ -21,6 +22,20 @@ class StubTransport:
 
     async def send_message(self, payload):
         self.sent.append(payload)
+
+    async def close(self):
+        self.closed = True
+
+
+class RaisingTransport:
+    """A transport whose receive_message() fails immediately, simulating a dropped connection."""
+
+    def __init__(self, error=None):
+        self.error = error or TransportError("connection reset")
+        self.closed = False
+
+    async def receive_message(self):
+        raise self.error
 
     async def close(self):
         self.closed = True
@@ -162,3 +177,44 @@ async def test_multi_channel_client_second_session_gets_a_fresh_request_id(monke
     assert client.request_id != first_request_id
 
     await client.close()
+
+
+@pytest.mark.asyncio
+async def test_async_client_logger_keeps_its_own_name(client):
+    """_BaseClient.__init__ must not clobber the subclass-specific logger AsyncClient set
+    before calling super().__init__() - otherwise per-logger filtering/level config aimed
+    at 'speechmatics.rt.async_client' silently gets no output."""
+    assert client._logger.name == "speechmatics.rt.async_client"
+
+
+@pytest.mark.asyncio
+async def test_multi_channel_client_logger_keeps_its_own_name(monkeypatch):
+    monkeypatch.delenv("SPEECHMATICS_RT_URL", raising=False)
+    client = AsyncMultiChannelClient(api_key=API_KEY)
+    assert client._logger.name == "speechmatics.rt.async_multi_chan_client"
+
+
+@pytest.mark.asyncio
+async def test_recv_loop_error_unblocks_wait_for_recognition_started(client):
+    """A transport failure before RecognitionStarted must be reported as the real error
+    promptly, not swallowed until the full timeout elapses - _recv_loop's exception path
+    has to wake _wait_started_or_session_done via _session_done_evt, not just _closed_evt."""
+    client._transport = RaisingTransport()
+    client._recv_task = asyncio.get_event_loop().create_task(client._recv_loop())
+
+    with pytest.raises(TranscriptionError):
+        await asyncio.wait_for(client._wait_recognition_started(timeout=5.0), timeout=1.0)
+
+    assert client._closed_evt.is_set()
+
+
+@pytest.mark.asyncio
+async def test_multi_channel_on_error_logs_the_reason(caplog):
+    """AsyncMultiChannelClient._on_error must log server errors like AsyncClient._on_error
+    does, otherwise a failed multi-channel session leaves no trace before RecognitionStarted."""
+    client = AsyncMultiChannelClient(api_key=API_KEY)
+
+    with caplog.at_level("ERROR", logger="speechmatics.rt.async_multi_chan_client"):
+        client.emit(ServerMessageType.ERROR, error_message("Not Authorized"))
+
+    assert "Not Authorized" in caplog.text

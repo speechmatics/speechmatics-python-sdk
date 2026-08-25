@@ -116,8 +116,7 @@ class Transport:
         url_with_params = self._prepare_url()
         self._logger.debug("Connecting to WebSocket: %s", url_with_params)
 
-        if ws_headers is None:
-            ws_headers = {}
+        ws_headers = dict(ws_headers) if ws_headers else {}
         ws_headers.setdefault("X-Request-Id", self._request_id)
         ws_headers.update(await self._auth.get_auth_headers())
 

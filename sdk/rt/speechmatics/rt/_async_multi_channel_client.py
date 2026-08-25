@@ -257,7 +257,9 @@ class AsyncMultiChannelClient(_BaseClient):
 
     def _on_error(self, msg: dict[str, Any]) -> None:
         """Handle Error message from server."""
-        self._last_error_reason = msg.get("reason", "unknown")
+        error = msg.get("reason", "unknown")
+        self._logger.error("Server error: %s", error)
+        self._last_error_reason = error
         self._session_done_evt.set()
 
     def _on_warning(self, msg: dict[str, Any]) -> None:

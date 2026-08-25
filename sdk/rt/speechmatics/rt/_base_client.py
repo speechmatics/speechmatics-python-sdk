@@ -54,7 +54,8 @@ class _BaseClient(EventEmitter):
         self._session_done_evt: asyncio.Event
         self._build_transport: Callable[[str], Transport]
 
-        self._logger = get_logger("speechmatics.rt.base_client")
+        if not hasattr(self, "_logger"):
+            self._logger = get_logger("speechmatics.rt.base_client")
 
     @classmethod
     def _init_session_info(cls, request_id: Optional[str] = None) -> tuple[SessionInfo, asyncio.Event, asyncio.Event]:
@@ -197,6 +198,7 @@ class _BaseClient(EventEmitter):
         except Exception as exc:
             self._logger.error("Receive loop error: %s", exc)
             self._closed_evt.set()
+            self._session_done_evt.set()
             try:
                 await self._transport.close()
             except Exception:
