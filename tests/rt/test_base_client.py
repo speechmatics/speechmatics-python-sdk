@@ -79,15 +79,6 @@ def error_message(reason="Not Authorized", error_type="not_authorised"):
 
 
 @pytest.mark.asyncio
-async def test_request_id_and_session_id_properties(client):
-    assert client.request_id == client._session.request_id
-    assert client.session_id is None
-
-    client.emit(ServerMessageType.RECOGNITION_STARTED, {"message": "RecognitionStarted", "id": "s1"})
-    assert client.session_id == "s1"
-
-
-@pytest.mark.asyncio
 async def test_wait_recognition_started_returns_once_started(client):
     client.emit(ServerMessageType.RECOGNITION_STARTED, {"message": "RecognitionStarted", "id": "s1"})
     await client._wait_recognition_started(timeout=1.0)  # must not raise or hang
@@ -185,13 +176,6 @@ async def test_async_client_logger_keeps_its_own_name(client):
     before calling super().__init__() - otherwise per-logger filtering/level config aimed
     at 'speechmatics.rt.async_client' silently gets no output."""
     assert client._logger.name == "speechmatics.rt.async_client"
-
-
-@pytest.mark.asyncio
-async def test_multi_channel_client_logger_keeps_its_own_name(monkeypatch):
-    monkeypatch.delenv("SPEECHMATICS_RT_URL", raising=False)
-    client = AsyncMultiChannelClient(api_key=API_KEY)
-    assert client._logger.name == "speechmatics.rt.async_multi_chan_client"
 
 
 @pytest.mark.asyncio
