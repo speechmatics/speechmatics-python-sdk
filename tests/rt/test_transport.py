@@ -4,6 +4,7 @@ import speechmatics.rt._transport as transport_module
 from speechmatics.rt import ConnectionConfig
 from speechmatics.rt import StaticKeyAuth
 from speechmatics.rt._transport import Transport
+from speechmatics.rt.constants import REQUEST_ID_HEADER
 
 
 class FakeWebSocket:
@@ -26,7 +27,7 @@ async def test_request_id_is_sent_as_a_header(monkeypatch):
     await transport.connect()
 
     headers = captured["kwargs"][transport_module.WS_HEADERS_KEY]
-    assert headers["X-Request-Id"] == "my-request-id"
+    assert headers[REQUEST_ID_HEADER] == "my-request-id"
 
 
 @pytest.mark.asyncio
@@ -40,10 +41,10 @@ async def test_caller_supplied_request_id_header_is_not_overridden(monkeypatch):
     monkeypatch.setattr(transport_module, "connect", fake_connect)
 
     transport = Transport("wss://example.com/v2", ConnectionConfig(), StaticKeyAuth("key"), "my-request-id")
-    await transport.connect(ws_headers={"X-Request-Id": "caller-supplied"})
+    await transport.connect(ws_headers={REQUEST_ID_HEADER: "caller-supplied"})
 
     headers = captured["kwargs"][transport_module.WS_HEADERS_KEY]
-    assert headers["X-Request-Id"] == "caller-supplied"
+    assert headers[REQUEST_ID_HEADER] == "caller-supplied"
 
 
 @pytest.mark.asyncio
@@ -68,5 +69,5 @@ async def test_connect_does_not_mutate_caller_supplied_headers_dict(monkeypatch)
     await transport2.connect(ws_headers=shared_headers)
 
     assert shared_headers == {}
-    assert captured[0]["X-Request-Id"] == "req-1"
-    assert captured[1]["X-Request-Id"] == "req-2"
+    assert captured[0][REQUEST_ID_HEADER] == "req-1"
+    assert captured[1][REQUEST_ID_HEADER] == "req-2"

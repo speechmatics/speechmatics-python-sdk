@@ -1,1 +1,2 @@
 CHUNK_SIZE = 4096
+REQUEST_ID_HEADER = "X-Request-Id"

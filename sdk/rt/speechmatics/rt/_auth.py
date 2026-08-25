@@ -4,6 +4,7 @@ from typing import Literal
 from typing import Optional
 
 from ._exceptions import AuthenticationError
+from .constants import REQUEST_ID_HEADER
 
 
 class AuthBase(abc.ABC):
@@ -125,7 +126,7 @@ class JWTAuth(AuthBase):
         }
 
         if self._request_id:
-            headers["X-Request-Id"] = self._request_id
+            headers.setdefault(REQUEST_ID_HEADER, self._request_id)
 
         try:
             async with aiohttp.ClientSession() as session:

@@ -17,6 +17,7 @@ from ._exceptions import TransportError
 from ._logging import get_logger
 from ._models import ConnectionConfig
 from ._utils.version import get_version
+from .constants import REQUEST_ID_HEADER
 
 try:
     # Try to import from new websockets >=13.0
@@ -117,7 +118,7 @@ class Transport:
         self._logger.debug("Connecting to WebSocket: %s", url_with_params)
 
         ws_headers = dict(ws_headers) if ws_headers else {}
-        ws_headers.setdefault("X-Request-Id", self._request_id)
+        ws_headers.setdefault(REQUEST_ID_HEADER, self._request_id)
         ws_headers.update(await self._auth.get_auth_headers())
 
         try:
