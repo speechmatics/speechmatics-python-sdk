@@ -17,6 +17,7 @@ from ._exceptions import TransportError
 from ._logging import get_logger
 from ._models import ConnectionConfig
 from ._utils.version import get_version
+from .constants import REQUEST_ID_HEADER
 
 try:
     # Try to import from new websockets >=13.0
@@ -59,6 +60,8 @@ class Transport:
         conn_config: ConnectionConfig,
         auth: AuthBase,
         request_id: Optional[str] = None,
+        *,
+        sdk_identifier: Optional[str] = None,
     ) -> None:
         """
         Initialize the transport with connection configuration.
@@ -70,11 +73,15 @@ class Transport:
             auth: Authentication object containing credentials.
             request_id: Optional unique identifier for request tracking.
                 Generated automatically if not provided.
+            sdk_identifier: Value reported to the service as `sm-sdk`. Defaults to this
+                package's own identifier; a package built on top of speechmatics-rt can pass
+                its own here instead of subclassing to override `_prepare_url`.
         """
         self._url = url
         self._auth = auth
         self._conn_config = conn_config
         self._request_id = request_id or str(uuid.uuid4())
+        self._sdk_identifier = sdk_identifier
         self._websocket: Optional[Union[ClientConnection, WebSocketClientProtocol]] = None
         self._closed = False
         self._logger = get_logger("speechmatics.rt.transport")
@@ -110,8 +117,8 @@ class Transport:
         url_with_params = self._prepare_url()
         self._logger.debug("Connecting to WebSocket: %s", url_with_params)
 
-        if ws_headers is None:
-            ws_headers = {}
+        ws_headers = dict(ws_headers) if ws_headers else {}
+        ws_headers.setdefault(REQUEST_ID_HEADER, self._request_id)
         ws_headers.update(await self._auth.get_auth_headers())
 
         try:
@@ -243,16 +250,16 @@ class Transport:
         """
         Prepare the WebSocket URL with SDK version information.
 
-        This method adds the SDK version as a query parameter to the WebSocket
+        This method adds the SDK identifier as a query parameter to the WebSocket
         URL for server-side tracking and debugging purposes.
 
         Returns:
-            The complete WebSocket URL with SDK version parameter.
+            The complete WebSocket URL with the sm-sdk parameter.
         """
 
         parsed = urlparse(self._url)
-        query_params = dict(parse_qsl(parsed.query))
-        query_params["sm-sdk"] = f"python-rt-sdk-v{get_version()}"
+        query_params = dict(parse_qsl(parsed.query, keep_blank_values=True))
+        query_params["sm-sdk"] = self._sdk_identifier or f"python-rt-sdk-v{get_version()}"
 
         updated_query = urlencode(query_params)
         return urlunparse(parsed._replace(query=updated_query))

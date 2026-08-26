@@ -7,6 +7,7 @@
 .PHONY: type-check-all type-check-rt type-check-batch type-check-flow type-check-tts type-check-voice
 .PHONY: build-all build-rt build-batch build-flow build-tts build-voice
 .PHONY: clean-all clean-rt clean-batch clean-flow clean-tts clean-voice
+.PHONY: install-dev install-dev-rt install-dev-batch install-dev-flow install-dev-tts install-dev-voice
 
 
 help:
@@ -145,13 +146,33 @@ type-check-voice:
 	cd sdk/voice/speechmatics && mypy .
 
 # Installation targets
-install-dev:
+#
+# voice depends on speechmatics-rt>=0.5.3; the local rt package's own dev version (0.0.0)
+# never satisfies that, so pip silently replaces the editable rt install with a published
+# PyPI wheel the moment voice[dev] installs after it. rt must always be the LAST install
+# in any sequence that also installs voice, so the local editable copy is what's left active.
+install-dev: install-dev-batch install-dev-flow install-dev-tts install-dev-voice install-dev-rt
+
+install-dev-rt:
 	python -m pip install --upgrade pip
 	python -m pip install -e sdk/rt[dev]
+
+install-dev-batch:
+	python -m pip install --upgrade pip
 	python -m pip install -e sdk/batch[dev]
+
+install-dev-flow:
+	python -m pip install --upgrade pip
 	python -m pip install -e sdk/flow[dev]
+
+install-dev-tts:
+	python -m pip install --upgrade pip
 	python -m pip install -e sdk/tts[dev]
+
+install-dev-voice:
+	python -m pip install --upgrade pip
 	python -m pip install -e sdk/voice[dev]
+	python -m pip install -e sdk/rt
 
 install-build:
 	python -m pip install --upgrade build

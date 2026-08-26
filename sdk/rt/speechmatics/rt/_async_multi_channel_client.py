@@ -10,7 +10,6 @@ from ._auth import AuthBase
 from ._base_client import _BaseClient
 from ._exceptions import ConfigurationError
 from ._exceptions import TimeoutError
-from ._exceptions import TranscriptionError
 from ._logging import get_logger
 from ._models import AudioEventsConfig
 from ._models import AudioFormat
@@ -41,6 +40,8 @@ class AsyncMultiChannelClient(_BaseClient):
         url: WebSocket endpoint URL. If not provided, uses SPEECHMATICS_RT_URL
                 environment variable or defaults to EU endpoint.
         conn_config: Websocket connection configuration.
+        sdk_identifier: Value reported to the service as `sm-sdk`, for a package built on
+                top of speechmatics-rt.
 
     Examples:
         Transcribing stereo audio:
@@ -65,8 +66,18 @@ class AsyncMultiChannelClient(_BaseClient):
         api_key: Optional[str] = None,
         url: Optional[str] = None,
         conn_config: Optional[ConnectionConfig] = None,
+        sdk_identifier: Optional[str] = None,
     ) -> None:
         self._logger = get_logger("speechmatics.rt.async_multi_chan_client")
+
+        self._build_transport = lambda request_id: self._create_transport_from_config(
+            auth=auth,
+            api_key=api_key,
+            url=url,
+            conn_config=conn_config,
+            request_id=request_id,
+            sdk_identifier=sdk_identifier,
+        )
 
         (
             self._session,
@@ -75,13 +86,7 @@ class AsyncMultiChannelClient(_BaseClient):
         ) = self._init_session_info()
         self._eos_sent = False
 
-        transport = self._create_transport_from_config(
-            auth=auth,
-            api_key=api_key,
-            url=url,
-            conn_config=conn_config,
-            request_id=self._session.request_id,
-        )
+        transport = self._build_transport(self._session.request_id)
 
         super().__init__(transport)
 
@@ -182,7 +187,12 @@ class AsyncMultiChannelClient(_BaseClient):
 
     async def _wait_recognition_started(self, timeout: float = 5.0) -> None:
         """Wait for RecognitionStarted message from server."""
-        await asyncio.wait_for(self._rec_started_evt.wait(), timeout=timeout)
+        await self._wait_started_or_session_done(self._rec_started_evt, timeout)
+
+    def _reset_session_events(self) -> None:
+        """Clear the session-tracking events, for a fresh session."""
+        self._rec_started_evt.clear()
+        self._session_done_evt.clear()
 
     async def _audio_producer(self, sources: dict[str, BinaryIO], chunk_size: int) -> None:
         """
@@ -247,8 +257,10 @@ class AsyncMultiChannelClient(_BaseClient):
 
     def _on_error(self, msg: dict[str, Any]) -> None:
         """Handle Error message from server."""
+        error = msg.get("reason", "unknown")
+        self._logger.error("Server error: %s", error)
+        self._last_error_reason = error
         self._session_done_evt.set()
-        raise TranscriptionError(msg.get("reason", "unknown"))
 
     def _on_warning(self, msg: dict[str, Any]) -> None:
         """Handle Warning message from server."""
