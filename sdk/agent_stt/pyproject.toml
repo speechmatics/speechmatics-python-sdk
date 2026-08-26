@@ -10,7 +10,7 @@ readme = "README.md"
 authors = [{ name = "Speechmatics", email = "support@speechmatics.com" }]
 license = "MIT"
 requires-python = ">=3.9"
-dependencies = ["speechmatics-rt>=0.5.3"]
+dependencies = ["speechmatics-rt>=1.1.1"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",

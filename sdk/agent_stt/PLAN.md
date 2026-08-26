@@ -62,7 +62,6 @@ sdk/agent_stt/
     _client.py              AgentSttAsyncClient (subclasses rt.AsyncClient)
     _models.py              message enums, TranscriptionConfig, VADConfig, Segment, TimedEvent
     _transcript.py          Transcript - final segments, live partial, timeline, raw event log
-    _transport.py           AgentTransport - stamps sm-sdk=python-agent-stt-sdk-vX
     _url.py                 URL resolution
 tests/agent_stt/            offline unit tests (no API key needed)
 examples/agent_stt/         server-VAD and client-VAD (BYO) examples

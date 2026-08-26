@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import time
-import uuid
 from typing import Any
 from typing import BinaryIO
 from typing import Optional
@@ -12,7 +11,6 @@ from speechmatics.rt import AudioEncoding
 from speechmatics.rt import AudioFormat
 from speechmatics.rt import AuthBase
 from speechmatics.rt import ConnectionConfig
-from speechmatics.rt import StaticKeyAuth
 from speechmatics.rt import TimeoutError as RTTimeoutError
 from speechmatics.rt import TranscriptionConfig as RTTranscriptionConfig
 from speechmatics.rt import TransportError
@@ -29,8 +27,8 @@ from ._models import SessionInfo
 from ._models import TimedEvent
 from ._models import TranscriptionConfig
 from ._transcript import Transcript
-from ._transport import AgentTransport
 from ._url import resolve_url
+from ._version import get_version
 
 _UNSET = object()
 
@@ -95,6 +93,7 @@ class AgentSttAsyncClient(RTAsyncClient):
             api_key=api_key,
             url=resolve_url(url, app=app),
             conn_config=conn_config,
+            sdk_identifier=f"python-agent-stt-sdk-v{get_version()}",
         )
 
         self._logger = get_logger("speechmatics.agent_stt.client")
@@ -115,24 +114,6 @@ class AgentSttAsyncClient(RTAsyncClient):
         self._last_finalize_latency = 0.0
 
         self._register_handlers()
-
-    @classmethod
-    def _create_transport_from_config(
-        cls,
-        auth: Optional[AuthBase] = None,
-        *,
-        api_key: Optional[str] = None,
-        url: Optional[str] = None,
-        conn_config: Optional[ConnectionConfig] = None,
-        request_id: Optional[str] = None,
-    ) -> AgentTransport:
-        """Build the Agent STT transport, so the service sees this SDK's identifier."""
-        return AgentTransport(
-            url or resolve_url(),
-            conn_config or ConnectionConfig(),
-            auth or StaticKeyAuth(api_key),
-            request_id or str(uuid.uuid4()),
-        )
 
     def _register_handlers(self) -> None:
         """Track session state and accumulate segments, leaving all messages for the application."""
