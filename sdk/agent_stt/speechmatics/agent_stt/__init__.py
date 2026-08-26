@@ -50,7 +50,6 @@ from ._models import SessionInfo
 from ._models import TimedEvent
 from ._models import TranscriptionConfig
 from ._models import TurnDetectionMode
-from ._models import VADConfig
 from ._transcript import Transcript
 from ._url import resolve_url
 
@@ -75,7 +74,6 @@ __all__ = [
     "TranscriptionConfig",
     "TurnDetectionMode",
     "Model",
-    "VADConfig",
     # Auth
     "AuthBase",
     "JWTAuth",

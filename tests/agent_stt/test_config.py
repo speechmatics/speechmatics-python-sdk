@@ -3,7 +3,6 @@ import pytest
 from speechmatics.agent_stt import Model
 from speechmatics.agent_stt import TranscriptionConfig
 from speechmatics.agent_stt import TurnDetectionMode
-from speechmatics.agent_stt import VADConfig
 
 
 def test_service_vad_is_the_default():
@@ -17,16 +16,6 @@ def test_external_mode_disables_service_vad():
 
 def test_turn_detection_mode_is_not_sent():
     assert "turn_detection_mode" not in TranscriptionConfig().to_dict()
-
-
-def test_vad_tuning_passed_through():
-    config = TranscriptionConfig(vad_config=VADConfig(window=0.3, onset_threshold=0.6, offset_threshold=0.4))
-    assert config.to_dict()["vad_config"] == {
-        "window": 0.3,
-        "onset_threshold": 0.6,
-        "offset_threshold": 0.4,
-        "enabled": True,
-    }
 
 
 def test_model_defaults_to_linden_1():

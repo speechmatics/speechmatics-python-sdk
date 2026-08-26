@@ -125,22 +125,6 @@ class TurnDetectionMode(str, Enum):
 
 
 @dataclass
-class VADConfig:
-    """
-    Tuning for the service's VAD. Only applied when `TurnDetectionMode.VAD` is in use.
-
-    Attributes:
-        window: Silence in seconds before the service closes the turn.
-        onset_threshold: Speech probability above which speech starts.
-        offset_threshold: Speech probability below which speech ends.
-    """
-
-    window: Optional[float] = None
-    onset_threshold: Optional[float] = None
-    offset_threshold: Optional[float] = None
-
-
-@dataclass
 class AdditionalVocabEntry:
     """
     A word to bias the engine towards, optionally with pronunciation hints.
@@ -162,12 +146,11 @@ class TranscriptionConfig(RTTranscriptionConfig):
     """
     Transcription config for the Agent STT service.
 
-    Extends the RT transcription config with the service-only fields (`vad_config`,
+    Extends the RT transcription config with the service-only fields (`turn_detection_mode`,
     `emit_sentences`). See `speechmatics.rt.TranscriptionConfig` for the inherited fields.
 
     Attributes:
         turn_detection_mode: Which mechanism closes a turn: the service's VAD, or the application.
-        vad_config: Tuning for the service's VAD, used when `turn_detection_mode` is `VAD`.
         emit_sentences: Close a segment on every sentence boundary, not just at the turn
             boundary.
         additional_vocab: Words to bias the engine towards, as `AdditionalVocabEntry` objects
@@ -187,7 +170,6 @@ class TranscriptionConfig(RTTranscriptionConfig):
     model: Model = _UNSET
     additional_vocab: Optional[list[Union[AdditionalVocabEntry, dict[str, Any]]]] = None
     turn_detection_mode: TurnDetectionMode = TurnDetectionMode.VAD
-    vad_config: VADConfig = field(default_factory=VADConfig)
     emit_sentences: Optional[bool] = None
 
     def __post_init__(self) -> None:
@@ -203,17 +185,15 @@ class TranscriptionConfig(RTTranscriptionConfig):
         Convert to the wire form of `StartRecognition.transcription_config`.
 
         Returns:
-            The config as a dict, excluding None values. `vad_config.enabled` is derived
-            from `turn_detection_mode` - on unless the application closes turns itself - and
-            the mode itself is dropped.
+            The config as a dict, excluding None values. `turn_detection_mode` is replaced
+            by the `vad_config.enabled` flag the service reads - on unless the application
+            closes turns itself. The VAD itself is not tunable from here.
         """
         result: dict[str, Any] = super().to_dict()
         if self.model is _UNSET:
             result.pop("model", None)
         result.pop("turn_detection_mode", None)
-        vad_config = result.pop("vad_config", None) or {}
-        vad_config["enabled"] = self.turn_detection_mode is not TurnDetectionMode.EXTERNAL
-        result["vad_config"] = vad_config
+        result["vad_config"] = {"enabled": self.turn_detection_mode is not TurnDetectionMode.EXTERNAL}
         return result
 
 

@@ -18,7 +18,6 @@ from speechmatics.agent_stt import AgentSttAsyncClient
 from speechmatics.agent_stt import ServerMessageType
 from speechmatics.agent_stt import TranscriptionConfig
 from speechmatics.agent_stt import TurnDetectionMode
-from speechmatics.agent_stt import VADConfig
 
 DEFAULT_AUDIO_FILE = "./tests/voice/assets/audio_01_16kHz.wav"
 SAMPLE_RATE = 16000
@@ -39,7 +38,6 @@ def parse_args() -> argparse.Namespace:
         default=TurnDetectionMode.VAD.value,
         help="which mechanism closes turns: the service's VAD, or this script calling finalize()",
     )
-    parser.add_argument("--vad-window", type=float, help="silence in seconds before the service closes a turn")
     parser.add_argument(
         "--turn-seconds", type=float, default=5.0, help="fake turn length, --turn-detection external only"
     )
@@ -78,7 +76,6 @@ def build_client(args: argparse.Namespace, clock: Clock) -> AgentSttAsyncClient:
         language=args.language,
         enable_partials=not args.no_partials,
         turn_detection_mode=TurnDetectionMode(args.turn_detection),
-        vad_config=VADConfig(window=args.vad_window) if args.vad_window is not None else None,
         emit_sentences=args.emit_sentences,
     )
 
