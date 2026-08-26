@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "speechmatics-agent-stt"
 dynamic = ["version"]
-description = "Speechmatics Agent STT Python client for voice agents"
+description = "Speechmatics Agent STT Python client for agent transcription"
 readme = "README.md"
 authors = [{ name = "Speechmatics", email = "support@speechmatics.com" }]
 license = "MIT"
