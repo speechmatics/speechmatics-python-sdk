@@ -12,8 +12,8 @@
 
 [![PyPI - batch](https://img.shields.io/pypi/v/speechmatics-batch?label=batch)](https://pypi.org/project/speechmatics-batch/)
 [![PyPI - rt](https://img.shields.io/pypi/v/speechmatics-rt?label=rt)](https://pypi.org/project/speechmatics-rt/)
-[![PyPI - voice](https://img.shields.io/pypi/v/speechmatics-voice?label=voice)](https://pypi.org/project/speechmatics-voice/)
 [![PyPI - agent-stt](https://img.shields.io/pypi/v/speechmatics-agent-stt?label=agent-stt)](https://pypi.org/project/speechmatics-agent-stt/)
+[![PyPI - voice](https://img.shields.io/pypi/v/speechmatics-voice?label=voice)](https://pypi.org/project/speechmatics-voice/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/speechmatics-batch.svg)](https://pypi.org/project/speechmatics-batch/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/speechmatics/speechmatics-python-sdk/blob/main/LICENSE)
 [![Build Status](https://github.com/speechmatics/speechmatics-python-sdk/actions/workflows/test.yaml/badge.svg)](https://github.com/speechmatics/speechmatics-python-sdk/actions/workflows/test.yaml)
@@ -55,11 +55,11 @@ pip install speechmatics-batch
 # Realtime streaming
 pip install speechmatics-rt
 
+# Voice agents on the Agent STT service
+pip install speechmatics-agent-stt
+
 # Voice agents
 pip install speechmatics-voice
-
-# Agent transcription using Agent STT service
-pip install speechmatics-agent-stt
 
 # Text-to-speech
 pip install speechmatics-tts
@@ -82,17 +82,17 @@ pip install speechmatics-tts
 - Ultra-low latency (150ms p95)
 - Partial and final transcripts
 
-**[speechmatics-voice](./sdk/voice/README.md)** - Voice agent SDK
-
-- Build conversational AI applications
-- Speaker diarization and turn detection
-- Optional ML-based smart turn: `pip install speechmatics-voice[smart]`
-
 **[speechmatics-agent-stt](./sdk/agent_stt/README.md)** - Agent STT SDK
 
 - Segment-level transcription for voice agents
 - Server-side VAD and turn detection, or bring your own (Pipecat, LiveKit)
 - Runs no models locally
+
+**[speechmatics-voice](./sdk/voice/README.md)** - Voice agent SDK
+
+- Build conversational AI applications
+- Speaker diarization and turn detection
+- Optional ML-based smart turn: `pip install speechmatics-voice[smart]`
 
 **[speechmatics-tts](./sdk/tts/README.md)** - Text-to-speech
 
@@ -946,8 +946,8 @@ Each SDK package includes detailed documentation:
 | ---------------------- | ----------------------------------------------------------------------------- | ------------------------- |
 | **speechmatics-batch** | [README](./sdk/batch/README.md) • [Migration Guide](./sdk/batch/MIGRATION.md) | Async batch transcription |
 | **speechmatics-rt**    | [README](./sdk/rt/README.md) • [Migration Guide](./sdk/rt/MIGRATION.md)       | Realtime Streaming        |
-| **speechmatics-voice** | [README](./sdk/voice/README.md)                                               | Voice agent SDK           |
 | **speechmatics-agent-stt** | [README](./sdk/agent_stt/README.md) • [Plan](./sdk/agent_stt/PLAN.md)     | Agent STT SDK             |
+| **speechmatics-voice** | [README](./sdk/voice/README.md)                                               | Voice agent SDK           |
 | **speechmatics-tts**   | [README](./sdk/tts/README.md)                                                 | Text-to-speech            |
 
 ### Speechmatics Academy
