@@ -58,7 +58,7 @@ pip install speechmatics-rt
 # Voice agents
 pip install speechmatics-voice
 
-# Voice agents on the Agent STT service
+# Agent transcription using Agent STT service
 pip install speechmatics-agent-stt
 
 # Text-to-speech
