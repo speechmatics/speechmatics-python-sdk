@@ -450,6 +450,3 @@ class AgentSttAsyncClient(RTAsyncClient):
         self._is_ready_for_audio = False
         self._is_connected = False
         await super().close()
-
-
-AgentSTTClient = AgentSttAsyncClient
