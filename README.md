@@ -86,7 +86,7 @@ pip install speechmatics-tts
 
 - Segment-level transcription for voice agents
 - Server-side VAD and turn detection, or bring your own (Pipecat, LiveKit)
-- Runs no models locally
+- Lightweight install: pure Python, no ML runtime or GPU required, all heavy lifting is done in the service itself
 
 **[speechmatics-voice](./sdk/voice/README.md)** - Voice agent SDK
 
