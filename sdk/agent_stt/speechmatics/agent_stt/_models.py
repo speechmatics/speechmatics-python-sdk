@@ -191,7 +191,7 @@ class TranscriptionConfig(RTTranscriptionConfig):
     emit_sentences: Optional[bool] = None
 
     def __post_init__(self) -> None:
-        if self.model is not _UNSET and self.operating_point is not None:
+        if self.model is not _UNSET and self.operating_point is not None:  # type: ignore[unreachable]
             raise ValueError("Cannot specify both 'model' and 'operating_point'. Use 'model' instead.")
         if self.model is _UNSET and self.operating_point is None:
             self.model = DEFAULT_MODEL
@@ -207,7 +207,7 @@ class TranscriptionConfig(RTTranscriptionConfig):
             from `turn_detection_mode` - on unless the application closes turns itself - and
             the mode itself is dropped.
         """
-        result = super().to_dict()
+        result: dict[str, Any] = super().to_dict()
         if self.model is _UNSET:
             result.pop("model", None)
         result.pop("turn_detection_mode", None)
