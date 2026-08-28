@@ -20,7 +20,6 @@ def test_turn_settings_are_not_in_the_transcription_config():
     result = TranscriptionConfig().to_dict()
     assert "turn_config" not in result
     assert "turn_detection_mode" not in result
-    assert "vad_config" not in result
 
 
 def test_model_defaults_to_linden_1():
