@@ -26,6 +26,7 @@ from ._models import ServerMessageType
 from ._models import SessionInfo
 from ._models import TimedEvent
 from ._models import TranscriptionConfig
+from ._models import TurnDetectionMode
 from ._transcript import Transcript
 from ._url import resolve_url
 from ._version import get_version
@@ -154,6 +155,26 @@ class AgentSttAsyncClient(RTAsyncClient):
             ws_headers=ws_headers,
         )
         self._is_connected = True
+
+    async def send_message(self, message: dict[str, Any]) -> None:
+        """
+        Send a message, attaching `turn_config` to StartRecognition.
+
+        The Agent STT spec puts `turn_config` beside `transcription_config` rather than
+        inside it, and the RT client that builds StartRecognition knows nothing about it.
+
+        Args:
+            message: The message to send.
+        """
+        if message.get("message") == ClientMessageType.START_RECOGNITION:
+            message = {**message, "turn_config": self._turn_config()}
+        await super().send_message(message)
+
+    def _turn_config(self) -> dict[str, Any]:
+        """The session's turn-taking config; a plain RT config means the service's VAD."""
+        if isinstance(self._config, TranscriptionConfig):
+            return self._config.turn_config()
+        return {"turn_detection_mode": TurnDetectionMode.VAD.value}
 
     async def disconnect(self) -> None:
         """

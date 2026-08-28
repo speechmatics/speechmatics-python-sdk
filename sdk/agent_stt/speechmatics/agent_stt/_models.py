@@ -185,16 +185,24 @@ class TranscriptionConfig(RTTranscriptionConfig):
         Convert to the wire form of `StartRecognition.transcription_config`.
 
         Returns:
-            The config as a dict, excluding None values. `turn_detection_mode` is replaced
-            by the `vad_config.enabled` flag the service reads - on unless the application
-            closes turns itself. The VAD itself is not tunable from here.
+            The config as a dict, excluding None values. `turn_detection_mode` is dropped
+            here because it travels in `StartRecognition.turn_config`, a sibling of the
+            transcription config rather than a member of it.
         """
         result: dict[str, Any] = super().to_dict()
         if self.model is _UNSET:
             result.pop("model", None)
         result.pop("turn_detection_mode", None)
-        result["vad_config"] = {"enabled": self.turn_detection_mode is not TurnDetectionMode.EXTERNAL}
         return result
+
+    def turn_config(self) -> dict[str, Any]:
+        """
+        Convert to the wire form of `StartRecognition.turn_config`.
+
+        Returns:
+            The turn-taking config the service reads. The VAD itself is not tunable from here.
+        """
+        return {"turn_detection_mode": self.turn_detection_mode.value}
 
 
 @dataclass

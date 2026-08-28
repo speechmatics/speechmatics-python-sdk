@@ -227,11 +227,15 @@ async def test_finalize_latency_measured_against_the_flushed_segment(client):
     assert client.last_finalize_latency > 0.0
 
 
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [(TurnDetectionMode.VAD, "vad"), (TurnDetectionMode.EXTERNAL, "external")],
+)
 @pytest.mark.asyncio
-async def test_external_turn_detection_reaches_start_recognition(client):
+async def test_turn_detection_reaches_start_recognition(client, mode, expected):
     transport = StubTransport()
     client._transport = transport
-    client._config = TranscriptionConfig(language="en", turn_detection_mode=TurnDetectionMode.EXTERNAL)
+    client._config = TranscriptionConfig(language="en", turn_detection_mode=mode)
 
     await client.send_message(
         {
@@ -240,7 +244,9 @@ async def test_external_turn_detection_reaches_start_recognition(client):
         }
     )
 
-    assert transport.messages[0]["transcription_config"]["vad_config"] == {"enabled": False}
+    sent = transport.messages[0]
+    assert sent["turn_config"] == {"turn_detection_mode": expected}
+    assert "vad_config" not in sent["transcription_config"]
 
 
 @pytest.mark.asyncio
