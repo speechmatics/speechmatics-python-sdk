@@ -19,7 +19,7 @@ from speechmatics.agent_stt import AgentSttAsyncClient, ServerMessageType, Trans
 
 async def main():
     # Uses SPEECHMATICS_API_KEY from the environment
-    async with AgentSttAsyncClient(config=TranscriptionConfig(language="en", enable_partials=True)) as client:
+    async with AgentSttAsyncClient(transcription_config=TranscriptionConfig(language="en", enable_partials=True)) as client:
         @client.on(ServerMessageType.ADD_SEGMENT)
         def handle_segment(message):
             print(message["segment"]["transcript"])
@@ -37,13 +37,15 @@ asyncio.run(main())
 The service needs a boundary to close a segment on. Pick where it comes from:
 
 ```python
-from speechmatics.agent_stt import TranscriptionConfig, TurnDetectionMode
+from speechmatics.agent_stt import TurnConfig, TurnDetectionMode
 
 # The service's VAD (default). It emits SpeechStarted/SpeechEnded and StartOfTurn/EndOfTurn.
-config = TranscriptionConfig(turn_detection_mode=TurnDetectionMode.VAD)
+turn_config = TurnConfig(turn_detection_mode=TurnDetectionMode.VAD)
 
 # Your endpointing - Pipecat, LiveKit, or your own. The service's VAD stays off.
-config = TranscriptionConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL)
+turn_config = TurnConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL)
+
+client = AgentSttAsyncClient(turn_config=turn_config)
 ```
 
 With `TurnDetectionMode.EXTERNAL`, close each turn when your side decides speech has ended:
@@ -98,12 +100,17 @@ under its name.
 
 ## Configuration
 
-`TranscriptionConfig` is the RT transcription config plus the service-only fields:
+`TranscriptionConfig` is the RT transcription config plus the service-only field:
+
+| Field | Meaning |
+| --- | --- |
+| `emit_sentences` | Close a segment on every sentence boundary, not only at the turn boundary |
+
+`TurnConfig`:
 
 | Field | Meaning |
 | --- | --- |
 | `turn_detection_mode` | `TurnDetectionMode.VAD` (default) or `TurnDetectionMode.EXTERNAL` |
-| `emit_sentences` | Close a segment on every sentence boundary, not only at the turn boundary |
 
 `model` takes an Agent STT `Model` and defaults to `DEFAULT_MODEL` (`Model.LINDEN_1`):
 

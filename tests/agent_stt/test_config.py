@@ -2,20 +2,23 @@ import pytest
 
 from speechmatics.agent_stt import Model
 from speechmatics.agent_stt import TranscriptionConfig
+from speechmatics.agent_stt import TurnConfig
 from speechmatics.agent_stt import TurnDetectionMode
 
 
 def test_service_vad_is_the_default():
-    assert TranscriptionConfig().to_dict()["turn_config"] == {"turn_detection_mode": "vad"}
+    assert TurnConfig().to_dict() == {"turn_detection_mode": "vad"}
 
 
 def test_external_mode_hands_turns_to_the_application():
-    config = TranscriptionConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL)
-    assert config.to_dict()["turn_config"] == {"turn_detection_mode": "external"}
+    config = TurnConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL)
+    assert config.to_dict() == {"turn_detection_mode": "external"}
 
 
-def test_turn_detection_mode_is_sent_nested_not_flat():
+def test_turn_settings_are_not_in_the_transcription_config():
+    """turn_config is a sibling of transcription_config on the wire, not nested inside it."""
     result = TranscriptionConfig().to_dict()
+    assert "turn_config" not in result
     assert "turn_detection_mode" not in result
     assert "vad_config" not in result
 

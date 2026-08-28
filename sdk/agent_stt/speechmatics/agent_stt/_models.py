@@ -125,6 +125,32 @@ class TurnDetectionMode(str, Enum):
 
 
 @dataclass
+class TurnConfig:
+    """
+    Turn config for the Agent STT service.
+
+    Attributes:
+        turn_detection_mode: Which mechanism closes a turn, defaulting to the service's own
+            VAD.
+
+    Examples:
+        External endpointing (Pipecat, LiveKit):
+            >>> turn_config = TurnConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL)
+    """
+
+    turn_detection_mode: TurnDetectionMode = TurnDetectionMode.VAD
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Convert to the wire form of `StartRecognition.turn_config`.
+
+        Returns:
+            The config as a dict.
+        """
+        return {"turn_detection_mode": self.turn_detection_mode.value}
+
+
+@dataclass
 class AdditionalVocabEntry:
     """
     A word to bias the engine towards, optionally with pronunciation hints.
@@ -146,11 +172,11 @@ class TranscriptionConfig(RTTranscriptionConfig):
     """
     Transcription config for the Agent STT service.
 
-    Extends the RT transcription config with the service-only fields (`turn_detection_mode`,
-    `emit_sentences`). See `speechmatics.rt.TranscriptionConfig` for the inherited fields.
+    Extends the RT transcription config with the service-only field `emit_sentences`. See
+    `speechmatics.rt.TranscriptionConfig` for the inherited fields. Who closes a turn is set
+    separately, on `TurnConfig`, which the service reads as its own top-level block.
 
     Attributes:
-        turn_detection_mode: Which mechanism closes a turn: the service's VAD, or the application.
         emit_sentences: Close a segment on every sentence boundary, not just at the turn
             boundary.
         additional_vocab: Words to bias the engine towards, as `AdditionalVocabEntry` objects
@@ -160,16 +186,12 @@ class TranscriptionConfig(RTTranscriptionConfig):
             transcriber has no notion of still routes correctly.
 
     Examples:
-        Service VAD, sentence-level segments:
+        Sentence-level segments:
             >>> config = TranscriptionConfig(language="en", emit_sentences=True)
-
-        External endpointing (Pipecat, LiveKit):
-            >>> config = TranscriptionConfig(language="en", turn_detection_mode=TurnDetectionMode.EXTERNAL)
     """
 
     model: Model = _UNSET
     additional_vocab: Optional[list[Union[AdditionalVocabEntry, dict[str, Any]]]] = None
-    turn_detection_mode: TurnDetectionMode = TurnDetectionMode.VAD
     emit_sentences: Optional[bool] = None
 
     def __post_init__(self) -> None:
@@ -185,15 +207,11 @@ class TranscriptionConfig(RTTranscriptionConfig):
         Convert to the wire form of `StartRecognition.transcription_config`.
 
         Returns:
-            The config as a dict, excluding None values. `turn_detection_mode` moves into
-            the `turn_config` block the service reads. The mechanism itself is not tunable
-            from here.
+            The config as a dict, excluding None values.
         """
         result: dict[str, Any] = super().to_dict()
         if self.model is _UNSET:
             result.pop("model", None)
-        result.pop("turn_detection_mode", None)
-        result["turn_config"] = {"turn_detection_mode": self.turn_detection_mode.value}
         return result
 
 

@@ -16,6 +16,7 @@ import wave
 from speechmatics.agent_stt import AgentSttAsyncClient
 from speechmatics.agent_stt import ServerMessageType
 from speechmatics.agent_stt import TranscriptionConfig
+from speechmatics.agent_stt import TurnConfig
 from speechmatics.agent_stt import TurnDetectionMode
 
 DEFAULT_AUDIO_FILE = "./tests/voice/assets/audio_01_16kHz.wav"
@@ -24,10 +25,11 @@ TURN_SECONDS = 5.0
 
 
 async def main(path: str) -> None:
-    config = TranscriptionConfig(language="en", enable_partials=True, turn_detection_mode=TurnDetectionMode.EXTERNAL)
+    config = TranscriptionConfig(language="en", enable_partials=True)
+    turn_config = TurnConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL)
 
     # Uses SPEECHMATICS_API_KEY from the environment
-    async with AgentSttAsyncClient(config=config) as client:
+    async with AgentSttAsyncClient(transcription_config=config, turn_config=turn_config) as client:
 
         @client.on(ServerMessageType.ADD_SEGMENT)
         def handle_segment(message):

@@ -26,7 +26,7 @@ async def main() -> None:
     config = TranscriptionConfig(language="en", enable_partials=True, diarization="speaker")
 
     # Uses SPEECHMATICS_API_KEY from the environment
-    async with AgentSttAsyncClient(config=config) as client:
+    async with AgentSttAsyncClient(transcription_config=config) as client:
 
         @client.on(ServerMessageType.ADD_PARTIAL_SEGMENT)
         def handle_partial_segment(message):

@@ -26,6 +26,7 @@ from ._models import ServerMessageType
 from ._models import SessionInfo
 from ._models import TimedEvent
 from ._models import TranscriptionConfig
+from ._models import TurnConfig
 from ._transcript import Transcript
 from ._url import resolve_url
 from ._version import get_version
@@ -40,8 +41,8 @@ class AgentSttAsyncClient(RTAsyncClient):
     Asynchronous client for the Speechmatics Agent STT service.
 
     Extends the RT client to talk to the Agent STT endpoint (`/agent`), which works in
-    segments rather than word groups and reports speech and turn events. The client runs no
-    VAD and no turn detection of its own: either the service's VAD closes turns
+    segments rather than word groups and reports speech and turn events.
+    This client runs no VAD and no turn detection of its own: either the service's VAD closes turns
     (`TurnDetectionMode.VAD`) or the application's does, by calling `finalize()`
     (`TurnDetectionMode.EXTERNAL`).
 
@@ -52,10 +53,12 @@ class AgentSttAsyncClient(RTAsyncClient):
         url: WebSocket endpoint. Defaults to `SPEECHMATICS_RT_URL`, then the EU endpoint.
             An `/agent` segment is appended if absent.
         app: Application name reported to the service as `sm-app`.
-        config: Transcription config for the session, normally an
-            `agent_stt.TranscriptionConfig`.
         audio_format: Audio format. Defaults to 16 kHz signed 16-bit PCM, which is what the
             service requires.
+        transcription_config: Transcription config for the session, normally an
+            `agent_stt.TranscriptionConfig`.
+        turn_config: Turn config for the session. Defaults to `TurnConfig()`, so the
+            service closes turns unless the application asks to own them.
         conn_config: WebSocket connection configuration.
         record_events: Whether to keep every raw server message in `events`.
 
@@ -69,8 +72,8 @@ class AgentSttAsyncClient(RTAsyncClient):
             >>> print(client.transcript)
 
         External endpointing (Pipecat, LiveKit):
-            >>> config = TranscriptionConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL)
-            >>> client = AgentSttAsyncClient(api_key="your-key", config=config)
+            >>> turn_config = TurnConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL)
+            >>> client = AgentSttAsyncClient(api_key="your-key", turn_config=turn_config)
             >>> await client.connect()
             >>> await client.send_audio(frame)
             >>> client.finalize()  # on the application's own end-of-speech signal
@@ -83,8 +86,9 @@ class AgentSttAsyncClient(RTAsyncClient):
         api_key: Optional[str] = None,
         url: Optional[str] = None,
         app: Optional[str] = None,
-        config: Optional[RTTranscriptionConfig] = None,
         audio_format: Optional[AudioFormat] = None,
+        transcription_config: Optional[RTTranscriptionConfig] = None,
+        turn_config: Optional[TurnConfig] = None,
         conn_config: Optional[ConnectionConfig] = None,
         record_events: bool = True,
     ) -> None:
@@ -98,12 +102,13 @@ class AgentSttAsyncClient(RTAsyncClient):
 
         self._logger = get_logger("speechmatics.agent_stt.client")
 
-        self._config: RTTranscriptionConfig = config or TranscriptionConfig()
         self._audio_format = audio_format or AudioFormat(
             encoding=AudioEncoding.PCM_S16LE,
             sample_rate=DEFAULT_SAMPLE_RATE,
             chunk_size=DEFAULT_CHUNK_SIZE,
         )
+        self._transcription_config: RTTranscriptionConfig = transcription_config or TranscriptionConfig()
+        self._turn_config = turn_config or TurnConfig()
 
         self._session_info = SessionInfo(request_id=self._session.request_id)
         self._transcript = Transcript(record_events=record_events)
@@ -148,11 +153,7 @@ class AgentSttAsyncClient(RTAsyncClient):
         if self._is_connected:
             return
 
-        await self.start_session(
-            transcription_config=self._config,
-            audio_format=self._audio_format,
-            ws_headers=ws_headers,
-        )
+        await self.start_session(ws_headers=ws_headers)
         self._is_connected = True
 
     async def disconnect(self) -> None:
@@ -188,27 +189,54 @@ class AgentSttAsyncClient(RTAsyncClient):
     async def start_session(
         self,
         *,
-        transcription_config: Optional[RTTranscriptionConfig] = None,
         audio_format: Optional[AudioFormat] = None,
+        transcription_config: Optional[RTTranscriptionConfig] = None,
+        turn_config: Optional[TurnConfig] = None,
         ws_headers: Optional[dict] = None,
     ) -> None:
         """
-        Start the session, defaulting to the config this client was built with.
+        Start the session, defaulting to the config this client was built with. Anything
+        given here replaces that config for this and any later session.
 
         Args:
-            transcription_config: Transcription config for the session.
             audio_format: Audio format. Must be 16 kHz raw PCM for the Agent STT service.
+            transcription_config: Transcription config for the session.
+            turn_config: Turn config for the session.
             ws_headers: Additional WebSocket handshake headers.
 
         Raises:
             ConnectionError: If the WebSocket connection fails.
             TimeoutError: If the service does not accept the session in time.
         """
+        if audio_format is not None:
+            self._audio_format = audio_format
+        if transcription_config is not None:
+            self._transcription_config = transcription_config
+        if turn_config is not None:
+            self._turn_config = turn_config
+
+        # No turn_config here: RT's message builder has no slot for it, so send_message adds
+        # it to the StartRecognition this call produces.
         await super().start_session(
-            transcription_config=transcription_config or self._config,
-            audio_format=audio_format or self._audio_format,
+            audio_format=self._audio_format,
+            transcription_config=self._transcription_config,
             ws_headers=ws_headers,
         )
+
+    async def send_message(self, message: dict[str, Any]) -> None:
+        """
+        Send a message, adding the Agent STT `turn_config` block to `StartRecognition`.
+
+        `turn_config` is a top-level block of `StartRecognition`, a sibling of
+        `transcription_config` and `audio_format`. It is Agent STT specific (not shared with RT).
+
+        Args:
+            message: The message to send.
+        """
+        if message.get("message") == ClientMessageType.START_RECOGNITION.value:
+            message = {**message, "turn_config": self._turn_config.to_dict()}
+
+        await super().send_message(message)
 
     # ==========================================================================
     # Audio and turn control
@@ -245,8 +273,8 @@ class AgentSttAsyncClient(RTAsyncClient):
         rather than wherever the send happens to land. The flushed segment arrives as a normal
         AddSegment message.
 
-        Use this when the application brings its own VAD (`TurnDetectionMode.EXTERNAL`); with
-        `TurnDetectionMode.VAD` the service closes turns itself.
+        Use this when the application brings its own turn detection (`TurnDetectionMode.EXTERNAL`); 
+        with `TurnDetectionMode.VAD`, the service closes turns itself.
 
         Args:
             timestamp: Audio timestamp in seconds for the end of the utterance. Defaults to
@@ -296,8 +324,9 @@ class AgentSttAsyncClient(RTAsyncClient):
         self,
         source: BinaryIO,
         *,
-        transcription_config: Optional[RTTranscriptionConfig] = None,
         audio_format: Optional[AudioFormat] = None,
+        transcription_config: Optional[RTTranscriptionConfig] = None,
+        turn_config: Optional[TurnConfig] = None,
         ws_headers: Optional[dict] = None,
         timeout: Optional[float] = None,
     ) -> None:
@@ -307,8 +336,10 @@ class AgentSttAsyncClient(RTAsyncClient):
         Args:
             source: Audio source with a `read()` method, holding raw PCM in the session's
                 audio format.
-            transcription_config: Transcription config for the session.
             audio_format: Audio format. Must be 16 kHz raw PCM for the Agent STT service.
+            transcription_config: Transcription config for the session.
+            turn_config: Turn config for the session, defaulting to the one this client was
+                built with.
             ws_headers: Additional WebSocket handshake headers.
             timeout: Maximum time in seconds to wait for the stream to finish.
 
@@ -321,15 +352,11 @@ class AgentSttAsyncClient(RTAsyncClient):
             ...     await client.transcribe(audio)
             >>> print(client.transcript)
         """
-        if transcription_config is not None:
-            self._config = transcription_config
-        if audio_format is not None:
-            self._audio_format = audio_format
-
         if not self._is_connected:
             await self.start_session(
-                transcription_config=self._config,
-                audio_format=self._audio_format,
+                audio_format=audio_format,
+                transcription_config=transcription_config,
+                turn_config=turn_config,
                 ws_headers=ws_headers,
             )
             self._is_connected = True

@@ -80,7 +80,7 @@ def build_client(args: argparse.Namespace, clock: Clock) -> AgentSttAsyncClient:
     )
 
     # Uses SPEECHMATICS_API_KEY, and SPEECHMATICS_RT_URL to point at a local service
-    client = AgentSttAsyncClient(config=config)
+    client = AgentSttAsyncClient(transcription_config=config)
 
     @client.on(ServerMessageType.ADD_PARTIAL_SEGMENT)
     def handle_partial_segment(message):

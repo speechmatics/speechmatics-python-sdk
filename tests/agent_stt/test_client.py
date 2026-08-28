@@ -7,6 +7,7 @@ from speechmatics.agent_stt import AudioEncoding
 from speechmatics.agent_stt import ClientMessageType
 from speechmatics.agent_stt import ServerMessageType
 from speechmatics.agent_stt import TranscriptionConfig
+from speechmatics.agent_stt import TurnConfig
 from speechmatics.agent_stt import TurnDetectionMode
 
 API_KEY = "test-key"
@@ -228,19 +229,46 @@ async def test_finalize_latency_measured_against_the_flushed_segment(client):
 
 
 @pytest.mark.asyncio
-async def test_external_turn_detection_reaches_start_recognition(client):
+async def test_external_turn_detection_reaches_start_recognition(monkeypatch):
+    monkeypatch.delenv("SPEECHMATICS_RT_URL", raising=False)
+    client = AgentSttAsyncClient(
+        api_key=API_KEY,
+        transcription_config=TranscriptionConfig(language="en"),
+        turn_config=TurnConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL),
+    )
     transport = StubTransport()
     client._transport = transport
-    client._config = TranscriptionConfig(language="en", turn_detection_mode=TurnDetectionMode.EXTERNAL)
 
     await client.send_message(
         {
             "message": ClientMessageType.START_RECOGNITION.value,
-            "transcription_config": client._config.to_dict(),
+            "transcription_config": client._transcription_config.to_dict(),
         }
     )
 
-    assert transport.messages[0]["transcription_config"]["turn_config"] == {"turn_detection_mode": "external"}
+    sent = transport.messages[0]
+    assert sent["turn_config"] == {"turn_detection_mode": "external"}
+    assert "turn_config" not in sent["transcription_config"]
+
+
+@pytest.mark.asyncio
+async def test_turn_config_defaults_to_service_vad(client):
+    transport = StubTransport()
+    client._transport = transport
+
+    await client.send_message({"message": ClientMessageType.START_RECOGNITION.value})
+
+    assert transport.messages[0]["turn_config"] == {"turn_detection_mode": "vad"}
+
+
+@pytest.mark.asyncio
+async def test_turn_config_is_only_added_to_start_recognition(client):
+    transport = StubTransport()
+    client._transport = transport
+
+    await client.send_message({"message": ClientMessageType.FORCE_END_OF_UTTERANCE.value})
+
+    assert "turn_config" not in transport.messages[0]
 
 
 @pytest.mark.asyncio
