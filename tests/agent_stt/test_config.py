@@ -6,16 +6,18 @@ from speechmatics.agent_stt import TurnDetectionMode
 
 
 def test_service_vad_is_the_default():
-    assert TranscriptionConfig().to_dict()["vad_config"] == {"enabled": True}
+    assert TranscriptionConfig().to_dict()["turn_config"] == {"turn_detection_mode": "vad"}
 
 
-def test_external_mode_disables_service_vad():
+def test_external_mode_hands_turns_to_the_application():
     config = TranscriptionConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL)
-    assert config.to_dict()["vad_config"] == {"enabled": False}
+    assert config.to_dict()["turn_config"] == {"turn_detection_mode": "external"}
 
 
-def test_turn_detection_mode_is_not_sent():
-    assert "turn_detection_mode" not in TranscriptionConfig().to_dict()
+def test_turn_detection_mode_is_sent_nested_not_flat():
+    result = TranscriptionConfig().to_dict()
+    assert "turn_detection_mode" not in result
+    assert "vad_config" not in result
 
 
 def test_model_defaults_to_linden_1():

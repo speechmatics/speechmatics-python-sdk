@@ -240,7 +240,7 @@ async def test_external_turn_detection_reaches_start_recognition(client):
         }
     )
 
-    assert transport.messages[0]["transcription_config"]["vad_config"] == {"enabled": False}
+    assert transport.messages[0]["transcription_config"]["turn_config"] == {"turn_detection_mode": "external"}
 
 
 @pytest.mark.asyncio
