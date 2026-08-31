@@ -155,6 +155,7 @@ install-dev: install-dev-batch install-dev-flow install-dev-tts install-dev-voic
 
 install-dev-rt:
 	python -m pip install --upgrade pip
+	python -m pip install pip-audit
 	python -m pip install -e sdk/rt[dev]
 
 install-dev-batch:
