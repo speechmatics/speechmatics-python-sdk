@@ -216,6 +216,10 @@ class AgentSttAsyncClient(RTAsyncClient):
         """
         Start the session, defaulting to the config this client was built with.
 
+        A config passed here replaces the client's own, so everything derived from it - the
+        `turn_config` attached to StartRecognition included - describes the session actually
+        being started.
+
         Args:
             transcription_config: Transcription config for the session.
             audio_format: Audio format. Must be 16 kHz raw PCM for the Agent STT service.
@@ -225,9 +229,14 @@ class AgentSttAsyncClient(RTAsyncClient):
             ConnectionError: If the WebSocket connection fails.
             TimeoutError: If the service does not accept the session in time.
         """
+        if transcription_config is not None:
+            self._config = transcription_config
+        if audio_format is not None:
+            self._audio_format = audio_format
+
         await super().start_session(
-            transcription_config=transcription_config or self._config,
-            audio_format=audio_format or self._audio_format,
+            transcription_config=self._config,
+            audio_format=self._audio_format,
             ws_headers=ws_headers,
         )
 

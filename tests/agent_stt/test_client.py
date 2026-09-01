@@ -34,6 +34,10 @@ class StubTransport:
         return [payload for payload in self.sent if isinstance(payload, bytes)]
 
 
+async def _noop(*args, **kwargs):
+    """Stands in for the handshake steps a stubbed transport never performs."""
+
+
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.delenv("SPEECHMATICS_RT_URL", raising=False)
@@ -247,6 +251,22 @@ async def test_turn_detection_reaches_start_recognition(client, mode, expected):
     sent = transport.messages[0]
     assert sent["turn_config"] == {"turn_detection_mode": expected}
     assert "vad_config" not in sent["transcription_config"]
+
+
+@pytest.mark.asyncio
+async def test_start_session_config_wins_over_the_constructor(client, monkeypatch):
+    """A config passed to start_session must drive turn_config too, not just transcription_config."""
+    transport = StubTransport()
+    client._transport = transport
+    client._config = TranscriptionConfig(language="en", turn_detection_mode=TurnDetectionMode.EXTERNAL)
+    monkeypatch.setattr(client, "_ws_connect", _noop)
+    monkeypatch.setattr(client, "_wait_recognition_started", _noop)
+
+    await client.start_session(
+        transcription_config=TranscriptionConfig(language="en", turn_detection_mode=TurnDetectionMode.VAD)
+    )
+
+    assert transport.messages[0]["turn_config"] == {"turn_detection_mode": "vad"}
 
 
 @pytest.mark.asyncio
