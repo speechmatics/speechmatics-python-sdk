@@ -98,12 +98,11 @@ under its name.
 
 ## Configuration
 
-`TranscriptionConfig` is the RT transcription config plus the service-only fields:
+`TranscriptionConfig` is the RT transcription config plus the service-only field:
 
 | Field | Meaning |
 | --- | --- |
 | `turn_detection_mode` | `TurnDetectionMode.VAD` (default) or `TurnDetectionMode.EXTERNAL` |
-| `emit_sentences` | Close a segment on every sentence boundary, not only at the turn boundary |
 
 `model` takes an Agent STT `Model` and defaults to `DEFAULT_MODEL` (`Model.LINDEN_1`):
 

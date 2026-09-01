@@ -42,7 +42,6 @@ def parse_args() -> argparse.Namespace:
         "--turn-seconds", type=float, default=5.0, help="fake turn length, --turn-detection external only"
     )
     parser.add_argument("--no-partials", action="store_true")
-    parser.add_argument("--emit-sentences", action="store_true", help="close a segment on every sentence boundary")
     return parser.parse_args()
 
 
@@ -76,7 +75,6 @@ def build_client(args: argparse.Namespace, clock: Clock) -> AgentSttAsyncClient:
         language=args.language,
         enable_partials=not args.no_partials,
         turn_detection_mode=TurnDetectionMode(args.turn_detection),
-        emit_sentences=args.emit_sentences,
     )
 
     # Uses SPEECHMATICS_API_KEY, and SPEECHMATICS_RT_URL to point at a local service

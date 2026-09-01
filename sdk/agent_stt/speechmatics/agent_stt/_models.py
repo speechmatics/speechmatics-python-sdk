@@ -146,13 +146,11 @@ class TranscriptionConfig(RTTranscriptionConfig):
     """
     Transcription config for the Agent STT service.
 
-    Extends the RT transcription config with the service-only fields (`turn_detection_mode`,
-    `emit_sentences`). See `speechmatics.rt.TranscriptionConfig` for the inherited fields.
+    Extends the RT transcription config with the service-only `turn_detection_mode` field.
+    See `speechmatics.rt.TranscriptionConfig` for the inherited fields.
 
     Attributes:
         turn_detection_mode: Which mechanism closes a turn: the service's VAD, or the application.
-        emit_sentences: Close a segment on every sentence boundary, not just at the turn
-            boundary.
         additional_vocab: Words to bias the engine towards, as `AdditionalVocabEntry` objects
             or raw dicts.
         model: Agent STT model, defaulting to `DEFAULT_MODEL`. The proxy in front of the
@@ -160,8 +158,8 @@ class TranscriptionConfig(RTTranscriptionConfig):
             transcriber has no notion of still routes correctly.
 
     Examples:
-        Service VAD, sentence-level segments:
-            >>> config = TranscriptionConfig(language="en", emit_sentences=True)
+        Service VAD (the default):
+            >>> config = TranscriptionConfig(language="en")
 
         External endpointing (Pipecat, LiveKit):
             >>> config = TranscriptionConfig(language="en", turn_detection_mode=TurnDetectionMode.EXTERNAL)
@@ -170,7 +168,6 @@ class TranscriptionConfig(RTTranscriptionConfig):
     model: Model = _UNSET
     additional_vocab: Optional[list[Union[AdditionalVocabEntry, dict[str, Any]]]] = None
     turn_detection_mode: TurnDetectionMode = TurnDetectionMode.VAD
-    emit_sentences: Optional[bool] = None
 
     def __post_init__(self) -> None:
         if self.model is not _UNSET and self.operating_point is not None:  # type: ignore[unreachable]

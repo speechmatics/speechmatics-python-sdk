@@ -37,12 +37,6 @@ def test_model_omitted_when_operating_point_is_used():
     assert config.to_dict()["operating_point"] == "enhanced"
 
 
-def test_emit_sentences_omitted_unless_set():
-    assert "emit_sentences" not in TranscriptionConfig().to_dict()
-    assert TranscriptionConfig(emit_sentences=True).to_dict()["emit_sentences"] is True
-    assert TranscriptionConfig(emit_sentences=False).to_dict()["emit_sentences"] is False
-
-
 def test_rt_fields_still_work():
     config = TranscriptionConfig(language="es", diarization="speaker", enable_partials=True, max_delay=1.5)
     result = config.to_dict()
