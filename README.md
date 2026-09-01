@@ -946,7 +946,7 @@ Each SDK package includes detailed documentation:
 | ---------------------- | ----------------------------------------------------------------------------- | ------------------------- |
 | **speechmatics-batch** | [README](./sdk/batch/README.md) • [Migration Guide](./sdk/batch/MIGRATION.md) | Async batch transcription |
 | **speechmatics-rt**    | [README](./sdk/rt/README.md) • [Migration Guide](./sdk/rt/MIGRATION.md)       | Realtime Streaming        |
-| **speechmatics-agent-stt** | [README](./sdk/agent_stt/README.md) • [Plan](./sdk/agent_stt/PLAN.md)     | Agent STT SDK             |
+| **speechmatics-agent-stt** | [README](./sdk/agent_stt/README.md)   | Agent STT SDK             |
 | **speechmatics-voice** | [README](./sdk/voice/README.md)                                               | Voice agent SDK           |
 | **speechmatics-tts**   | [README](./sdk/tts/README.md)                                                 | Text-to-speech            |
 
