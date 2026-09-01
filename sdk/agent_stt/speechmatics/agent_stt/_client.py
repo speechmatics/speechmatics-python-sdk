@@ -467,7 +467,11 @@ class AgentSttAsyncClient(RTAsyncClient):
         super().emit(event, message)
 
     def _on_session_started(self, message: dict[str, Any]) -> None:
-        """Capture the session id and language pack, and open the audio gate."""
+        """Capture the session identity and language pack, and open the audio gate."""
+        # Re-read request_id rather than trusting the one copied at construction: RT mints a
+        # fresh one in _begin_new_session(), so a reconnect would otherwise pair the previous
+        # request_id with this session_id.
+        self._session_info.request_id = self.request_id
         self._session_info.session_id = message.get("id")
         self._session_info.language_pack_info = LanguagePackInfo.from_dict(message.get("language_pack_info") or {})
         self._transcript.set_delimiter(self._session_info.language_pack_info.word_delimiter)

@@ -268,6 +268,19 @@ async def test_start_session_turn_config_wins_over_the_constructor(client, monke
     assert transport.messages[0]["turn_config"] == {"turn_detection_mode": "vad"}
 
 
+def test_session_info_tracks_the_request_id_across_sessions(client):
+    """RT mints a fresh request_id per session; session_info must not keep the first one."""
+    start_session(client)
+    assert client.session_info.request_id == client.request_id
+
+    first = client.request_id
+    client._begin_new_session()
+    start_session(client)
+
+    assert client.request_id != first
+    assert client.session_info.request_id == client.request_id
+
+
 def test_server_error_closes_the_audio_gate_and_is_readable(client):
     """A dead session must stop looking healthy, so a send loop has something to break on."""
     start_session(client)
