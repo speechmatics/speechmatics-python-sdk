@@ -19,7 +19,9 @@ from speechmatics.agent_stt import AgentSttAsyncClient, ServerMessageType, Trans
 
 async def main():
     # Uses SPEECHMATICS_API_KEY from the environment
-    client = AgentSttAsyncClient(config=TranscriptionConfig(language="en", enable_partials=True))
+    client = AgentSttAsyncClient(
+        transcription_config=TranscriptionConfig(language="en", enable_partials=True)
+    )
 
     # Register handlers before opening the session, so no message can arrive unhandled
     @client.on(ServerMessageType.ADD_SEGMENT)
@@ -48,7 +50,9 @@ turn_config = TurnConfig(turn_detection_mode=TurnDetectionMode.VAD)
 # Your endpointing - Pipecat, LiveKit, or your own. The service's VAD stays off.
 turn_config = TurnConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL)
 
-client = AgentSttAsyncClient(config=TranscriptionConfig(language="en"), turn_config=turn_config)
+client = AgentSttAsyncClient(
+    transcription_config=TranscriptionConfig(language="en"), turn_config=turn_config
+)
 ```
 
 With `TurnDetectionMode.EXTERNAL`, close each turn when your side decides speech has ended:
@@ -115,7 +119,7 @@ Turn taking is configured separately, and is fixed for the life of the session:
 ```python
 from speechmatics.agent_stt import Model, TranscriptionConfig
 
-config = TranscriptionConfig(model=Model.LINDEN_1)
+transcription_config = TranscriptionConfig(model=Model.LINDEN_1)
 ```
 
 The proxy in front of the service resolves the Agent STT model name onto the engine's operating

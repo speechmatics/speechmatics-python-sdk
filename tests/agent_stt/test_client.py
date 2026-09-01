@@ -245,7 +245,7 @@ async def test_turn_detection_reaches_start_recognition(client, mode, expected):
     await client.send_message(
         {
             "message": ClientMessageType.START_RECOGNITION.value,
-            "transcription_config": client._config.to_dict(),
+            "transcription_config": client._transcription_config.to_dict(),
         }
     )
 

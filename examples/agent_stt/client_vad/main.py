@@ -25,11 +25,11 @@ TURN_SECONDS = 5.0
 
 
 async def main(path: str) -> None:
-    config = TranscriptionConfig(language="en", enable_partials=True)
+    transcription_config = TranscriptionConfig(language="en", enable_partials=True)
     turn_config = TurnConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL)
 
     # Uses SPEECHMATICS_API_KEY from the environment
-    client = AgentSttAsyncClient(config=config, turn_config=turn_config)
+    client = AgentSttAsyncClient(transcription_config=transcription_config, turn_config=turn_config)
 
     # Registered before the session opens, so no message can arrive unhandled
     @client.on(ServerMessageType.ADD_SEGMENT)

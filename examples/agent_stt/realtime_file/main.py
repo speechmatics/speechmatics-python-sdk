@@ -72,14 +72,14 @@ class Clock:
 
 
 def build_client(args: argparse.Namespace, clock: Clock) -> AgentSttAsyncClient:
-    config = TranscriptionConfig(
+    transcription_config = TranscriptionConfig(
         language=args.language,
         enable_partials=not args.no_partials,
     )
     turn_config = TurnConfig(turn_detection_mode=TurnDetectionMode(args.turn_detection))
 
     # Uses SPEECHMATICS_API_KEY, and SPEECHMATICS_RT_URL to point at a local service
-    client = AgentSttAsyncClient(config=config, turn_config=turn_config)
+    client = AgentSttAsyncClient(transcription_config=transcription_config, turn_config=turn_config)
 
     @client.on(ServerMessageType.ADD_PARTIAL_SEGMENT)
     def handle_partial_segment(message):

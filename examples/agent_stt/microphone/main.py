@@ -23,10 +23,10 @@ async def main() -> None:
         print("PyAudio not installed - install with: pip install pyaudio")
         return
 
-    config = TranscriptionConfig(language="en", enable_partials=True, diarization="speaker")
+    transcription_config = TranscriptionConfig(language="en", enable_partials=True, diarization="speaker")
 
     # Uses SPEECHMATICS_API_KEY from the environment
-    client = AgentSttAsyncClient(config=config)
+    client = AgentSttAsyncClient(transcription_config=transcription_config)
 
     # Registered before the session opens, so no message can arrive unhandled
     @client.on(ServerMessageType.ADD_PARTIAL_SEGMENT)

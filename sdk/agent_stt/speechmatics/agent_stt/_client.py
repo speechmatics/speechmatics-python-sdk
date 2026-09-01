@@ -53,7 +53,7 @@ class AgentSttAsyncClient(RTAsyncClient):
         url: WebSocket endpoint. Defaults to `SPEECHMATICS_RT_URL`, then the EU endpoint.
             An `/agent` segment is appended if absent.
         app: Application name reported to the service as `sm-app`.
-        config: Transcription config for the session, normally an
+        transcription_config: Transcription config for the session, normally an
             `agent_stt.TranscriptionConfig`.
         turn_config: Turn-taking config for the session. Defaults to the service's VAD.
         audio_format: Audio format. Defaults to 16 kHz signed 16-bit PCM, which is what the
@@ -86,7 +86,7 @@ class AgentSttAsyncClient(RTAsyncClient):
         api_key: Optional[str] = None,
         url: Optional[str] = None,
         app: Optional[str] = None,
-        config: Optional[RTTranscriptionConfig] = None,
+        transcription_config: Optional[RTTranscriptionConfig] = None,
         turn_config: Optional[TurnConfig] = None,
         audio_format: Optional[AudioFormat] = None,
         conn_config: Optional[ConnectionConfig] = None,
@@ -102,7 +102,7 @@ class AgentSttAsyncClient(RTAsyncClient):
 
         self._logger = get_logger("speechmatics.agent_stt.client")
 
-        self._config: RTTranscriptionConfig = config or TranscriptionConfig()
+        self._transcription_config: RTTranscriptionConfig = transcription_config or TranscriptionConfig()
         self._turn_config = turn_config or TurnConfig()
         self._audio_format = audio_format or AudioFormat(
             encoding=AudioEncoding.PCM_S16LE,
@@ -154,7 +154,7 @@ class AgentSttAsyncClient(RTAsyncClient):
             return
 
         await self.start_session(
-            transcription_config=self._config,
+            transcription_config=self._transcription_config,
             audio_format=self._audio_format,
             ws_headers=ws_headers,
         )
@@ -215,8 +215,8 @@ class AgentSttAsyncClient(RTAsyncClient):
         """
         Start the session, defaulting to the configs this client was built with.
 
-        A config passed here replaces the client's own, so what reaches the service describes
-        the session actually being started.
+        Either config passed here replaces the client's own, so what reaches the service
+        describes the session actually being started.
 
         Args:
             transcription_config: Transcription config for the session.
@@ -229,14 +229,14 @@ class AgentSttAsyncClient(RTAsyncClient):
             TimeoutError: If the service does not accept the session in time.
         """
         if transcription_config is not None:
-            self._config = transcription_config
+            self._transcription_config = transcription_config
         if turn_config is not None:
             self._turn_config = turn_config
         if audio_format is not None:
             self._audio_format = audio_format
 
         await super().start_session(
-            transcription_config=self._config,
+            transcription_config=self._transcription_config,
             audio_format=self._audio_format,
             ws_headers=ws_headers,
         )
@@ -355,7 +355,7 @@ class AgentSttAsyncClient(RTAsyncClient):
             >>> print(client.transcript)
         """
         if transcription_config is not None:
-            self._config = transcription_config
+            self._transcription_config = transcription_config
         if turn_config is not None:
             self._turn_config = turn_config
         if audio_format is not None:
@@ -363,7 +363,7 @@ class AgentSttAsyncClient(RTAsyncClient):
 
         if not self._is_connected:
             await self.start_session(
-                transcription_config=self._config,
+                transcription_config=self._transcription_config,
                 turn_config=self._turn_config,
                 audio_format=self._audio_format,
                 ws_headers=ws_headers,

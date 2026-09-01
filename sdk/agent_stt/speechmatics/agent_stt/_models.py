@@ -187,7 +187,7 @@ class TranscriptionConfig(RTTranscriptionConfig):
             transcriber has no notion of still routes correctly.
 
     Examples:
-        >>> config = TranscriptionConfig(language="en", enable_partials=True)
+        >>> transcription_config = TranscriptionConfig(language="en", enable_partials=True)
     """
 
     model: Model = _UNSET
