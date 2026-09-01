@@ -7,6 +7,7 @@ from speechmatics.agent_stt import AudioEncoding
 from speechmatics.agent_stt import ClientMessageType
 from speechmatics.agent_stt import ServerMessageType
 from speechmatics.agent_stt import TranscriptionConfig
+from speechmatics.agent_stt import TurnConfig
 from speechmatics.agent_stt import TurnDetectionMode
 
 API_KEY = "test-key"
@@ -239,7 +240,7 @@ async def test_finalize_latency_measured_against_the_flushed_segment(client):
 async def test_turn_detection_reaches_start_recognition(client, mode, expected):
     transport = StubTransport()
     client._transport = transport
-    client._config = TranscriptionConfig(language="en", turn_detection_mode=mode)
+    client._turn_config = TurnConfig(turn_detection_mode=mode)
 
     await client.send_message(
         {
@@ -254,17 +255,15 @@ async def test_turn_detection_reaches_start_recognition(client, mode, expected):
 
 
 @pytest.mark.asyncio
-async def test_start_session_config_wins_over_the_constructor(client, monkeypatch):
-    """A config passed to start_session must drive turn_config too, not just transcription_config."""
+async def test_start_session_turn_config_wins_over_the_constructor(client, monkeypatch):
+    """A turn config passed to start_session must replace the constructor's, not be ignored."""
     transport = StubTransport()
     client._transport = transport
-    client._config = TranscriptionConfig(language="en", turn_detection_mode=TurnDetectionMode.EXTERNAL)
+    client._turn_config = TurnConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL)
     monkeypatch.setattr(client, "_ws_connect", _noop)
     monkeypatch.setattr(client, "_wait_recognition_started", _noop)
 
-    await client.start_session(
-        transcription_config=TranscriptionConfig(language="en", turn_detection_mode=TurnDetectionMode.VAD)
-    )
+    await client.start_session(turn_config=TurnConfig(turn_detection_mode=TurnDetectionMode.VAD))
 
     assert transport.messages[0]["turn_config"] == {"turn_detection_mode": "vad"}
 

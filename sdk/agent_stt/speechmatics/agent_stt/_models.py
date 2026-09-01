@@ -125,6 +125,35 @@ class TurnDetectionMode(str, Enum):
 
 
 @dataclass
+class TurnConfig:
+    """
+    Turn-taking config for the session.
+
+    A sibling of the transcription config on the wire, not a member of it, and fixed for the
+    life of the session: the service takes it on StartRecognition only.
+
+    Attributes:
+        turn_detection_mode: Which mechanism closes a turn: the service's VAD, or the
+            application.
+
+    Examples:
+        External endpointing (Pipecat, LiveKit):
+            >>> turn_config = TurnConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL)
+    """
+
+    turn_detection_mode: TurnDetectionMode = TurnDetectionMode.VAD
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Convert to the wire form of `StartRecognition.turn_config`.
+
+        Returns:
+            The turn-taking config the service reads. The VAD itself is not tunable from here.
+        """
+        return {"turn_detection_mode": self.turn_detection_mode.value}
+
+
+@dataclass
 class AdditionalVocabEntry:
     """
     A word to bias the engine towards, optionally with pronunciation hints.
@@ -146,11 +175,11 @@ class TranscriptionConfig(RTTranscriptionConfig):
     """
     Transcription config for the Agent STT service.
 
-    Extends the RT transcription config with the service-only `turn_detection_mode` field.
-    See `speechmatics.rt.TranscriptionConfig` for the inherited fields.
+    Extends the RT transcription config with the service's own model names. Turn taking is
+    configured separately, in `TurnConfig`. See `speechmatics.rt.TranscriptionConfig` for the
+    inherited fields.
 
     Attributes:
-        turn_detection_mode: Which mechanism closes a turn: the service's VAD, or the application.
         additional_vocab: Words to bias the engine towards, as `AdditionalVocabEntry` objects
             or raw dicts.
         model: Agent STT model, defaulting to `DEFAULT_MODEL`. The proxy in front of the
@@ -158,16 +187,11 @@ class TranscriptionConfig(RTTranscriptionConfig):
             transcriber has no notion of still routes correctly.
 
     Examples:
-        Service VAD (the default):
-            >>> config = TranscriptionConfig(language="en")
-
-        External endpointing (Pipecat, LiveKit):
-            >>> config = TranscriptionConfig(language="en", turn_detection_mode=TurnDetectionMode.EXTERNAL)
+        >>> config = TranscriptionConfig(language="en", enable_partials=True)
     """
 
     model: Model = _UNSET
     additional_vocab: Optional[list[Union[AdditionalVocabEntry, dict[str, Any]]]] = None
-    turn_detection_mode: TurnDetectionMode = TurnDetectionMode.VAD
 
     def __post_init__(self) -> None:
         if self.model is not _UNSET and self.operating_point is not None:  # type: ignore[unreachable]
@@ -182,24 +206,12 @@ class TranscriptionConfig(RTTranscriptionConfig):
         Convert to the wire form of `StartRecognition.transcription_config`.
 
         Returns:
-            The config as a dict, excluding None values. `turn_detection_mode` is dropped
-            here because it travels in `StartRecognition.turn_config`, a sibling of the
-            transcription config rather than a member of it.
+            The config as a dict, excluding None values.
         """
         result: dict[str, Any] = super().to_dict()
         if self.model is _UNSET:
             result.pop("model", None)
-        result.pop("turn_detection_mode", None)
         return result
-
-    def turn_config(self) -> dict[str, Any]:
-        """
-        Convert to the wire form of `StartRecognition.turn_config`.
-
-        Returns:
-            The turn-taking config the service reads. The VAD itself is not tunable from here.
-        """
-        return {"turn_detection_mode": self.turn_detection_mode.value}
 
 
 @dataclass

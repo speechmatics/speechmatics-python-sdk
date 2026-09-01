@@ -17,6 +17,7 @@ from typing import Optional
 from speechmatics.agent_stt import AgentSttAsyncClient
 from speechmatics.agent_stt import ServerMessageType
 from speechmatics.agent_stt import TranscriptionConfig
+from speechmatics.agent_stt import TurnConfig
 from speechmatics.agent_stt import TurnDetectionMode
 
 DEFAULT_AUDIO_FILE = "./tests/voice/assets/audio_01_16kHz.wav"
@@ -74,11 +75,11 @@ def build_client(args: argparse.Namespace, clock: Clock) -> AgentSttAsyncClient:
     config = TranscriptionConfig(
         language=args.language,
         enable_partials=not args.no_partials,
-        turn_detection_mode=TurnDetectionMode(args.turn_detection),
     )
+    turn_config = TurnConfig(turn_detection_mode=TurnDetectionMode(args.turn_detection))
 
     # Uses SPEECHMATICS_API_KEY, and SPEECHMATICS_RT_URL to point at a local service
-    client = AgentSttAsyncClient(config=config)
+    client = AgentSttAsyncClient(config=config, turn_config=turn_config)
 
     @client.on(ServerMessageType.ADD_PARTIAL_SEGMENT)
     def handle_partial_segment(message):

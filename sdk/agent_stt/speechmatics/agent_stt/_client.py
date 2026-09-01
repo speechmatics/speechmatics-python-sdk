@@ -26,7 +26,7 @@ from ._models import ServerMessageType
 from ._models import SessionInfo
 from ._models import TimedEvent
 from ._models import TranscriptionConfig
-from ._models import TurnDetectionMode
+from ._models import TurnConfig
 from ._transcript import Transcript
 from ._url import resolve_url
 from ._version import get_version
@@ -55,6 +55,7 @@ class AgentSttAsyncClient(RTAsyncClient):
         app: Application name reported to the service as `sm-app`.
         config: Transcription config for the session, normally an
             `agent_stt.TranscriptionConfig`.
+        turn_config: Turn-taking config for the session. Defaults to the service's VAD.
         audio_format: Audio format. Defaults to 16 kHz signed 16-bit PCM, which is what the
             service requires.
         conn_config: WebSocket connection configuration.
@@ -70,8 +71,8 @@ class AgentSttAsyncClient(RTAsyncClient):
             >>> print(client.transcript)
 
         External endpointing (Pipecat, LiveKit):
-            >>> config = TranscriptionConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL)
-            >>> client = AgentSttAsyncClient(api_key="your-key", config=config)
+            >>> turn_config = TurnConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL)
+            >>> client = AgentSttAsyncClient(api_key="your-key", turn_config=turn_config)
             >>> await client.connect()
             >>> await client.send_audio(frame)
             >>> client.finalize()  # on the application's own end-of-speech signal
@@ -85,6 +86,7 @@ class AgentSttAsyncClient(RTAsyncClient):
         url: Optional[str] = None,
         app: Optional[str] = None,
         config: Optional[RTTranscriptionConfig] = None,
+        turn_config: Optional[TurnConfig] = None,
         audio_format: Optional[AudioFormat] = None,
         conn_config: Optional[ConnectionConfig] = None,
         record_events: bool = True,
@@ -100,6 +102,7 @@ class AgentSttAsyncClient(RTAsyncClient):
         self._logger = get_logger("speechmatics.agent_stt.client")
 
         self._config: RTTranscriptionConfig = config or TranscriptionConfig()
+        self._turn_config = turn_config or TurnConfig()
         self._audio_format = audio_format or AudioFormat(
             encoding=AudioEncoding.PCM_S16LE,
             sample_rate=DEFAULT_SAMPLE_RATE,
@@ -167,14 +170,8 @@ class AgentSttAsyncClient(RTAsyncClient):
             message: The message to send.
         """
         if message.get("message") == ClientMessageType.START_RECOGNITION:
-            message = {**message, "turn_config": self._turn_config()}
+            message = {**message, "turn_config": self._turn_config.to_dict()}
         await super().send_message(message)
-
-    def _turn_config(self) -> dict[str, Any]:
-        """The session's turn-taking config; a plain RT config means the service's VAD."""
-        if isinstance(self._config, TranscriptionConfig):
-            return self._config.turn_config()
-        return {"turn_detection_mode": TurnDetectionMode.VAD.value}
 
     async def disconnect(self) -> None:
         """
@@ -210,18 +207,19 @@ class AgentSttAsyncClient(RTAsyncClient):
         self,
         *,
         transcription_config: Optional[RTTranscriptionConfig] = None,
+        turn_config: Optional[TurnConfig] = None,
         audio_format: Optional[AudioFormat] = None,
         ws_headers: Optional[dict] = None,
     ) -> None:
         """
-        Start the session, defaulting to the config this client was built with.
+        Start the session, defaulting to the configs this client was built with.
 
-        A config passed here replaces the client's own, so everything derived from it - the
-        `turn_config` attached to StartRecognition included - describes the session actually
-        being started.
+        A config passed here replaces the client's own, so what reaches the service describes
+        the session actually being started.
 
         Args:
             transcription_config: Transcription config for the session.
+            turn_config: Turn-taking config for the session.
             audio_format: Audio format. Must be 16 kHz raw PCM for the Agent STT service.
             ws_headers: Additional WebSocket handshake headers.
 
@@ -231,6 +229,8 @@ class AgentSttAsyncClient(RTAsyncClient):
         """
         if transcription_config is not None:
             self._config = transcription_config
+        if turn_config is not None:
+            self._turn_config = turn_config
         if audio_format is not None:
             self._audio_format = audio_format
 
@@ -327,6 +327,7 @@ class AgentSttAsyncClient(RTAsyncClient):
         source: BinaryIO,
         *,
         transcription_config: Optional[RTTranscriptionConfig] = None,
+        turn_config: Optional[TurnConfig] = None,
         audio_format: Optional[AudioFormat] = None,
         ws_headers: Optional[dict] = None,
         timeout: Optional[float] = None,
@@ -338,6 +339,7 @@ class AgentSttAsyncClient(RTAsyncClient):
             source: Audio source with a `read()` method, holding raw PCM in the session's
                 audio format.
             transcription_config: Transcription config for the session.
+            turn_config: Turn-taking config for the session.
             audio_format: Audio format. Must be 16 kHz raw PCM for the Agent STT service.
             ws_headers: Additional WebSocket handshake headers.
             timeout: Maximum time in seconds to wait for the stream to finish.
@@ -353,12 +355,15 @@ class AgentSttAsyncClient(RTAsyncClient):
         """
         if transcription_config is not None:
             self._config = transcription_config
+        if turn_config is not None:
+            self._turn_config = turn_config
         if audio_format is not None:
             self._audio_format = audio_format
 
         if not self._is_connected:
             await self.start_session(
                 transcription_config=self._config,
+                turn_config=self._turn_config,
                 audio_format=self._audio_format,
                 ws_headers=ws_headers,
             )

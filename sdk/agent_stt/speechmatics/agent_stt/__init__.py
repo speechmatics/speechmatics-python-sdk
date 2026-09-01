@@ -48,6 +48,7 @@ from ._models import ServerMessageType
 from ._models import SessionInfo
 from ._models import TimedEvent
 from ._models import TranscriptionConfig
+from ._models import TurnConfig
 from ._models import TurnDetectionMode
 from ._transcript import Transcript
 from ._url import resolve_url
@@ -70,6 +71,7 @@ __all__ = [
     "SpeakerDiarizationConfig",
     "SpeakerIdentifier",
     "TranscriptionConfig",
+    "TurnConfig",
     "TurnDetectionMode",
     "Model",
     # Auth
