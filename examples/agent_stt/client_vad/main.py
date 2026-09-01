@@ -29,12 +29,14 @@ async def main(path: str) -> None:
     turn_config = TurnConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL)
 
     # Uses SPEECHMATICS_API_KEY from the environment
-    async with AgentSttAsyncClient(config=config, turn_config=turn_config) as client:
+    client = AgentSttAsyncClient(config=config, turn_config=turn_config)
 
-        @client.on(ServerMessageType.ADD_SEGMENT)
-        def handle_segment(message):
-            print(f"[final] {message['segment']['transcript']}")
+    # Registered before the session opens, so no message can arrive unhandled
+    @client.on(ServerMessageType.ADD_SEGMENT)
+    def handle_segment(message):
+        print(f"[final] {message['segment']['transcript']}")
 
+    async with client:
         with wave.open(path, "rb") as wav:
             if wav.getframerate() != 16000:
                 print(f"{path} is {wav.getframerate()} Hz; the Agent STT service needs 16 kHz audio")

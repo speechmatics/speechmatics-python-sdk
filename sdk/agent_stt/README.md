@@ -19,11 +19,14 @@ from speechmatics.agent_stt import AgentSttAsyncClient, ServerMessageType, Trans
 
 async def main():
     # Uses SPEECHMATICS_API_KEY from the environment
-    async with AgentSttAsyncClient(config=TranscriptionConfig(language="en", enable_partials=True)) as client:
-        @client.on(ServerMessageType.ADD_SEGMENT)
-        def handle_segment(message):
-            print(message["segment"]["transcript"])
+    client = AgentSttAsyncClient(config=TranscriptionConfig(language="en", enable_partials=True))
 
+    # Register handlers before opening the session, so no message can arrive unhandled
+    @client.on(ServerMessageType.ADD_SEGMENT)
+    def handle_segment(message):
+        print(message["segment"]["transcript"])
+
+    async with client:
         while chunk := next_audio_chunk():
             await client.send_audio(chunk)
 

@@ -26,21 +26,23 @@ async def main() -> None:
     config = TranscriptionConfig(language="en", enable_partials=True, diarization="speaker")
 
     # Uses SPEECHMATICS_API_KEY from the environment
-    async with AgentSttAsyncClient(config=config) as client:
+    client = AgentSttAsyncClient(config=config)
 
-        @client.on(ServerMessageType.ADD_PARTIAL_SEGMENT)
-        def handle_partial_segment(message):
-            print(f"[partial] {message['segment']['transcript']}")
+    # Registered before the session opens, so no message can arrive unhandled
+    @client.on(ServerMessageType.ADD_PARTIAL_SEGMENT)
+    def handle_partial_segment(message):
+        print(f"[partial] {message['segment']['transcript']}")
 
-        @client.on(ServerMessageType.ADD_SEGMENT)
-        def handle_segment(message):
-            speaker = message["segment"].get("speaker", "?")
-            print(f"[final]   {speaker}: {message['segment']['transcript']}")
+    @client.on(ServerMessageType.ADD_SEGMENT)
+    def handle_segment(message):
+        speaker = message["segment"].get("speaker", "?")
+        print(f"[final]   {speaker}: {message['segment']['transcript']}")
 
-        @client.on(ServerMessageType.END_OF_TURN)
-        def handle_end_of_turn(message):
-            print(f"[turn]    end at {message['metadata']['end_time']}s")
+    @client.on(ServerMessageType.END_OF_TURN)
+    def handle_end_of_turn(message):
+        print(f"[turn]    end at {message['metadata']['end_time']}s")
 
+    async with client:
         print("\nMicrophone ready - speak now (Ctrl+C to stop)\n")
 
         try:

@@ -63,10 +63,11 @@ class AgentSttAsyncClient(RTAsyncClient):
 
     Examples:
         Service VAD, transcript at the end:
-            >>> async with AgentSttAsyncClient(api_key="your-key") as client:
-            ...     @client.on(ServerMessageType.ADD_SEGMENT)
-            ...     def handle_segment(message):
-            ...         print(message["segment"]["transcript"])
+            >>> client = AgentSttAsyncClient(api_key="your-key")
+            >>> @client.on(ServerMessageType.ADD_SEGMENT)
+            ... def handle_segment(message):
+            ...     print(message["segment"]["transcript"])
+            >>> async with client:
             ...     await client.send_audio(frame)
             >>> print(client.transcript)
 
