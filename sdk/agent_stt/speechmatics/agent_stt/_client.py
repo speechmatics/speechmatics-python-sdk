@@ -115,6 +115,7 @@ class AgentSttAsyncClient(RTAsyncClient):
 
         self._is_connected = False
         self._is_ready_for_audio = False
+        self._session_error: Optional[str] = None
         self._finalize_sent_at: Optional[float] = None
         self._last_finalize_latency = 0.0
 
@@ -123,6 +124,7 @@ class AgentSttAsyncClient(RTAsyncClient):
     def _register_handlers(self) -> None:
         """Track session state and accumulate segments, leaving all messages for the application."""
         self.on(ServerMessageType.RECOGNITION_STARTED, self._on_session_started)
+        self.on(ServerMessageType.ERROR, self._on_session_error)
         self.on(ServerMessageType.ADD_SEGMENT, self._on_segment)
         self.on(ServerMessageType.ADD_PARTIAL_SEGMENT, self._on_segment)
         for message_type in TIMED_MESSAGES:
@@ -426,6 +428,11 @@ class AgentSttAsyncClient(RTAsyncClient):
         return self._is_ready_for_audio
 
     @property
+    def session_error(self) -> Optional[str]:
+        """The reason the service gave for ending the session, or None while it is healthy."""
+        return self._session_error
+
+    @property
     def last_finalize_latency(self) -> float:
         """Seconds between the last `finalize()` and the segment it flushed."""
         return self._last_finalize_latency
@@ -464,7 +471,14 @@ class AgentSttAsyncClient(RTAsyncClient):
         self._session_info.session_id = message.get("id")
         self._session_info.language_pack_info = LanguagePackInfo.from_dict(message.get("language_pack_info") or {})
         self._transcript.set_delimiter(self._session_info.language_pack_info.word_delimiter)
+        self._session_error = None
         self._is_ready_for_audio = True
+
+    def _on_session_error(self, message: dict[str, Any]) -> None:
+        """Record the reason and shut the audio gate: the service has ended the session."""
+        self._session_error = message.get("reason", "unknown")
+        self._is_ready_for_audio = False
+        self._is_connected = False
 
     def _on_segment(self, message: dict[str, Any]) -> None:
         """Accumulate a final segment, or refresh the live partial."""

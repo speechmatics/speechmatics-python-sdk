@@ -268,6 +268,29 @@ async def test_start_session_turn_config_wins_over_the_constructor(client, monke
     assert transport.messages[0]["turn_config"] == {"turn_detection_mode": "vad"}
 
 
+def test_server_error_closes_the_audio_gate_and_is_readable(client):
+    """A dead session must stop looking healthy, so a send loop has something to break on."""
+    start_session(client)
+    client._is_connected = True
+    assert client.is_ready_for_audio and client.session_error is None
+
+    client.emit(ServerMessageType.ERROR, {"message": ServerMessageType.ERROR, "reason": "internal error"})
+
+    assert client.session_error == "internal error"
+    assert not client.is_ready_for_audio
+    assert not client.is_connected
+
+
+@pytest.mark.asyncio
+async def test_audio_is_dropped_once_the_service_has_errored(client):
+    transport = start_session(client)
+    client.emit(ServerMessageType.ERROR, {"message": ServerMessageType.ERROR, "reason": "internal error"})
+
+    await client.send_audio(b"\x00" * 64)
+
+    assert transport.audio == []
+
+
 @pytest.mark.asyncio
 async def test_reset_transcript(client):
     start_session(client)
