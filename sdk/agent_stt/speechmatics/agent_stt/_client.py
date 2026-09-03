@@ -157,6 +157,7 @@ class AgentSttAsyncClient(RTAsyncClient):
 
         await self.start_session(
             transcription_config=self._transcription_config,
+            turn_config=self._turn_config,
             audio_format=self._audio_format,
             ws_headers=ws_headers,
         )
