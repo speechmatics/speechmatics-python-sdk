@@ -1,13 +1,13 @@
 # Makefile for Speechmatics Python SDKs
 
 .PHONY: help
-.PHONY: test-all test-rt test-batch test-flow test-tts test-voice
-.PHONY: format-all format-rt format-batch format-flow format-tts format-voice
-.PHONY: lint-all lint-rt lint-batch lint-flow lint-tts lint-voice
-.PHONY: type-check-all type-check-rt type-check-batch type-check-flow type-check-tts type-check-voice
-.PHONY: build-all build-rt build-batch build-flow build-tts build-voice
-.PHONY: clean-all clean-rt clean-batch clean-flow clean-tts clean-voice
-.PHONY: install-dev install-dev-rt install-dev-batch install-dev-flow install-dev-tts install-dev-voice
+.PHONY: test-all test-rt test-batch test-agent-stt test-flow test-tts test-voice
+.PHONY: format-all format-rt format-batch format-agent-stt format-flow format-tts format-voice
+.PHONY: lint-all lint-rt lint-batch lint-agent-stt lint-flow lint-tts lint-voice
+.PHONY: type-check-all type-check-rt type-check-batch type-check-agent-stt type-check-flow type-check-tts type-check-voice
+.PHONY: build-all build-rt build-batch build-agent-stt build-flow build-tts build-voice
+.PHONY: clean-all clean-rt clean-batch clean-agent-stt clean-flow clean-tts clean-voice
+.PHONY: install-dev install-dev-rt install-dev-batch install-dev-agent-stt install-dev-flow install-dev-tts install-dev-voice
 
 
 help:
@@ -17,6 +17,7 @@ help:
 	@echo "  test-all          Run tests for all SDKs"
 	@echo "  test-rt           Run tests for RT SDK"
 	@echo "  test-batch        Run tests for Batch SDK"
+	@echo "  test-agent-stt    Run tests for Agent STT SDK"
 	@echo "  test-flow         Run tests for Flow SDK"
 	@echo "  test-tts          Run tests for TTS SDK"
 	@echo "  test-voice        Run tests for Voice Agent SDK"
@@ -25,6 +26,7 @@ help:
 	@echo "  format-all        Auto-fix formatting for all SDKs"
 	@echo "  format-rt         Auto-fix formatting for RT SDK"
 	@echo "  format-batch      Auto-fix formatting for Batch SDK"
+	@echo "  format-agent-stt  Auto-fix formatting for Agent STT SDK"
 	@echo "  format-flow       Auto-fix formatting for Flow SDK"
 	@echo "  format-tts        Auto-fix formatting for TTS SDK"
 	@echo "  format-voice      Auto-fix formatting for Voice Agent SDK"
@@ -33,6 +35,7 @@ help:
 	@echo "  lint-all          Run linting for all SDKs"
 	@echo "  lint-rt           Run linting for RT SDK"
 	@echo "  lint-batch        Run linting for Batch SDK"
+	@echo "  lint-agent-stt    Run linting for Agent STT SDK"
 	@echo "  lint-flow         Run linting for Flow SDK"
 	@echo "  lint-tts          Run linting for TTS SDK"
 	@echo "  lint-voice        Run linting for Voice Agent SDK"
@@ -41,6 +44,7 @@ help:
 	@echo "  type-check-all    Run type checking for all SDKs"
 	@echo "  type-check-rt     Run type checking for RT SDK"
 	@echo "  type-check-batch  Run type checking for Batch SDK"
+	@echo "  type-check-agent-stt Run type checking for Agent STT SDK"
 	@echo "  type-check-flow   Run type checking for Flow SDK"
 	@echo "  type-check-tts    Run type checking for TTS SDK"
 	@echo "  type-check-voice  Run type checking for Voice Agent SDK"
@@ -49,6 +53,7 @@ help:
 	@echo "  build-all         Build all SDKs"
 	@echo "  build-rt          Build RT SDK"
 	@echo "  build-batch       Build Batch SDK"
+	@echo "  build-agent-stt   Build Agent STT SDK"
 	@echo "  build-flow        Build Flow SDK"
 	@echo "  build-tts         Build TTS SDK"
 	@echo "  build-voice       Build Voice Agent SDK"
@@ -57,18 +62,22 @@ help:
 	@echo "  clean-all         Clean all SDKs"
 	@echo "  clean-rt          Clean RT SDK build artifacts"
 	@echo "  clean-batch       Clean Batch SDK build artifacts"
+	@echo "  clean-agent-stt   Clean Agent STT SDK build artifacts"
 	@echo "  clean-flow        Clean Flow SDK build artifacts"
 	@echo "  clean-tts         Clean TTS SDK build artifacts"
 	@echo "  clean-voice       Clean Voice Agent SDK build artifacts"
 	@echo ""
 
 # Testing targets
-test-all: test-rt test-batch test-flow test-tts test-voice
+test-all: test-rt test-batch test-agent-stt test-flow test-tts test-voice
 test-rt:
 	pytest tests/rt/ -v -s
 
 test-batch:
 	pytest tests/batch/ -v -s
+
+test-agent-stt:
+	pytest tests/agent_stt/ -v -s
 
 test-flow:
 	pytest tests/flow/ -v -s
@@ -80,7 +89,7 @@ test-voice:
 	pytest tests/voice/ -v -s
 
 # Formatting targets
-format-all: format-rt format-batch format-flow format-tts format-voice format-tests format-examples
+format-all: format-rt format-batch format-agent-stt format-flow format-tts format-voice format-tests format-examples
 
 format-rt:
 	cd sdk/rt/speechmatics && black .
@@ -89,6 +98,10 @@ format-rt:
 format-batch:
 	cd sdk/batch/speechmatics && black .
 	cd sdk/batch/speechmatics && ruff check --fix .
+
+format-agent-stt:
+	cd sdk/agent_stt/speechmatics && black .
+	cd sdk/agent_stt/speechmatics && ruff check --fix .
 
 format-flow:
 	cd sdk/flow/speechmatics && black .
@@ -111,13 +124,16 @@ format-examples:
 	cd examples && ruff check --fix .
 
 # Linting targets
-lint-all: lint-rt lint-batch lint-flow lint-tts lint-voice
+lint-all: lint-rt lint-batch lint-agent-stt lint-flow lint-tts lint-voice
 
 lint-rt:
 	cd sdk/rt/speechmatics && ruff check .
 
 lint-batch:
 	cd sdk/batch/speechmatics && ruff check .
+
+lint-agent-stt:
+	cd sdk/agent_stt/speechmatics && ruff check .
 
 lint-flow:
 	cd sdk/flow/speechmatics && ruff check .
@@ -129,12 +145,15 @@ lint-voice:
 	cd sdk/voice/speechmatics && ruff check .
 
 # Type checking targets
-type-check-all: type-check-rt type-check-batch type-check-flow type-check-tts type-check-voice
+type-check-all: type-check-rt type-check-batch type-check-agent-stt type-check-flow type-check-tts type-check-voice
 type-check-rt:
 	cd sdk/rt/speechmatics && mypy .
 
 type-check-batch:
 	cd sdk/batch/speechmatics && mypy .
+
+type-check-agent-stt:
+	cd sdk/agent_stt/speechmatics && mypy .
 
 type-check-flow:
 	cd sdk/flow/speechmatics && mypy .
@@ -151,7 +170,7 @@ type-check-voice:
 # never satisfies that, so pip silently replaces the editable rt install with a published
 # PyPI wheel the moment voice[dev] installs after it. rt must always be the LAST install
 # in any sequence that also installs voice, so the local editable copy is what's left active.
-install-dev: install-dev-batch install-dev-flow install-dev-tts install-dev-voice install-dev-rt
+install-dev: install-dev-batch install-dev-agent-stt install-dev-flow install-dev-tts install-dev-voice install-dev-rt
 
 install-dev-rt:
 	python -m pip install --upgrade pip
@@ -160,6 +179,11 @@ install-dev-rt:
 install-dev-batch:
 	python -m pip install --upgrade pip
 	python -m pip install -e sdk/batch[dev]
+
+install-dev-agent-stt:
+	python -m pip install --upgrade pip
+	python -m pip install -e sdk/agent_stt[dev]
+	python -m pip install -e sdk/rt
 
 install-dev-flow:
 	python -m pip install --upgrade pip
@@ -178,13 +202,16 @@ install-build:
 	python -m pip install --upgrade build
 
 # Building targets
-build-all: build-rt build-batch build-flow build-tts build-voice
+build-all: build-rt build-batch build-agent-stt build-flow build-tts build-voice
 
 build-rt: install-build
 	cd sdk/rt && python -m build
 
 build-batch: install-build
 	cd sdk/batch && python -m build
+
+build-agent-stt: install-build
+	cd sdk/agent_stt && python -m build
 
 build-flow: install-build
 	cd sdk/flow && python -m build
@@ -196,7 +223,7 @@ build-voice: install-build
 	cd sdk/voice && python -m build
 
 # Cleaning targets
-clean-all: clean-rt clean-batch clean-flow clean-tts clean-voice clean-test clean-examples
+clean-all: clean-rt clean-batch clean-agent-stt clean-flow clean-tts clean-voice clean-test clean-examples
 clean-rt:
 	rm -rf sdk/rt/dist sdk/rt/build sdk/rt/*.egg-info
 	find sdk/rt -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
@@ -204,6 +231,10 @@ clean-rt:
 clean-batch:
 	rm -rf sdk/batch/dist sdk/batch/build sdk/batch/*.egg-info
 	find sdk/batch -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+
+clean-agent-stt:
+	rm -rf sdk/agent_stt/dist sdk/agent_stt/build sdk/agent_stt/*.egg-info
+	find sdk/agent_stt -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 
 clean-flow:
 	rm -rf sdk/flow/dist sdk/flow/build sdk/flow/*.egg-info

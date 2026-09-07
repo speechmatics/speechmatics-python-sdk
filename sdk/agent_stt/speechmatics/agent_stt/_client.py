@@ -1,0 +1,507 @@
+from __future__ import annotations
+
+import asyncio
+import time
+from typing import Any
+from typing import BinaryIO
+from typing import Optional
+
+from speechmatics.rt import AsyncClient as RTAsyncClient
+from speechmatics.rt import AudioEncoding
+from speechmatics.rt import AudioFormat
+from speechmatics.rt import AuthBase
+from speechmatics.rt import ConnectionConfig
+from speechmatics.rt import TimeoutError as RTTimeoutError
+from speechmatics.rt import TranscriptionConfig as RTTranscriptionConfig
+from speechmatics.rt import TransportError
+
+from ._logging import get_logger
+from ._models import DEFAULT_CHUNK_SIZE
+from ._models import DEFAULT_SAMPLE_RATE
+from ._models import TIMED_MESSAGES
+from ._models import ClientMessageType
+from ._models import LanguagePackInfo
+from ._models import Segment
+from ._models import ServerMessageType
+from ._models import SessionInfo
+from ._models import TimedEvent
+from ._models import TranscriptionConfig
+from ._models import TurnConfig
+from ._transcript import Transcript
+from ._url import resolve_url
+from ._version import get_version
+
+_UNSET = object()
+
+DISCONNECT_TIMEOUT_S = 5.0
+
+
+class AgentSttAsyncClient(RTAsyncClient):
+    """
+    Asynchronous client for the Speechmatics Agent STT service.
+
+    Extends the RT client to talk to the Agent STT endpoint (`/agent`), which works in
+    segments rather than word groups and reports speech and turn events. The client runs no
+    VAD and no turn detection of its own: either the service's VAD closes turns
+    (`TurnDetectionMode.VAD`) or the application's does, by calling `finalize()`
+    (`TurnDetectionMode.EXTERNAL`).
+
+    Args:
+        auth: Authentication instance. Defaults to `StaticKeyAuth` built from `api_key` or the
+            `SPEECHMATICS_API_KEY` environment variable.
+        api_key: Speechmatics API key, used when `auth` is not given.
+        url: WebSocket endpoint. Defaults to `SPEECHMATICS_RT_URL`, then the EU endpoint.
+            An `/agent` segment is appended if absent.
+        app: Application name reported to the service as `sm-app`.
+        transcription_config: Transcription config for the session, normally an
+            `agent_stt.TranscriptionConfig`.
+        turn_config: Turn-taking config for the session. Defaults to the service's VAD.
+        audio_format: Audio format. Defaults to 16 kHz signed 16-bit PCM, which is what the
+            service requires.
+        conn_config: WebSocket connection configuration.
+        record_events: Whether to keep every raw server message in `events`.
+
+    Examples:
+        Service VAD, transcript at the end:
+            >>> client = AgentSttAsyncClient(api_key="your-key")
+            >>> @client.on(ServerMessageType.ADD_SEGMENT)
+            ... def handle_segment(message):
+            ...     print(message["segment"]["transcript"])
+            >>> async with client:
+            ...     await client.send_audio(frame)
+            >>> print(client.transcript)
+
+        External endpointing (Pipecat, LiveKit):
+            >>> turn_config = TurnConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL)
+            >>> client = AgentSttAsyncClient(api_key="your-key", turn_config=turn_config)
+            >>> await client.connect()
+            >>> await client.send_audio(frame)
+            >>> client.finalize()  # on the application's own end-of-speech signal
+    """
+
+    def __init__(
+        self,
+        auth: Optional[AuthBase] = None,
+        *,
+        api_key: Optional[str] = None,
+        url: Optional[str] = None,
+        app: Optional[str] = None,
+        transcription_config: Optional[RTTranscriptionConfig] = None,
+        turn_config: Optional[TurnConfig] = None,
+        audio_format: Optional[AudioFormat] = None,
+        conn_config: Optional[ConnectionConfig] = None,
+        record_events: bool = True,
+    ) -> None:
+        super().__init__(
+            auth,
+            api_key=api_key,
+            url=resolve_url(url, app=app),
+            conn_config=conn_config,
+            sdk_identifier=f"python-agent-stt-sdk-v{get_version()}",
+        )
+
+        self._logger = get_logger("speechmatics.agent_stt.client")
+
+        self._transcription_config: RTTranscriptionConfig = transcription_config or TranscriptionConfig()
+        self._turn_config = turn_config or TurnConfig()
+        self._audio_format = audio_format or AudioFormat(
+            encoding=AudioEncoding.PCM_S16LE,
+            sample_rate=DEFAULT_SAMPLE_RATE,
+            chunk_size=DEFAULT_CHUNK_SIZE,
+        )
+
+        self._session_info = SessionInfo(request_id=self._session.request_id)
+        self._transcript = Transcript(record_events=record_events)
+
+        self._is_connected = False
+        self._is_ready_for_audio = False
+        self._session_error: Optional[str] = None
+        self._finalize_sent_at: Optional[float] = None
+        self._last_finalize_latency = 0.0
+
+        self._register_handlers()
+
+    def _register_handlers(self) -> None:
+        """Track session state and accumulate segments, leaving all messages for the application."""
+        self.on(ServerMessageType.RECOGNITION_STARTED, self._on_session_started)
+        self.on(ServerMessageType.ERROR, self._on_session_error)
+        self.on(ServerMessageType.ADD_SEGMENT, self._on_segment)
+        self.on(ServerMessageType.ADD_PARTIAL_SEGMENT, self._on_segment)
+        for message_type in TIMED_MESSAGES:
+            self.on(message_type, self._on_timed_event)
+
+    # ==========================================================================
+    # Session lifecycle
+    # ==========================================================================
+
+    async def connect(self, ws_headers: Optional[dict] = None) -> None:
+        """
+        Open the session and wait until the service is ready for audio.
+
+        Audio sent before this returns is dropped, so callers do not have to sequence the
+        handshake themselves.
+
+        Args:
+            ws_headers: Additional WebSocket handshake headers.
+
+        Raises:
+            ConnectionError: If the WebSocket connection fails.
+            TimeoutError: If the service does not accept the session in time.
+
+        Examples:
+            >>> client = AgentSttAsyncClient(api_key="your-key")
+            >>> await client.connect()
+        """
+        if self._is_connected:
+            return
+
+        await self.start_session(
+            transcription_config=self._transcription_config,
+            turn_config=self._turn_config,
+            audio_format=self._audio_format,
+            ws_headers=ws_headers,
+        )
+        self._is_connected = True
+
+    async def send_message(self, message: dict[str, Any]) -> None:
+        """
+        Send a message, attaching `turn_config` to StartRecognition.
+
+        The Agent STT spec puts `turn_config` beside `transcription_config` rather than
+        inside it, and the RT client that builds StartRecognition knows nothing about it.
+
+        Args:
+            message: The message to send.
+        """
+        if message.get("message") == ClientMessageType.START_RECOGNITION:
+            message = {**message, "turn_config": self._turn_config.to_dict()}
+        await super().send_message(message)
+
+    async def disconnect(self) -> None:
+        """
+        Close the session, flushing whatever the service still holds.
+
+        Examples:
+            >>> await client.disconnect()
+            >>> print(client.transcript)
+        """
+        if not self._is_connected:
+            await self.close()
+            return
+
+        self._is_ready_for_audio = False
+        try:
+            await asyncio.wait_for(self.stop_session(), timeout=DISCONNECT_TIMEOUT_S)
+        except Exception as e:
+            self._logger.warning("Error closing session: %s", e)
+            await self.close()
+        finally:
+            self._is_connected = False
+
+    async def __aenter__(self) -> AgentSttAsyncClient:
+        """Open the session on entry."""
+        await self.connect()
+        return self
+
+    async def __aexit__(self, *args: Any) -> None:
+        """Close the session on exit."""
+        await self.disconnect()
+
+    async def start_session(
+        self,
+        *,
+        transcription_config: Optional[RTTranscriptionConfig] = None,
+        turn_config: Optional[TurnConfig] = None,
+        audio_format: Optional[AudioFormat] = None,
+        ws_headers: Optional[dict] = None,
+    ) -> None:
+        """
+        Start the session, defaulting to the configs this client was built with.
+
+        Either config passed here replaces the client's own, so what reaches the service
+        describes the session actually being started.
+
+        Args:
+            transcription_config: Transcription config for the session.
+            turn_config: Turn-taking config for the session.
+            audio_format: Audio format. Must be 16 kHz raw PCM for the Agent STT service.
+            ws_headers: Additional WebSocket handshake headers.
+
+        Raises:
+            ConnectionError: If the WebSocket connection fails.
+            TimeoutError: If the service does not accept the session in time.
+        """
+        if transcription_config is not None:
+            self._transcription_config = transcription_config
+        if turn_config is not None:
+            self._turn_config = turn_config
+        if audio_format is not None:
+            self._audio_format = audio_format
+
+        await super().start_session(
+            transcription_config=self._transcription_config,
+            audio_format=self._audio_format,
+            ws_headers=ws_headers,
+        )
+
+    # ==========================================================================
+    # Audio and turn control
+    # ==========================================================================
+
+    async def send_audio(self, payload: bytes) -> None:
+        """
+        Send an audio frame.
+
+        Frames sent before the session is ready, or after it has closed, are dropped rather
+        than raising, so an audio callback does not have to track session state.
+
+        Args:
+            payload: Raw audio bytes in the session's audio format.
+
+        Examples:
+            >>> await client.send_audio(frame)
+        """
+        if not self._is_ready_for_audio:
+            return
+
+        try:
+            await super().send_audio(payload)
+        except TransportError as e:
+            self._logger.warning("Error sending audio: %s", e)
+            self._is_ready_for_audio = False
+
+    def finalize(self, *, timestamp: Optional[float] | object = _UNSET) -> None:
+        """
+        Close the current turn now, from a synchronous context.
+
+        Sends ForceEndOfUtterance stamped with the audio timestamp at the moment of the call,
+        so the service closes the turn where the application's VAD detected the end of speech
+        rather than wherever the send happens to land. The flushed segment arrives as a normal
+        AddSegment message.
+
+        Use this when the application brings its own VAD (`TurnDetectionMode.EXTERNAL`); with
+        `TurnDetectionMode.VAD` the service closes turns itself.
+
+        Args:
+            timestamp: Audio timestamp in seconds for the end of the utterance. Defaults to
+                the amount of audio sent so far. Pass None to send no timestamp.
+
+        Examples:
+            >>> client.finalize()
+        """
+        resolved = self.audio_seconds_sent if timestamp is _UNSET else timestamp
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            self._logger.warning("finalize() needs a running event loop; use force_end_of_utterance()")
+            return
+        loop.create_task(self._send_force_end_of_utterance(resolved))
+
+    async def force_end_of_utterance(self, *, timestamp: Optional[float] | object = _UNSET) -> None:
+        """
+        Close the current turn now, awaiting the send.
+
+        The awaitable form of `finalize()`.
+
+        Args:
+            timestamp: Audio timestamp in seconds for the end of the utterance. Defaults to
+                the amount of audio sent so far. Pass None to send no timestamp.
+
+        Examples:
+            >>> await client.force_end_of_utterance()
+        """
+        resolved = self.audio_seconds_sent if timestamp is _UNSET else timestamp
+        await self._send_force_end_of_utterance(resolved)
+
+    async def _send_force_end_of_utterance(self, timestamp: Optional[float] | object) -> None:
+        """Send ForceEndOfUtterance, including the timestamp unless it is None."""
+        message: dict[str, Any] = {"message": ClientMessageType.FORCE_END_OF_UTTERANCE}
+        if timestamp is not None:
+            message["timestamp"] = timestamp
+
+        try:
+            await self.send_message(message)
+        except TransportError as e:
+            self._logger.warning("Error sending %s: %s", ClientMessageType.FORCE_END_OF_UTTERANCE, e)
+            return
+        self._finalize_sent_at = time.perf_counter()
+
+    async def transcribe(
+        self,
+        source: BinaryIO,
+        *,
+        transcription_config: Optional[RTTranscriptionConfig] = None,
+        turn_config: Optional[TurnConfig] = None,
+        audio_format: Optional[AudioFormat] = None,
+        ws_headers: Optional[dict] = None,
+        timeout: Optional[float] = None,
+    ) -> None:
+        """
+        Stream an audio source to the end, then close the session.
+
+        Args:
+            source: Audio source with a `read()` method, holding raw PCM in the session's
+                audio format.
+            transcription_config: Transcription config for the session.
+            turn_config: Turn-taking config for the session.
+            audio_format: Audio format. Must be 16 kHz raw PCM for the Agent STT service.
+            ws_headers: Additional WebSocket handshake headers.
+            timeout: Maximum time in seconds to wait for the stream to finish.
+
+        Raises:
+            TimeoutError: If streaming exceeds the timeout.
+            TranscriptionError: If the service reports an error.
+
+        Examples:
+            >>> with open("speech.raw", "rb") as audio:
+            ...     await client.transcribe(audio)
+            >>> print(client.transcript)
+        """
+        if transcription_config is not None:
+            self._transcription_config = transcription_config
+        if turn_config is not None:
+            self._turn_config = turn_config
+        if audio_format is not None:
+            self._audio_format = audio_format
+
+        if not self._is_connected:
+            await self.start_session(
+                transcription_config=self._transcription_config,
+                turn_config=self._turn_config,
+                audio_format=self._audio_format,
+                ws_headers=ws_headers,
+            )
+            self._is_connected = True
+
+        try:
+            await asyncio.wait_for(
+                self._audio_producer(source, self._audio_format.chunk_size),
+                timeout=timeout,
+            )
+        except asyncio.TimeoutError as exc:
+            raise RTTimeoutError("Agent STT session timed out") from exc
+        finally:
+            self._is_connected = False
+            self._is_ready_for_audio = False
+
+    # ==========================================================================
+    # Session output
+    # ==========================================================================
+
+    @property
+    def transcript(self) -> str:
+        """The final segments received so far, joined by the language's word delimiter."""
+        return self._transcript.text()
+
+    @property
+    def segments(self) -> list[Segment]:
+        """The final segments received so far, in order."""
+        return self._transcript.segments
+
+    @property
+    def partial_segment(self) -> Optional[Segment]:
+        """The segment currently being built, or None when there is nothing in flight."""
+        return self._transcript.partial
+
+    @property
+    def timeline(self) -> list[TimedEvent]:
+        """The speech and turn events received so far, in order."""
+        return self._transcript.timeline
+
+    @property
+    def events(self) -> list[dict[str, Any]]:
+        """Every raw server message received, in order, including unmodelled ones."""
+        return self._transcript.events
+
+    @property
+    def session_info(self) -> SessionInfo:
+        """Session identity and the language pack reported by the service."""
+        return self._session_info
+
+    @property
+    def is_connected(self) -> bool:
+        """Whether the session is open."""
+        return self._is_connected
+
+    @property
+    def is_ready_for_audio(self) -> bool:
+        """Whether the service has accepted the session, so audio will be sent."""
+        return self._is_ready_for_audio
+
+    @property
+    def session_error(self) -> Optional[str]:
+        """The reason the service gave for ending the session, or None while it is healthy."""
+        return self._session_error
+
+    @property
+    def last_finalize_latency(self) -> float:
+        """Seconds between the last `finalize()` and the segment it flushed."""
+        return self._last_finalize_latency
+
+    def transcript_text(self, *, include_partial: bool = False, speaker_labels: bool = False) -> str:
+        """
+        Render the transcript.
+
+        Args:
+            include_partial: Append the segment currently in flight.
+            speaker_labels: Prefix each segment with its speaker label, where one is attributed.
+
+        Returns:
+            The transcript as text.
+
+        Examples:
+            >>> print(client.transcript_text(speaker_labels=True))
+        """
+        return self._transcript.text(include_partial=include_partial, speaker_labels=speaker_labels)
+
+    def reset_transcript(self) -> None:
+        """Drop the accumulated segments, timeline and event log."""
+        self._transcript.reset()
+
+    # ==========================================================================
+    # Message handling
+    # ==========================================================================
+
+    def emit(self, event: Any, message: dict[str, Any]) -> None:
+        """Record every server message before dispatching it to the application's handlers."""
+        self._transcript.record(message)
+        super().emit(event, message)
+
+    def _on_session_started(self, message: dict[str, Any]) -> None:
+        """Capture the session identity and language pack, and open the audio gate."""
+        # Re-read request_id rather than trusting the one copied at construction: RT mints a
+        # fresh one in _begin_new_session(), so a reconnect would otherwise pair the previous
+        # request_id with this session_id.
+        self._session_info.request_id = self.request_id
+        self._session_info.session_id = message.get("id")
+        self._session_info.language_pack_info = LanguagePackInfo.from_dict(message.get("language_pack_info") or {})
+        self._transcript.set_delimiter(self._session_info.language_pack_info.word_delimiter)
+        self._session_error = None
+        self._is_ready_for_audio = True
+
+    def _on_session_error(self, message: dict[str, Any]) -> None:
+        """Record the reason and shut the audio gate: the service has ended the session."""
+        self._session_error = message.get("reason", "unknown")
+        self._is_ready_for_audio = False
+        self._is_connected = False
+
+    def _on_segment(self, message: dict[str, Any]) -> None:
+        """Accumulate a final segment, or refresh the live partial."""
+        if message.get("message") != ServerMessageType.ADD_SEGMENT:
+            self._transcript.add_partial_segment(message)
+            return
+
+        self._transcript.add_segment(message)
+        if self._finalize_sent_at is not None:
+            self._last_finalize_latency = time.perf_counter() - self._finalize_sent_at
+            self._finalize_sent_at = None
+
+    def _on_timed_event(self, message: dict[str, Any]) -> None:
+        """Append a speech or turn event to the timeline."""
+        self._transcript.add_timed_event(message)
+
+    async def close(self) -> None:
+        """Close the connection without waiting for outstanding messages."""
+        self._is_ready_for_audio = False
+        self._is_connected = False
+        await super().close()

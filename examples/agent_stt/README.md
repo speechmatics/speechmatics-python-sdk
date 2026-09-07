@@ -1,0 +1,21 @@
+# Agent STT examples
+
+Set `SPEECHMATICS_API_KEY` first. To point at a local Voice Agent Service, set
+`SPEECHMATICS_RT_URL` (for example `ws://localhost:8000/v2`); the `/agent` segment is appended
+when it is missing.
+
+The service needs 16 kHz raw PCM, so the file examples take a 16 kHz WAV and default to
+`tests/voice/assets/audio_01_16kHz.wav`.
+
+| Example | What it shows |
+| --- | --- |
+| [realtime_file/main.py](realtime_file/main.py) | The same file paced at wall-clock speed, with the lag of each message behind the audio |
+| [client_vad/main.py](client_vad/main.py) | `TurnDetectionMode.EXTERNAL`: the application owns turn boundaries and calls `finalize()`, as Pipecat and LiveKit do |
+| [microphone/main.py](microphone/main.py) | Live microphone with diarization and speaker-labelled transcript (needs `pyaudio`) |
+```bash
+python examples/agent_stt/file/main.py
+python examples/agent_stt/realtime_file/main.py
+python examples/agent_stt/client_vad/main.py
+python examples/agent_stt/microphone/main.py
+py examples\agent_stt\microphone_windows\main.py
+```

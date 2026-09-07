@@ -12,6 +12,7 @@
 
 [![PyPI - batch](https://img.shields.io/pypi/v/speechmatics-batch?label=batch)](https://pypi.org/project/speechmatics-batch/)
 [![PyPI - rt](https://img.shields.io/pypi/v/speechmatics-rt?label=rt)](https://pypi.org/project/speechmatics-rt/)
+[![PyPI - agent-stt](https://img.shields.io/pypi/v/speechmatics-agent-stt?label=agent-stt)](https://pypi.org/project/speechmatics-agent-stt/)
 [![PyPI - voice](https://img.shields.io/pypi/v/speechmatics-voice?label=voice)](https://pypi.org/project/speechmatics-voice/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/speechmatics-batch.svg)](https://pypi.org/project/speechmatics-batch/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/speechmatics/speechmatics-python-sdk/blob/main/LICENSE)
@@ -54,6 +55,9 @@ pip install speechmatics-batch
 # Realtime streaming
 pip install speechmatics-rt
 
+# Voice agents on the Agent STT service
+pip install speechmatics-agent-stt
+
 # Voice agents
 pip install speechmatics-voice
 
@@ -77,6 +81,12 @@ pip install speechmatics-tts
 - Stream audio for live transcription
 - Ultra-low latency (150ms p95)
 - Partial and final transcripts
+
+**[speechmatics-agent-stt](./sdk/agent_stt/README.md)** - Agent STT SDK
+
+- Segment-level transcription for voice agents
+- Server-side VAD and turn detection, or bring your own (Pipecat, LiveKit)
+- Lightweight install: pure Python, no ML runtime or GPU required, all heavy lifting is done in the service itself
 
 **[speechmatics-voice](./sdk/voice/README.md)** - Voice agent SDK
 
@@ -936,6 +946,7 @@ Each SDK package includes detailed documentation:
 | ---------------------- | ----------------------------------------------------------------------------- | ------------------------- |
 | **speechmatics-batch** | [README](./sdk/batch/README.md) • [Migration Guide](./sdk/batch/MIGRATION.md) | Async batch transcription |
 | **speechmatics-rt**    | [README](./sdk/rt/README.md) • [Migration Guide](./sdk/rt/MIGRATION.md)       | Realtime Streaming        |
+| **speechmatics-agent-stt** | [README](./sdk/agent_stt/README.md)   | Agent STT SDK             |
 | **speechmatics-voice** | [README](./sdk/voice/README.md)                                               | Voice agent SDK           |
 | **speechmatics-tts**   | [README](./sdk/tts/README.md)                                                 | Text-to-speech            |
 
