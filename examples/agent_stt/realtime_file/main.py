@@ -43,6 +43,11 @@ def parse_args() -> argparse.Namespace:
         "--turn-seconds", type=float, default=5.0, help="fake turn length, --turn-detection external only"
     )
     parser.add_argument("--no-partials", action="store_true")
+    parser.add_argument(
+        "--emit-sentences",
+        action="store_true",
+        help="split multi-sentence segments so each segment carries a single sentence",
+    )
     return parser.parse_args()
 
 
@@ -75,6 +80,7 @@ def build_client(args: argparse.Namespace, clock: Clock) -> AgentSttAsyncClient:
     transcription_config = TranscriptionConfig(
         language=args.language,
         enable_partials=not args.no_partials,
+        emit_sentences=args.emit_sentences or None,
     )
     turn_config = TurnConfig(turn_detection_mode=TurnDetectionMode(args.turn_detection))
 
