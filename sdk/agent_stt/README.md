@@ -127,6 +127,13 @@ point, so the transcriber never sees a name it has no notion of. The RT models (
 `standard`) are not Agent STT models and are not accepted here; the deprecated `operating_point`
 still passes through, and suppresses the `model` default so the two never arrive together.
 
+`emit_sentences` splits a multi-sentence segment on its sentence boundaries, so each segment
+carries one sentence. Off unless you ask for it, and fixed for the life of the session:
+
+```python
+transcription_config = TranscriptionConfig(language="en", emit_sentences=True)
+```
+
 Engine silence-based end of utterance is not offered here. A turn ends either because the
 service's VAD said so, or because you called `finalize()`.
 

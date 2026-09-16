@@ -268,6 +268,31 @@ async def test_start_session_turn_config_wins_over_the_constructor(client, monke
     assert transport.messages[0]["turn_config"] == {"turn_detection_mode": "vad"}
 
 
+@pytest.mark.asyncio
+async def test_emit_sentences_reaches_start_recognition(client, monkeypatch):
+    """The whole config dict is sent, but assert it rather than trust it: the flag is the session."""
+    transport = StubTransport()
+    client._transport = transport
+    monkeypatch.setattr(client, "_ws_connect", _noop)
+    monkeypatch.setattr(client, "_wait_recognition_started", _noop)
+
+    await client.start_session(transcription_config=TranscriptionConfig(language="en", emit_sentences=True))
+
+    assert transport.messages[0]["transcription_config"]["emit_sentences"] is True
+
+
+@pytest.mark.asyncio
+async def test_emit_sentences_absent_when_not_asked_for(client, monkeypatch):
+    transport = StubTransport()
+    client._transport = transport
+    monkeypatch.setattr(client, "_ws_connect", _noop)
+    monkeypatch.setattr(client, "_wait_recognition_started", _noop)
+
+    await client.start_session(transcription_config=TranscriptionConfig(language="en"))
+
+    assert "emit_sentences" not in transport.messages[0]["transcription_config"]
+
+
 def test_session_info_tracks_the_request_id_across_sessions(client):
     """RT mints a fresh request_id per session; session_info must not keep the first one."""
     start_session(client)
