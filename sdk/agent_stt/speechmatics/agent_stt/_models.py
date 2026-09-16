@@ -182,9 +182,7 @@ class TranscriptionConfig(RTTranscriptionConfig):
     Attributes:
         additional_vocab: Words to bias the engine towards, as `AdditionalVocabEntry` objects
             or raw dicts.
-        model: Agent STT model, defaulting to `DEFAULT_MODEL`. The proxy in front of the
-            service resolves the name to the engine's operating point, so a model the
-            transcriber has no notion of still routes correctly.
+        model: Agent STT model to transcribe with. Defaults to `DEFAULT_MODEL`.
         emit_sentences: Split multi-sentence segments on sentence boundaries, so each segment
             carries a single sentence. Fixed for the life of the session. Defaults to False
             service-side.
