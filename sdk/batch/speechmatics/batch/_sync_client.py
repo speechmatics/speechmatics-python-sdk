@@ -233,8 +233,8 @@ class Client:
             job_id: The unique job identifier.
             wait: Seconds to let the server hold the request open until the job
                 reaches a terminal state (synchronous transcription, SaaS only).
-                The API applies a small default wait (currently 2 seconds) when
-                this is omitted; pass 0 to return immediately.
+                The API applies a small default wait when this is omitted.
+                Pass 0 to return immediately.
 
         Returns:
             JobDetails object with current job status and metadata.
@@ -351,8 +351,8 @@ class Client:
             format_type: Output format (FormatType.JSON, FormatType.TXT, FormatType.SRT). Defaults to FormatType.JSON.
             wait: Seconds to let the server hold the request open until the
                 transcript is ready (synchronous transcription, SaaS only). The
-                API applies a small default wait (currently 2 seconds) when this
-                is omitted; pass 0 to return immediately.
+                The API applies a small default wait when this is omitted.
+                Pass 0 to return immediately.
 
         Returns:
             Transcript object for JSON format, or string for text/SRT formats.

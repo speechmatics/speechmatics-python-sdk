@@ -43,9 +43,7 @@ asyncio.run(main())
 ### Without asyncio
 
 `Client` is the blocking equivalent of `AsyncClient`. It exposes the same
-methods and returns the same models, so it suits scripts, notebooks, serverless
-handlers and synchronous web frameworks. It is genuinely synchronous under the
-hood — no event loop is ever created — even though both clients ship together:
+methods and returns the same models. It is synchronous under the hood without an event loop ever created:
 
 ```python
 from speechmatics.batch import Client
@@ -101,17 +99,13 @@ except TranscriptNotReadyError:
 
 Notes:
 
-- Synchronous transcription is available on Speechmatics SaaS only; on-premises
+- Synchronous transcription is available on Speechmatics SaaS only. on-premises
   deployments do not support it.
 - The server caps how long it will wait, and intermediate proxies may close
   long-held connections, so treat the fallback path as the normal case for
   longer audio.
-- The API applies a small default wait (currently 2 seconds) to the `GET`
-  endpoints when `wait` is omitted. Pass `wait=0` to return immediately.
-- `wait` is clamped to any `timeout` you pass, so the timeout is always honoured.
-- Job submission is not idempotent. If a submission fails after the server
-  accepted it, resubmitting creates a second billable job — use `list_jobs()`
-  to recover the original job instead of retrying blindly.
+- The API applies a small default wait to the `GET` endpoints when `wait` is omitted.
+  Pass `wait=0` to return immediately.
 
 Everything above works identically on `AsyncClient` with `await`:
 
