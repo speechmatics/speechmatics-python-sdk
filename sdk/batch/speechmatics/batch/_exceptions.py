@@ -56,6 +56,18 @@ class TranscriptNotReadyError(JobError):
     pass
 
 
+class JobExpiredError(JobError):
+    """
+    Raised when a job's data has expired and been deleted from storage.
+
+    Speechmatics retains job data for a limited time. Once it expires, both
+    ``GET /jobs/{id}`` and ``GET /jobs/{id}/transcript`` answer with HTTP 410,
+    not a ``status`` field, so this is raised instead of a generic JobError.
+    """
+
+    pass
+
+
 class TimeoutError(Exception):
     """Raised when an operation times out."""
 

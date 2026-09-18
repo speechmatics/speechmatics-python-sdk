@@ -10,6 +10,7 @@ from ._exceptions import BatchError
 from ._exceptions import ConfigurationError
 from ._exceptions import ConnectionError
 from ._exceptions import JobError
+from ._exceptions import JobExpiredError
 from ._exceptions import TimeoutError
 from ._exceptions import TranscriptNotReadyError
 from ._exceptions import TransportError
@@ -58,6 +59,7 @@ __all__ = [
     "JobDetailError",
     "JobDetails",
     "JobError",
+    "JobExpiredError",
     "JobInfo",
     "JobStatus",
     "JobType",

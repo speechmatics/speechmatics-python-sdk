@@ -47,7 +47,6 @@ _ACTIVE_JOB_STATUSES = (JobStatus.CREATED, JobStatus.RUNNING)
 _FAILED_JOB_STATUSES = {
     JobStatus.REJECTED: "was rejected",
     JobStatus.DELETED: "was deleted before it finished",
-    JobStatus.EXPIRED: "has expired",
 }
 
 

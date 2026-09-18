@@ -41,7 +41,6 @@ class JobStatus(str, Enum):
     DONE = "done"
     REJECTED = "rejected"
     DELETED = "deleted"
-    EXPIRED = "expired"
 
 
 @deprecated("Use Model instead")

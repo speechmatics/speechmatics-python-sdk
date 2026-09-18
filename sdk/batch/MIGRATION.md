@@ -38,6 +38,13 @@ This guide helps users migrate from the legacy Speechmatics Batch Client (`speec
 - **Unavailable transcripts now raise `TranscriptNotReadyError`**: `get_transcript()` answers
   an HTTP 404 with this exception, which subclasses `JobError`, so existing `except JobError`
   handlers keep working.
+- **Expired jobs now raise `JobExpiredError`**: Speechmatics retains job data for a limited
+  time; once it expires, both `get_job_info()` and `get_transcript()` answer with HTTP 410,
+  which now raises this exception (a subclass of `JobError`) instead of a generic `JobError`
+  with the raw response embedded in the message.
+- **`JobStatus.EXPIRED` removed**: the API signals expiry via HTTP 410 on the endpoints above,
+  never as a `status` field value, so this member never matched anything a real API response
+  could produce and has been removed.
 - **`AuthBase` methods are no longer abstract**: a custom auth class implements
   `get_auth_headers` (async), `get_auth_headers_sync` (blocking), or both. Previously a
   blocking-only implementation could not be instantiated because the async method was

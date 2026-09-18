@@ -133,6 +133,14 @@ class TestJobStatus:
         """The synchronous API reports 'created' for a job that is still running."""
         assert JobStatus("created") == JobStatus.CREATED
 
+    def test_expired_is_not_a_status_value(self):
+        """
+        The API signals expiry via HTTP 410, never a 'status' field (see
+        JobExpiredError), so this is not a JobStatus member.
+        """
+        with pytest.raises(ValueError):
+            JobStatus("expired")
+
     def test_created_and_running_are_active(self):
         assert is_job_active(JobStatus.CREATED)
         assert is_job_active(JobStatus.RUNNING)

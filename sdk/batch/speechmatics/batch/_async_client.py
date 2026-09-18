@@ -38,6 +38,7 @@ from ._common import warn_deprecated_operating_point
 from ._exceptions import AuthenticationError
 from ._exceptions import BatchError
 from ._exceptions import JobError
+from ._exceptions import JobExpiredError
 from ._exceptions import TimeoutError
 from ._exceptions import TranscriptNotReadyError
 from ._exceptions import TransportError
@@ -269,6 +270,7 @@ class AsyncClient:
             JobDetails object with current job status and metadata.
 
         Raises:
+            JobExpiredError: If the job's data has expired and been deleted.
             JobError: If job is not found or cannot be retrieved.
             AuthenticationError: If API key is invalid.
 
@@ -290,6 +292,8 @@ class AsyncClient:
         except Exception as e:
             if isinstance(e, AuthenticationError):
                 raise
+            if isinstance(e, TransportError) and e.status_code == 410:
+                raise JobExpiredError(f"Job {job_id} has expired and is no longer available") from e
             raise JobError(f"Failed to get job info: {e}") from e
 
     async def list_jobs(
@@ -384,6 +388,7 @@ class AsyncClient:
             Transcript object for JSON format, or string for text/SRT formats.
 
         Raises:
+            JobExpiredError: If the job's data has expired and been deleted.
             TranscriptNotReadyError: If the transcript is not available yet (the
                 job may still be running, or the job ID may not exist).
             JobError: If transcript cannot be retrieved or job is not complete.
@@ -412,6 +417,8 @@ class AsyncClient:
         except Exception as e:
             if isinstance(e, AuthenticationError):
                 raise
+            if isinstance(e, TransportError) and e.status_code == 410:
+                raise JobExpiredError(f"Transcript for job {job_id} has expired and is no longer available") from e
             if isinstance(e, TransportError) and e.status_code == 404:
                 raise TranscriptNotReadyError(
                     f"Transcript for job {job_id} is not available yet; retry the request "

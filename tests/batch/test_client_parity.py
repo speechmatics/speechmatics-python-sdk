@@ -22,6 +22,7 @@ from speechmatics.batch import FetchData
 from speechmatics.batch import FormatType
 from speechmatics.batch import JobConfig
 from speechmatics.batch import JobError
+from speechmatics.batch import JobExpiredError
 from speechmatics.batch import JobStatus
 from speechmatics.batch import JobType
 from speechmatics.batch import TimeoutError as SMTimeoutError
@@ -173,6 +174,18 @@ class TestTranscriptParity:
             with pytest.raises(TranscriptNotReadyError, match="not available yet"):
                 client.call("get_transcript", "job-1", wait=5)
 
+    def test_410_raises_job_expired(self, client):
+        """The API returns HTTP 410, not a status field, for expired data."""
+        with client.patch_transport("get", side_effect=TransportError("HTTP 410", status_code=410)):
+            with pytest.raises(JobExpiredError, match="has expired"):
+                client.call("get_transcript", "job-1")
+
+    def test_job_expired_is_a_job_error(self, client):
+        """Existing `except JobError` handlers keep working."""
+        with client.patch_transport("get", side_effect=TransportError("HTTP 410", status_code=410)):
+            with pytest.raises(JobError):
+                client.call("get_transcript", "job-1")
+
     def test_transcript_not_ready_is_a_job_error(self, client):
         """Existing `except JobError` handlers keep working."""
         with client.patch_transport("get", side_effect=TransportError("HTTP 404", status_code=404)):
@@ -214,7 +227,6 @@ class TestPollingParity:
         [
             ("rejected", "was rejected"),
             ("deleted", "deleted before it finished"),
-            ("expired", "has expired"),
         ],
     )
     def test_terminal_failures_are_reported_accurately(self, client, status, message):
@@ -317,4 +329,10 @@ class TestListAndDeleteParity:
         with client.patch_transport("get") as get:
             get.return_value = {}
             with pytest.raises(JobError, match="No job information found"):
+                client.call("get_job_info", "job-1")
+
+    def test_get_job_info_410_raises_job_expired(self, client):
+        """The API returns HTTP 410, not a status field, for expired data."""
+        with client.patch_transport("get", side_effect=TransportError("HTTP 410", status_code=410)):
+            with pytest.raises(JobExpiredError, match="has expired"):
                 client.call("get_job_info", "job-1")
