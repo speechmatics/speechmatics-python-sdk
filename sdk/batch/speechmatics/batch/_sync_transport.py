@@ -1,25 +1,22 @@
 """
-Transport layer for Speechmatics Batch HTTP communication.
+Blocking transport layer for Speechmatics Batch HTTP communication.
 
-This module provides the Transport class that handles low-level HTTP
-communication with the Speechmatics Batch API, including connection management,
-request/response handling, and authentication.
+This module provides the SyncTransport class, the blocking counterpart of
+``Transport``. It exposes the same request interface, so both clients can share
+all request construction and response parsing logic.
 """
 
 from __future__ import annotations
 
-import asyncio
-import io
 import json as _json
 import sys
 import uuid
 from typing import Any
 from typing import Optional
 
-import aiohttp
+import httpx
 
 from ._auth import AuthBase
-from ._common import PROCESSING_DATA_HEADER
 from ._exceptions import AuthenticationError
 from ._exceptions import ConnectionError
 from ._exceptions import TransportError
@@ -27,36 +24,34 @@ from ._helpers import get_version
 from ._logging import get_logger
 from ._models import ConnectionConfig
 
-__all__ = ["PROCESSING_DATA_HEADER", "Transport"]
+_JSON_CONTENT_TYPES = ("application/json", "application/vnd.speechmatics.v2+json")
 
 
-class Transport:
+class SyncTransport:
     """
-    HTTP transport layer for Speechmatics Batch API communication.
+    Blocking HTTP transport layer for Speechmatics Batch API communication.
 
     This class handles all low-level HTTP communication with the Speechmatics
-    Batch API, including connection management, request serialization,
-    authentication, and response handling.
+    Batch API without requiring an event loop, including connection pooling,
+    request serialization, authentication, and response handling.
 
     Args:
         url: Base URL for the Speechmatics Batch API.
-        conn_config: Connection configuration including URL and timeouts.
+        conn_config: Connection configuration including timeouts.
         auth: Authentication instance for handling credentials.
         request_id: Optional unique identifier for request tracking. Generated
                    automatically if not provided.
 
-    Attributes:
-        conn_config: The connection configuration object.
-        request_id: Unique identifier for this transport instance.
-
     Examples:
         Basic usage:
             >>> from ._auth import StaticKeyAuth
-            >>> conn_config = ConnectionConfig()
-            >>> auth = StaticKeyAuth("your-api-key")
-            >>> transport = Transport(conn_config, auth)
-            >>> response = await transport.get("/jobs")
-            >>> await transport.close()
+            >>> transport = SyncTransport(
+            ...     "https://asr.api.speechmatics.com/v2",
+            ...     ConnectionConfig(),
+            ...     StaticKeyAuth("your-api-key"),
+            ... )
+            >>> response = transport.get("/jobs")
+            >>> transport.close()
     """
 
     def __init__(
@@ -70,6 +65,7 @@ class Transport:
         Initialize the transport with connection configuration.
 
         Args:
+            url: Base URL for the Speechmatics Batch API.
             conn_config: Connection configuration object containing connection parameters.
             auth: Authentication instance for handling credentials.
             request_id: Optional unique identifier for request tracking.
@@ -79,22 +75,22 @@ class Transport:
         self._conn_config = conn_config
         self._auth = auth
         self._request_id = request_id or str(uuid.uuid4())
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._client: Optional[httpx.Client] = None
         self._closed = False
         self._logger = get_logger(__name__)
 
-        self._logger.debug("Transport initialized (request_id=%s, url=%s)", self._request_id, self._url)
+        self._logger.debug("SyncTransport initialized (request_id=%s, url=%s)", self._request_id, self._url)
 
-    async def __aenter__(self) -> Transport:
-        """Async context manager entry."""
-        await self._ensure_session()
+    def __enter__(self) -> SyncTransport:
+        """Context manager entry."""
+        self._ensure_client()
         return self
 
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        """Async context manager exit with automatic cleanup."""
-        await self.close()
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Context manager exit with automatic cleanup."""
+        self.close()
 
-    async def get(
+    def get(
         self, path: str, params: Optional[dict[str, Any]] = None, timeout: Optional[float] = None
     ) -> dict[str, Any]:
         """
@@ -112,9 +108,9 @@ class Transport:
             AuthenticationError: If authentication fails
             TransportError: If request fails
         """
-        return await self._request("GET", path, params=params, timeout=timeout)
+        return self._request("GET", path, params=params, timeout=timeout)
 
-    async def post(
+    def post(
         self,
         path: str,
         json_data: Optional[dict[str, Any]] = None,
@@ -141,7 +137,7 @@ class Transport:
             AuthenticationError: If authentication fails
             TransportError: If request fails
         """
-        return await self._request(
+        return self._request(
             "POST",
             path,
             json_data=json_data,
@@ -151,7 +147,7 @@ class Transport:
             params=params,
         )
 
-    async def delete(
+    def delete(
         self, path: str, timeout: Optional[float] = None, params: Optional[dict[str, Any]] = None
     ) -> dict[str, Any]:
         """
@@ -169,49 +165,49 @@ class Transport:
             AuthenticationError: If authentication fails
             TransportError: If request fails
         """
-        return await self._request("DELETE", path, timeout=timeout, params=params)
+        return self._request("DELETE", path, timeout=timeout, params=params)
 
-    async def close(self) -> None:
+    def close(self) -> None:
         """
-        Close the HTTP session and cleanup resources.
+        Close the HTTP client and cleanup resources.
 
-        This method gracefully closes the HTTP session and marks the
+        This method gracefully closes the HTTP client and marks the
         transport as closed. It's safe to call multiple times.
         """
-        if self._session:
+        if self._client:
             try:
-                await self._session.close()
+                self._client.close()
             except Exception:
                 pass  # Best effort cleanup
             finally:
-                self._session = None
+                self._client = None
                 self._closed = True
 
     @property
     def is_connected(self) -> bool:
         """
-        Check if the transport has an active session.
+        Check if the transport has an active client.
 
         Returns:
-            True if session is active, False otherwise
+            True if the client is active, False otherwise
         """
-        return self._session is not None and not self._closed
+        return self._client is not None and not self._closed
 
-    async def _ensure_session(self) -> None:
-        """Ensure HTTP session is created."""
-        if self._session is None and not self._closed:
+    def _ensure_client(self) -> None:
+        """Ensure the HTTP client is created."""
+        if self._client is None and not self._closed:
             self._logger.debug(
-                "Creating HTTP session (connect_timeout=%.1fs, operation_timeout=%.1fs)",
+                "Creating HTTP client (connect_timeout=%.1fs, operation_timeout=%.1fs)",
                 self._conn_config.connect_timeout,
                 self._conn_config.operation_timeout,
             )
-            timeout = aiohttp.ClientTimeout(
-                total=self._conn_config.operation_timeout,
+            timeout = httpx.Timeout(
+                self._conn_config.operation_timeout,
                 connect=self._conn_config.connect_timeout,
             )
-            self._session = aiohttp.ClientSession(timeout=timeout)
+            self._client = httpx.Client(timeout=timeout)
 
-    async def _request(
+    def _request(
         self,
         method: str,
         path: str,
@@ -231,6 +227,7 @@ class Transport:
             json_data: Optional JSON data for request body
             multipart_data: Optional multipart form data
             timeout: Optional request timeout
+            extra_headers: Optional additional headers to include in the request
 
         Returns:
             JSON response as dictionary
@@ -240,13 +237,13 @@ class Transport:
             ConnectionError: If connection fails
             TransportError: For other transport errors
         """
-        await self._ensure_session()
+        self._ensure_client()
 
-        if self._session is None:
-            raise ConnectionError("Failed to create HTTP session")
+        if self._client is None:
+            raise ConnectionError("Failed to create HTTP client")
 
         url = f"{self._url.rstrip('/')}{path}"
-        headers = await self._prepare_headers()
+        headers = self._prepare_headers()
         if extra_headers:
             for k, v in extra_headers.items():
                 headers[k] = _json.dumps(v) if isinstance(v, dict) else v
@@ -259,69 +256,67 @@ class Transport:
             multipart_data is not None,
         )
 
-        # Override timeout if specified
+        kwargs: dict[str, Any] = {
+            "headers": headers,
+            "params": params,
+        }
+
         if timeout:
-            request_timeout = aiohttp.ClientTimeout(total=timeout)
-        else:
-            request_timeout = None
+            kwargs["timeout"] = httpx.Timeout(timeout)
+
+        if json_data:
+            kwargs["json"] = json_data
+        elif multipart_data:
+            kwargs["files"] = self._encode_multipart(multipart_data)
 
         try:
-            # Prepare request arguments
-            kwargs: dict[str, Any] = {
-                "headers": headers,
-                "params": params,
-                "timeout": request_timeout,
-            }
+            response = self._client.request(method, url, **kwargs)
+            return self._handle_response(response)
 
-            if json_data:
-                kwargs["json"] = json_data
-            elif multipart_data:
-                # Force multipart encoding even when no files are present (for fetch_data support)
-                form_data = aiohttp.FormData(default_to_multipart=True)
-                for key, value in multipart_data.items():
-                    if isinstance(value, tuple) and len(value) == 3:
-                        # File data: (filename, file_data, content_type)
-                        filename, file_data, content_type = value
-                        # aiohttp cannot serialize io.BytesIO directly; convert to bytes
-                        if isinstance(file_data, io.BytesIO):
-                            file_payload = file_data.getvalue()
-                        else:
-                            file_payload = file_data
-                        form_data.add_field(key, file_payload, filename=filename, content_type=content_type)
-                    else:
-                        # Regular form field
-                        if isinstance(value, dict):
-                            import json
-
-                            value = json.dumps(value)
-                        form_data.add_field(key, value)
-                kwargs["data"] = form_data
-
-            async with self._session.request(method, url, **kwargs) as response:
-                return await self._handle_response(response)
-
-        except asyncio.TimeoutError:
+        except httpx.TimeoutException:
             self._logger.error(
-                "Request timeout %s %s (timeout=%.1fs)", method, path, self._conn_config.operation_timeout
+                "Request timeout %s %s (timeout=%.1fs)",
+                method,
+                path,
+                timeout or self._conn_config.operation_timeout,
             )
             raise TransportError(f"Request timeout for {method} {path}") from None
         except (AuthenticationError, TransportError):
             raise
-        except aiohttp.ClientError as e:
+        except httpx.HTTPError as e:
             self._logger.error("Request failed %s %s: %s", method, path, e)
             raise ConnectionError(f"Request failed: {e}") from e
         except Exception as e:
             self._logger.error("Unexpected error %s %s: %s", method, path, e)
             raise TransportError(f"Unexpected error: {e}") from e
 
-    async def _prepare_headers(self) -> dict[str, str]:
+    @staticmethod
+    def _encode_multipart(multipart_data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Convert shared multipart fields into httpx's files mapping.
+
+        Every field goes through ``files`` (non-file fields with a None
+        filename) because httpx would otherwise url-encode a body that has no
+        file in it, and the API requires multipart for fetch_data submissions.
+        """
+        files: dict[str, Any] = {}
+        for key, value in multipart_data.items():
+            if isinstance(value, tuple) and len(value) == 3:
+                files[key] = value
+            elif isinstance(value, dict):
+                files[key] = (None, _json.dumps(value), "application/json")
+            else:
+                files[key] = (None, value)
+        return files
+
+    def _prepare_headers(self) -> dict[str, str]:
         """
         Prepare HTTP headers for requests.
 
         Returns:
             Headers dictionary with authentication and tracking info
         """
-        auth_headers = await self._auth.get_auth_headers()
+        auth_headers = self._auth.get_auth_headers_sync()
         auth_headers[
             "User-Agent"
         ] = f"speechmatics-batch-v{get_version()} python/{sys.version_info.major}.{sys.version_info.minor}"
@@ -331,7 +326,7 @@ class Transport:
 
         return auth_headers
 
-    async def _handle_response(self, response: aiohttp.ClientResponse) -> dict[str, Any]:
+    def _handle_response(self, response: httpx.Response) -> dict[str, Any]:
         """
         Handle HTTP response and extract JSON data.
 
@@ -345,36 +340,26 @@ class Transport:
             AuthenticationError: For 401/403 responses
             TransportError: For other error responses
         """
-        try:
-            if response.status == 401:
-                raise AuthenticationError("Invalid API key - authentication failed")
-            elif response.status == 403:
-                raise AuthenticationError("Access forbidden - check API key permissions")
-            elif response.status >= 400:
-                error_text = await response.text()
-                self._logger.error("HTTP error %d %s: %s", response.status, response.reason, error_text)
-                raise TransportError(
-                    f"HTTP {response.status}: {response.reason} - {error_text}",
-                    status_code=response.status,
-                )
+        if response.status_code == 401:
+            raise AuthenticationError("Invalid API key - authentication failed")
+        elif response.status_code == 403:
+            raise AuthenticationError("Access forbidden - check API key permissions")
+        elif response.status_code >= 400:
+            self._logger.error("HTTP error %d %s: %s", response.status_code, response.reason_phrase, response.text)
+            raise TransportError(
+                f"HTTP {response.status_code}: {response.reason_phrase} - {response.text}",
+                status_code=response.status_code,
+            )
 
-            # Try to parse JSON response
-            if (
-                response.content_type == "application/json"
-                or response.content_type == "application/vnd.speechmatics.v2+json"
-            ):
-                return await response.json()  # type: ignore[no-any-return]
-            else:
-                # For non-JSON responses (like plain text transcripts)
-                self._logger.debug("Parsing text response (content_type=%s)", response.content_type)
-                text = await response.text()
-                return {"content": text, "content_type": response.content_type}
+        content_type = response.headers.get("content-type", "").split(";")[0].strip()
 
-        except aiohttp.ContentTypeError as e:
-            self._logger.error("Failed to parse JSON response: %s", e)
-            raise TransportError(f"Failed to parse response: {e}") from e
-        except (AuthenticationError, TransportError):
-            raise
-        except Exception as e:
-            self._logger.error("Error handling response: %s", e)
-            raise TransportError(f"Error handling response: {e}") from e
+        if content_type in _JSON_CONTENT_TYPES:
+            try:
+                return dict(response.json())
+            except ValueError as e:
+                self._logger.error("Failed to parse JSON response: %s", e)
+                raise TransportError(f"Failed to parse response: {e}") from e
+
+        # For non-JSON responses (like plain text transcripts)
+        self._logger.debug("Parsing text response (content_type=%s)", content_type)
+        return {"content": response.text, "content_type": content_type}
