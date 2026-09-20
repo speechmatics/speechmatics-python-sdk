@@ -3,11 +3,14 @@
 [![PyPI](https://img.shields.io/pypi/v/speechmatics-batch)](https://pypi.org/project/speechmatics-batch/)
 ![PythonSupport](https://img.shields.io/badge/Python-3.9%2B-green)
 
-Async Python client for Speechmatics Batch API.
+Python client for Speechmatics Batch API, with both async and blocking interfaces.
+
+> **Migrating from `speechmatics-python` (the legacy `BatchClient`)?** See [MIGRATION.md](MIGRATION.md) for a full guide, including a method-by-method mapping table.
 
 ## Features
 
-- Async API client with comprehensive error handling
+- Async (`AsyncClient`) and blocking (`Client`) API clients with comprehensive error handling
+- Synchronous transcription support: get a transcript in a single request, without polling
 - Type hints throughout for better IDE support
 - Environment variable support for credentials
 - Easy-to-use interface for submitting, monitoring, and retrieving transcription jobs
@@ -26,17 +29,92 @@ pip install speechmatics-batch
 ### Quick Start
 
 ```python
+from speechmatics.batch import Client
+
+# Create a client using environment variable SPEECHMATICS_API_KEY
+with Client() as client:
+    # Simple transcription
+    result = client.transcribe("audio.wav")
+    print(result.transcript_text)
+```
+
+### Async
+
+`AsyncClient` is the async/await equivalent of `Client`, for code that
+already runs an event loop. It exposes the same methods and returns the
+same models:
+
+```python
 import asyncio
 from speechmatics.batch import AsyncClient
 
 async def main():
-    # Create a client using environment variable SPEECHMATICS_API_KEY
     async with AsyncClient() as client:
-        # Simple transcription
         result = await client.transcribe("audio.wav")
         print(result.transcript_text)
 
 asyncio.run(main())
+```
+
+### Synchronous Transcription
+
+By default a transcription job is submitted, polled until it finishes, and then
+its transcript is fetched. For short audio you can instead ask the server to
+hold the request open until the transcript is ready, so one call replaces the
+whole cycle. Pass `wait` (in seconds) to do this:
+
+```python
+from speechmatics.batch import Client, FormatType
+
+with Client() as client:
+    # One request: submit, transcribe and return the transcript
+    text = client.transcribe("audio.wav", wait=60, format_type=FormatType.TXT)
+    print(text)
+```
+
+If the job is still running when the wait elapses, `transcribe()` falls back to
+polling automatically, so longer audio keeps working unchanged.
+
+`wait` is also available on the individual operations, for full control:
+
+```python
+from speechmatics.batch import Client, JobStatus, TranscriptNotReadyError
+
+with Client() as client:
+    job = client.submit_job("audio.wav", wait=60)
+
+    if job.status == JobStatus.DONE:
+        print(job.transcript.transcript_text)  # already available, no extra call
+    else:
+        # status is JobStatus.CREATED: the wait elapsed, the job is still running
+        print(client.wait_for_completion(job.id).transcript_text)
+```
+
+Requesting a transcript before it exists raises `TranscriptNotReadyError` (a
+subclass of `JobError`), which is the signal to retry:
+
+```python
+try:
+    transcript = client.get_transcript(job.id, wait=30)
+except TranscriptNotReadyError:
+    transcript = client.wait_for_completion(job.id)
+```
+
+Notes:
+
+- Synchronous transcription is available on Speechmatics SaaS only. on-premises
+  deployments do not support it.
+- The server caps how long it will wait, and intermediate proxies may close
+  long-held connections, so treat the fallback path as the normal case for
+  longer audio.
+- The API applies a small default wait to the `GET` endpoints when `wait` is omitted.
+  Pass `wait=0` to return immediately.
+
+Everything above works identically on `AsyncClient` with `await`:
+
+```python
+async with AsyncClient() as client:
+    text = await client.transcribe("audio.wav", wait=60, format_type=FormatType.TXT)
 ```
 
 ## JWT Authentication
@@ -168,6 +246,53 @@ async def main():
             print(f"Job failed with status: {job_details.status}")
 
 asyncio.run(main())
+```
+
+### Bulk and Concurrent Transcription
+
+To transcribe many files with a concurrency cap, use `asyncio.gather` with a
+semaphore (`AsyncClient`). `concurrency` limits how many jobs are in flight at
+once — the example below submits 8 files with a cap of 5, so at most 5 run
+concurrently and the rest queue behind the semaphore:
+
+```python
+import asyncio
+from speechmatics.batch import AsyncClient, JobConfig, JobType, TranscriptionConfig
+
+async def transcribe_all(paths, concurrency=5):
+    config = JobConfig(type=JobType.TRANSCRIPTION, transcription_config=TranscriptionConfig(language="en"))
+    semaphore = asyncio.Semaphore(concurrency)
+
+    async with AsyncClient() as client:
+        async def run(path):
+            async with semaphore:
+                job = await client.submit_job(path, config=config)
+                return path, await client.wait_for_completion(job.id)
+
+        return await asyncio.gather(*(run(path) for path in paths))
+
+paths = [f"audio_{i}.wav" for i in range(8)]
+results = asyncio.run(transcribe_all(paths))
+```
+
+The equivalent with the blocking `Client` uses a thread pool, since each
+`transcribe()` call blocks on network I/O. `max_workers` plays the same role
+as `concurrency` above — it caps how many requests run at once, regardless of
+how many paths are submitted:
+
+```python
+from concurrent.futures import ThreadPoolExecutor
+from speechmatics.batch import Client, JobConfig, JobType, TranscriptionConfig
+
+def transcribe_all(paths, concurrency=5):
+    config = JobConfig(type=JobType.TRANSCRIPTION, transcription_config=TranscriptionConfig(language="en"))
+
+    with Client() as client, ThreadPoolExecutor(max_workers=concurrency) as pool:
+        futures = {pool.submit(client.transcribe, path, config=config): path for path in paths}
+        return [(futures[future], future.result()) for future in futures]
+
+paths = [f"audio_{i}.wav" for i in range(8)]
+results = transcribe_all(paths)
 ```
 
 ### Different Output Formats

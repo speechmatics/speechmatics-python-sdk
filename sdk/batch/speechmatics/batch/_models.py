@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 from typing import Optional
+from typing import Union
 from typing import cast
 from warnings import warn
 
@@ -35,11 +36,11 @@ class JobStatus(str, Enum):
     during the batch transcription.
     """
 
+    CREATED = "created"
     RUNNING = "running"
     DONE = "done"
     REJECTED = "rejected"
     DELETED = "deleted"
-    EXPIRED = "expired"
 
 
 @deprecated("Use Model instead")
@@ -575,6 +576,9 @@ class JobDetails:
         duration: Duration of the audio file in seconds.
         config: Complete job configuration used.
         errors: List of errors encountered during job processing.
+        transcript: Transcript embedded by the server when a synchronous
+            (``wait``) request completed before the wait elapsed. None
+            otherwise, including for jobs that are still running.
     """
 
     id: str
@@ -584,6 +588,7 @@ class JobDetails:
     duration: Optional[float] = None
     config: Optional[JobConfig] = None
     errors: Optional[list[JobDetailError]] = None
+    transcript: Optional[Union[Transcript, str]] = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> JobDetails:
@@ -596,11 +601,12 @@ class JobDetails:
         if "errors" in data and data["errors"]:
             errors = [JobDetailError.from_dict(error) for error in data["errors"]]
 
+        # A job whose server-side wait elapsed returns only an id and a status.
         return cls(
             id=data["id"],
-            status=JobStatus(data["status"]),
-            created_at=data["created_at"],
-            data_name=data["data_name"],
+            status=JobStatus(data["status"]) if data.get("status") else JobStatus.RUNNING,
+            created_at=data.get("created_at", ""),
+            data_name=data.get("data_name", ""),
             duration=data.get("duration"),
             config=config,
             errors=errors,
@@ -829,6 +835,8 @@ class Transcript:
     _LANG_PACK_WORD_DELIMITER_KEY = "word_delimiter"
     _LANG_PACK_PER_LANG_DELIMITERS_KEY = "per_language_word_delimiters"
 
+    _UNKNOWN_SPEAKER_LABEL = "UU"
+
     format: str
     job: JobInfo
     metadata: RecognitionMetadata
@@ -882,7 +890,9 @@ class Transcript:
 
             alternative = result.alternatives[0]
             content = alternative.content
-            speaker = alternative.speaker
+            # The API returns "UU" when no speaker was identified, which must not
+            # be rendered as a speaker label.
+            speaker = None if alternative.speaker == self._UNKNOWN_SPEAKER_LABEL else alternative.speaker
             word_delimiter = default_word_delimiter
             if alternative.language and alternative.language in per_lang_word_delimiters:
                 word_delimiter = per_lang_word_delimiters[alternative.language]
