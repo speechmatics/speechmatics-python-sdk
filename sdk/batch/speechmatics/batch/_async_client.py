@@ -18,6 +18,9 @@ from typing import Union
 
 from ._auth import AuthBase
 from ._auth import StaticKeyAuth
+from ._common import DEFAULT_TIMEOUT
+from ._common import MAX_TRANSIENT_POLL_FAILURES
+from ._common import PollingInterval
 from ._common import build_delete_job_params
 from ._common import build_fetch_data_multipart
 from ._common import build_file_multipart
@@ -28,7 +31,7 @@ from ._common import build_query_params
 from ._common import build_submit_query_params
 from ._common import clamp_wait
 from ._common import is_job_active
-from ._common import jittered_interval
+from ._common import is_transient_poll_error
 from ._common import job_details_from_submit_response
 from ._common import raise_for_failed_status
 from ._common import request_timeout_for_wait
@@ -380,7 +383,7 @@ class AsyncClient:
             job_id: The unique job identifier.
             format_type: Output format (FormatType.JSON, FormatType.TXT, FormatType.SRT). Defaults to FormatType.JSON.
             wait: Seconds to let the server hold the request open until the
-                transcript is ready (synchronous transcription, SaaS only). The
+                transcript is ready (synchronous transcription, SaaS only).
                 The API applies a small default wait when this is omitted.
                 Pass 0 to return immediately.
 
@@ -426,29 +429,63 @@ class AsyncClient:
                 ) from e
             raise JobError(f"Failed to get transcript: {e}") from e
 
-    async def _poll_job_status(self, job_id: str, polling_interval: float) -> None:
+    async def _poll_job_status(self, job_id: str, polling_interval: float, min_polling_interval: float) -> None:
         """Poll job status until completion or failure."""
-        self._logger.debug("Starting job status polling for job_id=%s (interval=%.1fs)", job_id, polling_interval)
+        self._logger.debug(
+            "Starting job status polling for job_id=%s (min_interval=%.1fs, max_interval=%.1fs)",
+            job_id,
+            min_polling_interval,
+            polling_interval,
+        )
+        started_at = time.monotonic()
+        interval = PollingInterval(min_polling_interval, polling_interval)
         poll_count = 0
         last_log_time = 0.0
+        transient_failures = 0
 
         while True:
             poll_count += 1
-            job_info = await self.get_job_info(job_id)
-
-            if job_info.status == JobStatus.DONE:
-                self._logger.info("Job completed (job_id=%s, polls=%d)", job_id, poll_count)
-                return
-            elif is_job_active(job_info.status):
-                current_time: float = time.monotonic()
-                if current_time - last_log_time >= 30.0:
-                    self._logger.debug("Job still running (job_id=%s, polls=%d)", job_id, poll_count)
-                    last_log_time = current_time
-                await asyncio.sleep(jittered_interval(polling_interval))
+            try:
+                job_info = await self.get_job_info(job_id)
+            except Exception as e:
+                if not is_transient_poll_error(e):
+                    raise
+                transient_failures += 1
+                if transient_failures > MAX_TRANSIENT_POLL_FAILURES:
+                    raise JobError(
+                        f"Job {job_id} status could not be read after "
+                        f"{transient_failures} consecutive failures: {e}"
+                    ) from e
+                self._logger.warning(
+                    "Job status poll failed, retrying (job_id=%s, failure=%d/%d): %s",
+                    job_id,
+                    transient_failures,
+                    MAX_TRANSIENT_POLL_FAILURES,
+                    e,
+                )
             else:
-                self._logger.warning("Job did not succeed (job_id=%s, status=%s)", job_id, job_info.status.value)
-                raise_for_failed_status(job_id, job_info.status)
-                raise JobError(f"Job {job_id} has unexpected status: {job_info.status.value}")
+                transient_failures = 0
+
+                if job_info.status == JobStatus.DONE:
+                    self._logger.info("Job completed (job_id=%s, polls=%d)", job_id, poll_count)
+                    self._logger.debug(
+                        "Job turnaround time: %.2fs (job_id=%s, polls=%d)",
+                        time.monotonic() - started_at,
+                        job_id,
+                        poll_count,
+                    )
+                    return
+                elif is_job_active(job_info.status):
+                    current_time: float = time.monotonic()
+                    if current_time - last_log_time >= 30.0:
+                        self._logger.debug("Job still running (job_id=%s, polls=%d)", job_id, poll_count)
+                        last_log_time = current_time
+                else:
+                    self._logger.warning("Job did not succeed (job_id=%s, status=%s)", job_id, job_info.status.value)
+                    raise_for_failed_status(job_id, job_info.status)
+                    raise JobError(f"Job {job_id} has unexpected status: {job_info.status.value}")
+
+            await asyncio.sleep(interval.next())
 
     async def wait_for_completion(
         self,
@@ -456,7 +493,8 @@ class AsyncClient:
         *,
         format_type: FormatType = FormatType.JSON,
         polling_interval: float = 5.0,
-        timeout: Optional[float] = None,
+        min_polling_interval: float = 0.5,
+        timeout: Optional[float] = DEFAULT_TIMEOUT,
     ) -> Union[Transcript, str]:
         """
         Wait for a job to complete and return the result.
@@ -467,9 +505,16 @@ class AsyncClient:
         Args:
             job_id: The unique job identifier.
             format_type: Output format (FormatType.JSON, FormatType.TXT, FormatType.SRT). Defaults to FormatType.JSON.
-            polling_interval: Time in seconds between status checks. Up to 20%
-                jitter is applied so that concurrent clients do not synchronise.
-            timeout: Maximum time in seconds to wait for completion.
+            polling_interval: Ceiling in seconds for the time between status
+                checks. Polling starts at ``min_polling_interval`` and backs off
+                towards this value, so short jobs are caught quickly while
+                long-running jobs settle into this interval. Up to 20% jitter is
+                applied so that concurrent clients do not synchronise, so an
+                individual wait can exceed this by that much. Must be greater than 0.
+            min_polling_interval: Initial time in seconds between status checks.
+                Must be greater than 0.
+            timeout: Maximum time in seconds to wait for completion, one hour
+                by default. Pass ``None`` to wait indefinitely.
 
         Returns:
             Transcript object for JSON format, or string for text/SRT formats.
@@ -493,7 +538,9 @@ class AsyncClient:
             ... )
         """
         try:
-            await asyncio.wait_for(self._poll_job_status(job_id, polling_interval), timeout=timeout)
+            await asyncio.wait_for(
+                self._poll_job_status(job_id, polling_interval, min_polling_interval), timeout=timeout
+            )
 
             return await self.get_transcript(job_id, format_type=format_type)
 
@@ -508,7 +555,8 @@ class AsyncClient:
         transcription_config: Optional[TranscriptionConfig] = None,
         format_type: FormatType = FormatType.JSON,
         polling_interval: float = 5.0,
-        timeout: Optional[float] = None,
+        min_polling_interval: float = 0.5,
+        timeout: Optional[float] = DEFAULT_TIMEOUT,
         parallel_engines: Optional[int] = None,
         user_id: Optional[str] = None,
         wait: Optional[int] = None,
@@ -524,9 +572,16 @@ class AsyncClient:
             config: Complete job configuration.
             transcription_config: Transcription-specific configuration.
             format_type: Output format (FormatType.JSON, FormatType.TXT, FormatType.SRT). Defaults to FormatType.JSON.
-            polling_interval: Time in seconds between status checks. Up to 20%
-                jitter is applied so that concurrent clients do not synchronise.
-            timeout: Maximum time in seconds to wait for completion.
+            polling_interval: Ceiling in seconds for the time between status
+                checks. Polling starts at ``min_polling_interval`` and backs off
+                towards this value, so short jobs are caught quickly while
+                long-running jobs settle into this interval. Up to 20% jitter is
+                applied so that concurrent clients do not synchronise, so an
+                individual wait can exceed this by that much. Must be greater than 0.
+            min_polling_interval: Initial time in seconds between status checks.
+                Must be greater than 0.
+            timeout: Maximum time in seconds to wait for completion, one hour
+                by default. Pass ``None`` to wait indefinitely.
             parallel_engines: Optional number of parallel engines to request for this job.
                                Sent as ``{"parallel_engines": N}`` in the ``X-SM-Processing-Data`` header.
                                This only applies when using the container onPrem on http batch mode.
@@ -592,6 +647,7 @@ class AsyncClient:
             job.id,
             format_type=format_type,
             polling_interval=polling_interval,
+            min_polling_interval=min_polling_interval,
             timeout=remaining,
         )
         self._logger.info("Transcription job completed successfully (job_id=%s)", job.id)

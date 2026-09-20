@@ -17,7 +17,9 @@ from typing import Optional
 from typing import Union
 
 from ._exceptions import BatchError
+from ._exceptions import ConnectionError
 from ._exceptions import JobError
+from ._exceptions import TransportError
 from ._models import ConnectionConfig
 from ._models import FormatType
 from ._models import JobConfig
@@ -32,6 +34,18 @@ PROCESSING_DATA_HEADER = "X-SM-Processing-Data"
 # Slack on top of a server-side ``wait``, so the request is not aborted
 # client-side while the server is still inside its own wait window.
 WAIT_TIMEOUT_BUFFER = 10.0
+
+# Waiting for a job is bounded by default: an unbounded wait turns a job that
+# never reaches a terminal state into a thread or task that hangs forever.
+# Callers who genuinely want that can pass ``timeout=None``.
+DEFAULT_TIMEOUT = 3600.0
+
+# A long wait makes hundreds of status requests, so a single failed one must not
+# abandon a job that is still running. ``GET /jobs/{id}`` is idempotent, so
+# these are safe to repeat.
+MAX_TRANSIENT_POLL_FAILURES = 5
+
+_TRANSIENT_STATUS_CODES = frozenset({408, 429, 500, 502, 503, 504})
 
 # The API spells the default format ``json-v2`` where the SDK spells it
 # FormatType.JSON. This value is both the ``format`` query parameter and the
@@ -290,3 +304,56 @@ def jittered_interval(base_interval: float) -> float:
     against the API, so spread them out.
     """
     return base_interval * random.uniform(0.8, 1.2)  # noqa: S311 - jitter, not crypto
+
+
+def is_transient_poll_error(error: Exception) -> bool:
+    """
+    Whether a failed status poll is worth retrying.
+
+    ``get_job_info()`` wraps transport failures in :class:`JobError`, so the
+    original failure is inspected through ``__cause__``. Anything that is not a
+    recognised transport failure (a bad job ID, an expired job, bad
+    credentials) is the caller's answer, not something to retry.
+    """
+    cause = error.__cause__ if isinstance(error, JobError) else error
+    if isinstance(cause, ConnectionError):
+        return True
+    if isinstance(cause, TransportError):
+        # No status code means the request never produced an HTTP response
+        # (timeout, unreadable body), which is as retryable as a 503.
+        return cause.status_code is None or cause.status_code in _TRANSIENT_STATUS_CODES
+    return False
+
+
+class PollingInterval:
+    """
+    Exponential backoff for a polling interval.
+
+    Starts at ``min_interval`` and multiplies by ``multiplier`` after every
+    call to :meth:`next`, capping at ``max_interval``. This keeps
+    turn-around time low for short jobs (which are caught by one of the
+    early, fast polls) while converging to the same steady-state interval
+    as a fixed polling interval for long-running jobs. Jitter is applied
+    via :func:`jittered_interval` so concurrent clients do not synchronise.
+
+    Both intervals must be positive: zero would never grow (``0 * multiplier``
+    is still zero), turning the caller's poll loop into an unthrottled stream
+    of requests.
+    """
+
+    def __init__(self, min_interval: float, max_interval: float, multiplier: float = 1.6) -> None:
+        if min_interval <= 0:
+            raise ValueError("min_polling_interval must be greater than 0")
+        if max_interval <= 0:
+            raise ValueError("polling_interval must be greater than 0")
+        if multiplier <= 1:
+            raise ValueError("multiplier must be greater than 1")
+        self._max_interval = max_interval
+        self._multiplier = multiplier
+        self._current = min(min_interval, max_interval)
+
+    def next(self) -> float:
+        """Return the next (jittered) interval and advance the backoff."""
+        interval = jittered_interval(self._current)
+        self._current = min(self._current * self._multiplier, self._max_interval)
+        return interval

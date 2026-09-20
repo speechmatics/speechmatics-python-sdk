@@ -1,8 +1,10 @@
-import json
-
 import pytest
 
-from speechmatics.batch._models import JobConfig, Model, OperatingPoint, TranscriptFilteringConfig, TranscriptionConfig
+from speechmatics.batch._models import JobConfig
+from speechmatics.batch._models import Model
+from speechmatics.batch._models import OperatingPoint
+from speechmatics.batch._models import TranscriptFilteringConfig
+from speechmatics.batch._models import TranscriptionConfig
 
 
 class TestTranscriptFilteringConfigToDict:

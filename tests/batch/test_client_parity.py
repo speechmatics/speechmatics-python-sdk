@@ -18,6 +18,7 @@ from speechmatics.batch import AsyncClient
 from speechmatics.batch import AuthenticationError
 from speechmatics.batch import BatchError
 from speechmatics.batch import Client
+from speechmatics.batch import ConnectionError as SMConnectionError
 from speechmatics.batch import FetchData
 from speechmatics.batch import FormatType
 from speechmatics.batch import JobConfig
@@ -29,6 +30,10 @@ from speechmatics.batch import TimeoutError as SMTimeoutError
 from speechmatics.batch import Transcript
 from speechmatics.batch import TranscriptNotReadyError
 from speechmatics.batch import TransportError
+
+# Polling intervals must be positive, so tests use the smallest interval that
+# keeps them fast rather than disabling the wait entirely.
+MIN_SLEEP = 0.001
 
 
 def _transcript_payload(text: str = "Hello") -> dict:
@@ -211,7 +216,7 @@ class TestPollingParity:
             _transcript_payload(),
         ]
         with client.patch_transport("get", side_effect=responses):
-            result = client.call("wait_for_completion", "job-1", polling_interval=0)
+            result = client.call("wait_for_completion", "job-1", polling_interval=MIN_SLEEP)
 
         assert isinstance(result, Transcript)
 
@@ -220,7 +225,7 @@ class TestPollingParity:
         with client.patch_transport("get") as get:
             get.return_value = {"job": {"id": "job-1", "status": "some-new-status"}}
             with pytest.raises(JobError):
-                client.call("wait_for_completion", "job-1", polling_interval=0)
+                client.call("wait_for_completion", "job-1", polling_interval=MIN_SLEEP)
 
     @pytest.mark.parametrize(
         ("status", "message"),
@@ -233,13 +238,103 @@ class TestPollingParity:
         with client.patch_transport("get") as get:
             get.return_value = {"job": {"id": "job-1", "status": status}}
             with pytest.raises(JobError, match=message):
-                client.call("wait_for_completion", "job-1", polling_interval=0)
+                client.call("wait_for_completion", "job-1", polling_interval=MIN_SLEEP)
 
     def test_timeout_raises_timeout_error(self, client):
         with client.patch_transport("get") as get:
             get.return_value = {"job": {"id": "job-1", "status": "running"}}
             with pytest.raises(SMTimeoutError):
-                client.call("wait_for_completion", "job-1", polling_interval=0, timeout=0.01)
+                client.call("wait_for_completion", "job-1", polling_interval=MIN_SLEEP, timeout=0.01)
+
+    def test_waiting_is_bounded_by_default(self, client):
+        """An unbounded default would hang forever on a job that never finishes."""
+        for method in ("wait_for_completion", "transcribe"):
+            default = inspect.signature(getattr(client.client, method)).parameters["timeout"].default
+
+            assert default is not None, f"{method}() defaults to waiting forever"
+            assert default == 3600.0
+
+
+class TestPollingResilienceParity:
+    """A long wait makes hundreds of requests; one blip must not abandon the job."""
+
+    def test_transient_failure_is_retried(self, client):
+        responses = [
+            TransportError("HTTP 502", status_code=502),
+            {"job": {"id": "job-1", "status": "running"}},
+            SMConnectionError("Request failed: connection reset"),
+            {"job": {"id": "job-1", "status": "done"}},
+            _transcript_payload("Survived"),
+        ]
+        with client.patch_transport("get", side_effect=responses) as get:
+            result = client.call("wait_for_completion", "job-1", polling_interval=MIN_SLEEP)
+
+        assert result.transcript_text == "Survived"
+        assert get.call_count == 5
+
+    def test_gives_up_after_repeated_failures(self, client):
+        with client.patch_transport("get", side_effect=TransportError("HTTP 503", status_code=503)) as get:
+            with pytest.raises(JobError, match="consecutive failures"):
+                client.call("wait_for_completion", "job-1", polling_interval=MIN_SLEEP)
+
+        # Six attempts: the first failure plus MAX_TRANSIENT_POLL_FAILURES retries.
+        assert get.call_count == 6
+
+    def test_failure_streak_resets_after_a_good_poll(self, client):
+        """Blips spread over a long wait must not accumulate into a give-up."""
+        responses = [
+            *[TransportError("HTTP 503", status_code=503)] * 5,
+            {"job": {"id": "job-1", "status": "running"}},
+            *[TransportError("HTTP 503", status_code=503)] * 5,
+            {"job": {"id": "job-1", "status": "done"}},
+            _transcript_payload("Recovered"),
+        ]
+        with client.patch_transport("get", side_effect=responses):
+            result = client.call("wait_for_completion", "job-1", polling_interval=MIN_SLEEP)
+
+        assert result.transcript_text == "Recovered"
+
+    def test_authentication_failure_is_not_retried(self, client):
+        with client.patch_transport("get", side_effect=AuthenticationError("bad key")) as get:
+            with pytest.raises(AuthenticationError):
+                client.call("wait_for_completion", "job-1", polling_interval=MIN_SLEEP)
+
+        assert get.call_count == 1
+
+    def test_expired_job_is_not_retried(self, client):
+        with client.patch_transport("get", side_effect=TransportError("HTTP 410", status_code=410)) as get:
+            with pytest.raises(JobExpiredError):
+                client.call("wait_for_completion", "job-1", polling_interval=MIN_SLEEP)
+
+        assert get.call_count == 1
+
+    def test_unknown_job_is_not_retried(self, client):
+        with client.patch_transport("get", side_effect=TransportError("HTTP 404", status_code=404)) as get:
+            with pytest.raises(JobError):
+                client.call("wait_for_completion", "job-1", polling_interval=MIN_SLEEP)
+
+        assert get.call_count == 1
+
+    def test_retries_still_respect_the_timeout(self, client):
+        with client.patch_transport("get", side_effect=TransportError("HTTP 503", status_code=503)):
+            with pytest.raises(SMTimeoutError):
+                client.call("wait_for_completion", "job-1", polling_interval=100.0, timeout=0.01)
+
+    @pytest.mark.parametrize("interval", [0, -1.0])
+    def test_non_positive_polling_interval_is_rejected(self, client, interval):
+        """Zero never backs off, so it would poll in an unthrottled loop."""
+        with client.patch_transport("get") as get:
+            get.return_value = {"job": {"id": "job-1", "status": "running"}}
+            with pytest.raises(ValueError, match="polling_interval"):
+                client.call("wait_for_completion", "job-1", polling_interval=interval)
+
+    @pytest.mark.parametrize("interval", [0, -1.0])
+    def test_non_positive_min_polling_interval_is_rejected(self, client, interval):
+        with client.patch_transport("get") as get:
+            get.return_value = {"job": {"id": "job-1", "status": "running"}}
+            with pytest.raises(ValueError, match="min_polling_interval"):
+                client.call("wait_for_completion", "job-1", min_polling_interval=interval)
+
 
 
 class TestTranscribeParity:
@@ -261,7 +356,7 @@ class TestTranscribeParity:
         with client.patch_transport("post") as post:
             with client.patch_transport("get", side_effect=responses) as get:
                 post.return_value = {"id": "job-1", "status": "created"}
-                result = client.call("transcribe", BytesIO(b"audio"), wait=5, polling_interval=0)
+                result = client.call("transcribe", BytesIO(b"audio"), wait=5, polling_interval=MIN_SLEEP)
 
         assert result.transcript_text == "Polled"
         # One poll to see it's still running, one to see it's done, one to fetch the transcript.
