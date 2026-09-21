@@ -117,6 +117,39 @@ async with AsyncClient() as client:
     text = await client.transcribe("audio.wav", wait=60, format_type=FormatType.TXT)
 ```
 
+### Polling and Timeouts
+
+When a transcript isn't returned by `wait`, the client polls the job status
+until it finishes. Polling starts at `min_polling_interval` and backs off
+towards `polling_interval`, so short jobs are picked up quickly without long
+jobs making hundreds of requests:
+
+```python
+result = client.wait_for_completion(
+    job.id,
+    min_polling_interval=0.5,  # first gap between status checks
+    polling_interval=5.0,      # ceiling the backoff climbs to
+    timeout=3600.0,            # give up after an hour
+)
+```
+
+Both intervals must be greater than 0, and up to 20% jitter is applied to each
+wait so that concurrent clients don't synchronise into bursts.
+
+Waiting is bounded by default: `timeout` is one hour unless you change it. Pass
+`timeout=None` only if a job that never reaches a terminal state should block
+indefinitely.
+
+A long wait makes many status requests, so a single failed one doesn't abandon
+the job: connection errors, request timeouts and HTTP 408/429/5xx are retried,
+up to 5 consecutive failures. Failures that are an answer rather than a blip —
+bad credentials, an unknown job, an expired job — are raised straight away.
+
+Note that the API may also hold each status request open briefly before
+answering it, and the SDK doesn't depend on how long that is. The intervals
+above control what the client adds on top, so the time between checks can be
+longer than the interval you set.
+
 ## JWT Authentication
 
 For enhanced security, use temporary JWT tokens instead of static API keys.

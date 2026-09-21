@@ -1,6 +1,8 @@
 """Unit tests for the synchronous Client, SyncTransport and sync authentication."""
 
 import json
+import logging
+import time
 from io import BytesIO
 from unittest.mock import patch
 
@@ -19,9 +21,14 @@ from speechmatics.batch import JobStatus
 from speechmatics.batch import JobType
 from speechmatics.batch import JWTAuth
 from speechmatics.batch import StaticKeyAuth
+from speechmatics.batch import TimeoutError as SMTimeoutError
 from speechmatics.batch import TranscriptionConfig
 from speechmatics.batch import TransportError
 from speechmatics.batch._sync_transport import SyncTransport
+
+# Polling intervals must be positive, so tests use the smallest interval that
+# keeps them fast rather than disabling the wait entirely.
+MIN_SLEEP = 0.001
 
 
 def _transport_with_handler(handler, **kwargs) -> SyncTransport:
@@ -419,6 +426,51 @@ class TestSyncClientWaitForCompletion:
 
         assert all(call.args[0] <= 0.5 for call in mock_sleep.call_args_list)
 
+    def test_requests_are_bounded_by_remaining_timeout(self):
+        """
+        Bounding only the sleeps lets one hung request overrun the caller's
+        timeout by a whole operation timeout, so the requests are bounded too.
+        """
+        from speechmatics.batch import TimeoutError as SMTimeoutError
+
+        client = Client(api_key="k")
+        client._conn_config.operation_timeout = 300.0
+        with patch.object(client._transport, "get") as mock_get:
+            mock_get.return_value = {"job": {"id": "job-1", "status": "running"}}
+            with pytest.raises(SMTimeoutError):
+                client.wait_for_completion("job-1", polling_interval=MIN_SLEEP, timeout=0.5)
+
+        timeouts = [call.kwargs["timeout"] for call in mock_get.call_args_list]
+        assert timeouts
+        assert all(timeout is not None and timeout <= 0.5 for timeout in timeouts)
+
+    def test_deadline_is_not_reported_as_a_transport_failure(self, caplog):
+        """
+        The server holds a status request for an unspecified time, so a request
+        cut short by the caller's deadline is the timeout arriving, not a blip.
+        """
+        client = Client(api_key="k")
+
+        def held_past_the_deadline(*args, **kwargs):
+            time.sleep(0.15)
+            raise TransportError("Request timeout for GET /jobs/job-1")
+
+        with patch.object(client._transport, "get", side_effect=held_past_the_deadline):
+            with caplog.at_level(logging.WARNING, logger="speechmatics.batch"):
+                with pytest.raises(SMTimeoutError):
+                    client.wait_for_completion("job-1", polling_interval=MIN_SLEEP, timeout=0.05)
+
+        assert "retrying" not in caplog.text
+
+    def test_get_job_info_keeps_the_default_request_timeout(self):
+        """Bounding polling requests must not change a plain get_job_info()."""
+        client = Client(api_key="k")
+        with patch.object(client._transport, "get") as mock_get:
+            mock_get.return_value = {"job": {"id": "job-1", "status": "running"}}
+            client.get_job_info("job-1")
+
+        assert mock_get.call_args.kwargs["timeout"] is None
+
 
 class TestSyncClientEndToEnd:
     """The full submit-and-fetch flow over a mocked HTTP layer."""
@@ -458,7 +510,7 @@ class TestSyncClientEndToEnd:
         client._transport = _transport_with_handler(handler)
 
         job = client.submit_job(BytesIO(b"audio"))
-        result = client.wait_for_completion(job.id, polling_interval=0)
+        result = client.wait_for_completion(job.id, polling_interval=MIN_SLEEP)
 
         assert result.results == []
         assert calls == [

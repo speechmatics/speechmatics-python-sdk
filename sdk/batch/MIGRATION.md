@@ -203,13 +203,42 @@ if job_info.status == JobStatus.DONE:
   the resulting `JobError` now says so explicitly.
 - **New dependency: `httpx`**, alongside the existing `aiohttp`/`aiofiles`. It powers the new
   blocking `Client`; `AsyncClient` does not use it.
+- **Waiting is now bounded by default**: `wait_for_completion()` and `transcribe()` default to
+  `timeout=3600.0` instead of waiting forever, so a job that never reaches a terminal state can
+  no longer hang a thread or task indefinitely. Pass `timeout=None` for the old behaviour.
+- **Status polling now backs off**: it starts at `min_polling_interval` (0.5s, a new argument)
+  and ramps towards `polling_interval`, which is now the ceiling rather than a fixed interval.
+  Its default is unchanged at 5 seconds, so long jobs poll as often as they did before while
+  short ones are picked up sooner.
+- **Polling intervals must be greater than 0**: zero never backs off, so it polled in an
+  unthrottled loop. It now raises `ValueError`.
+- **A failed status check no longer abandons a running job**: connection errors, request
+  timeouts and HTTP 408/429/5xx are retried, up to 5 consecutive failures.
 
 ## Polling behaviour
 
 Legacy `wait_for_completion()` slept for 10% of the audio's duration before
 polling at all, then polled at a fixed 15-second interval regardless of file
-length. The new SDK polls at a fixed interval too — `polling_interval`
-(default 5 seconds), with up to 20% jitter applied so concurrent clients
-don't synchronise — but does not scale it to the audio's duration. Pass
-`polling_interval` to `wait_for_completion()`/`transcribe()` if 5 seconds
-doesn't fit your workload.
+length, and gave up after an hour.
+
+The new SDK does not scale the wait to the audio's duration. It starts at
+`min_polling_interval` (0.5 seconds) and backs off towards `polling_interval`
+(5 seconds), with up to 20% jitter so concurrent clients don't synchronise, so
+short jobs are picked up quickly while long jobs settle into infrequent checks.
+Waiting is still bounded at an hour by default, matching the legacy cap; pass
+`timeout=None` to wait indefinitely.
+
+Two things the legacy client did not do:
+
+- **Transient failures are retried.** A status check that fails with a
+  connection error, a request timeout or HTTP 408/429/5xx is retried, up to 5
+  consecutive failures, rather than abandoning a job that is still running.
+  Failures that are an answer rather than a blip — bad credentials, an unknown
+  job, an expired job — are still raised immediately.
+- **The API may hold each status request open briefly before answering it.**
+  The SDK does not depend on how long that is, so treat the intervals above as
+  what the client adds on top, not as the total time between checks.
+
+If you added your own delay logic on top of the legacy client to reduce latency
+on short files, you no longer need it — tune `min_polling_interval` and
+`polling_interval` on `wait_for_completion()`/`transcribe()` instead.

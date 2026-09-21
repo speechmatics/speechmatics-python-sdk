@@ -18,6 +18,9 @@ from typing import Union
 
 from ._auth import AuthBase
 from ._auth import StaticKeyAuth
+from ._common import DEFAULT_TIMEOUT
+from ._common import MAX_TRANSIENT_POLL_FAILURES
+from ._common import PollingInterval
 from ._common import build_delete_job_params
 from ._common import build_fetch_data_multipart
 from ._common import build_file_multipart
@@ -28,7 +31,7 @@ from ._common import build_query_params
 from ._common import build_submit_query_params
 from ._common import clamp_wait
 from ._common import is_job_active
-from ._common import jittered_interval
+from ._common import is_transient_poll_error
 from ._common import job_details_from_submit_response
 from ._common import raise_for_failed_status
 from ._common import request_timeout_for_wait
@@ -248,12 +251,21 @@ class Client:
             >>> job_info = client.get_job_info("12345")
             >>> print(f"Job status: {job_info.status}")
         """
+        return self._request_job_info(job_id, wait=wait, request_timeout=None)
+
+    def _request_job_info(self, job_id: str, *, wait: Optional[int], request_timeout: Optional[float]) -> JobDetails:
+        """
+        Fetch job info, optionally under a caller-imposed request timeout.
+
+        ``request_timeout`` lets the polling loop keep a single hung request
+        from outliving the deadline the caller gave ``wait_for_completion()``.
+        """
         try:
             self._logger.debug("Retrieving job info for job_id=%s (wait=%s)", job_id, wait)
             response = self._transport.get(
                 f"/jobs/{job_id}",
                 params=build_query_params(wait=wait),
-                timeout=request_timeout_for_wait(wait, self._conn_config),
+                timeout=request_timeout or request_timeout_for_wait(wait, self._conn_config),
             )
             job = response.get("job")
             if job is None:
@@ -402,7 +414,8 @@ class Client:
         *,
         format_type: FormatType = FormatType.JSON,
         polling_interval: float = 5.0,
-        timeout: Optional[float] = None,
+        min_polling_interval: float = 0.5,
+        timeout: Optional[float] = DEFAULT_TIMEOUT,
     ) -> Union[Transcript, str]:
         """
         Wait for a job to complete and return the result.
@@ -413,9 +426,16 @@ class Client:
         Args:
             job_id: The unique job identifier.
             format_type: Output format (FormatType.JSON, FormatType.TXT, FormatType.SRT). Defaults to FormatType.JSON.
-            polling_interval: Time in seconds between status checks. Up to 20%
-                jitter is applied so that concurrent clients do not synchronise.
-            timeout: Maximum time in seconds to wait for completion.
+            polling_interval: Ceiling in seconds for the time between status
+                checks. Polling starts at ``min_polling_interval`` and backs off
+                towards this value, so short jobs are caught quickly while
+                long-running jobs settle into this interval. Up to 20% jitter is
+                applied so that concurrent clients do not synchronise, so an
+                individual wait can exceed this by that much. Must be greater than 0.
+            min_polling_interval: Initial time in seconds between status checks.
+                Must be greater than 0.
+            timeout: Maximum time in seconds to wait for completion, one hour
+                by default. Pass ``None`` to wait indefinitely.
 
         Returns:
             Transcript object for JSON format, or string for text/SRT formats.
@@ -430,7 +450,7 @@ class Client:
             >>> result = client.wait_for_completion(job.id)
             >>> print(f"Transcript: {result.transcript_text}")
         """
-        self._poll_job_status(job_id, polling_interval, timeout)
+        self._poll_job_status(job_id, polling_interval, min_polling_interval, timeout)
         return self.get_transcript(job_id, format_type=format_type)
 
     def transcribe(
@@ -441,7 +461,8 @@ class Client:
         transcription_config: Optional[TranscriptionConfig] = None,
         format_type: FormatType = FormatType.JSON,
         polling_interval: float = 5.0,
-        timeout: Optional[float] = None,
+        min_polling_interval: float = 0.5,
+        timeout: Optional[float] = DEFAULT_TIMEOUT,
         parallel_engines: Optional[int] = None,
         user_id: Optional[str] = None,
         wait: Optional[int] = None,
@@ -454,9 +475,16 @@ class Client:
             config: Complete job configuration.
             transcription_config: Transcription-specific configuration.
             format_type: Output format (FormatType.JSON, FormatType.TXT, FormatType.SRT). Defaults to FormatType.JSON.
-            polling_interval: Time in seconds between status checks. Up to 20%
-                jitter is applied so that concurrent clients do not synchronise.
-            timeout: Maximum time in seconds to wait for completion.
+            polling_interval: Ceiling in seconds for the time between status
+                checks. Polling starts at ``min_polling_interval`` and backs off
+                towards this value, so short jobs are caught quickly while
+                long-running jobs settle into this interval. Up to 20% jitter is
+                applied so that concurrent clients do not synchronise, so an
+                individual wait can exceed this by that much. Must be greater than 0.
+            min_polling_interval: Initial time in seconds between status checks.
+                Must be greater than 0.
+            timeout: Maximum time in seconds to wait for completion, one hour
+                by default. Pass ``None`` to wait indefinitely.
             parallel_engines: Optional number of parallel engines to request for this job.
                                Sent as ``{"parallel_engines": N}`` in the ``X-SM-Processing-Data`` header.
                                This only applies when using the container onPrem on http batch mode.
@@ -512,6 +540,7 @@ class Client:
             job.id,
             format_type=format_type,
             polling_interval=polling_interval,
+            min_polling_interval=min_polling_interval,
             timeout=remaining,
         )
         self._logger.info("Transcription job completed successfully (job_id=%s)", job.id)
@@ -536,31 +565,80 @@ class Client:
         except Exception:
             pass  # Best effort cleanup
 
-    def _poll_job_status(self, job_id: str, polling_interval: float, timeout: Optional[float]) -> None:
+    def _poll_job_status(
+        self, job_id: str, polling_interval: float, min_polling_interval: float, timeout: Optional[float]
+    ) -> None:
         """Poll job status until completion, failure or timeout."""
-        self._logger.debug("Starting job status polling for job_id=%s (interval=%.1fs)", job_id, polling_interval)
-        deadline = None if timeout is None else time.monotonic() + timeout
+        self._logger.debug(
+            "Starting job status polling for job_id=%s (min_interval=%.1fs, max_interval=%.1fs)",
+            job_id,
+            min_polling_interval,
+            polling_interval,
+        )
+        started_at = time.monotonic()
+        deadline = None if timeout is None else started_at + timeout
+        interval = PollingInterval(min_polling_interval, polling_interval)
         poll_count = 0
         last_log_time = 0.0
+        transient_failures = 0
 
         while True:
             poll_count += 1
-            job_info = self.get_job_info(job_id)
+            request_timeout = None
+            if deadline is not None:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError(f"Job {job_id} did not complete within {timeout} seconds")
+                # Without this a single hung request could outlive the caller's
+                # deadline by a whole operation timeout.
+                request_timeout = min(remaining, self._conn_config.operation_timeout)
 
-            if job_info.status == JobStatus.DONE:
-                self._logger.info("Job completed (job_id=%s, polls=%d)", job_id, poll_count)
-                return
-            elif is_job_active(job_info.status):
-                current_time = time.monotonic()
-                if current_time - last_log_time >= 30.0:
-                    self._logger.debug("Job still running (job_id=%s, polls=%d)", job_id, poll_count)
-                    last_log_time = current_time
+            try:
+                job_info = self._request_job_info(job_id, wait=None, request_timeout=request_timeout)
+            except Exception as e:
+                if not is_transient_poll_error(e):
+                    raise
+                if deadline is not None and time.monotonic() >= deadline:
+                    # The request was cut short by the caller's own deadline
+                    # (the server holds a status request for an unspecified
+                    # time), so report the timeout rather than a transport fault.
+                    raise TimeoutError(f"Job {job_id} did not complete within {timeout} seconds") from e
+                transient_failures += 1
+                if transient_failures > MAX_TRANSIENT_POLL_FAILURES:
+                    raise JobError(
+                        f"Job {job_id} status could not be read after "
+                        f"{transient_failures} consecutive failures: {e}"
+                    ) from e
+                self._logger.warning(
+                    "Job status poll failed, retrying (job_id=%s, failure=%d/%d): %s",
+                    job_id,
+                    transient_failures,
+                    MAX_TRANSIENT_POLL_FAILURES,
+                    e,
+                )
             else:
-                self._logger.warning("Job did not succeed (job_id=%s, status=%s)", job_id, job_info.status.value)
-                raise_for_failed_status(job_id, job_info.status)
-                raise JobError(f"Job {job_id} has unexpected status: {job_info.status.value}")
+                transient_failures = 0
 
-            sleep_for = jittered_interval(polling_interval)
+                if job_info.status == JobStatus.DONE:
+                    self._logger.info("Job completed (job_id=%s, polls=%d)", job_id, poll_count)
+                    self._logger.debug(
+                        "Job turnaround time: %.2fs (job_id=%s, polls=%d)",
+                        time.monotonic() - started_at,
+                        job_id,
+                        poll_count,
+                    )
+                    return
+                elif is_job_active(job_info.status):
+                    current_time = time.monotonic()
+                    if current_time - last_log_time >= 30.0:
+                        self._logger.debug("Job still running (job_id=%s, polls=%d)", job_id, poll_count)
+                        last_log_time = current_time
+                else:
+                    self._logger.warning("Job did not succeed (job_id=%s, status=%s)", job_id, job_info.status.value)
+                    raise_for_failed_status(job_id, job_info.status)
+                    raise JobError(f"Job {job_id} has unexpected status: {job_info.status.value}")
+
+            sleep_for = interval.next()
             if deadline is not None:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
