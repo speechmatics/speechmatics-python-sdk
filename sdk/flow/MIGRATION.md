@@ -1,5 +1,7 @@
 # Flow SDK Migration Guide
 
+> **⚠️ DEPRECATED**: `speechmatics-flow` is deprecated and no longer maintained. The Flow API is no longer available and this SDK will not work regardless of version.
+
 This guide helps users migrate from the legacy Speechmatics Flow Client (`speechmatics-flow`) to the new Speechmatics Flow SDK (`speechmatics-flow`). The new SDK provides a cleaner API, better error handling, and improved performance.
 
 ## Significant Changes

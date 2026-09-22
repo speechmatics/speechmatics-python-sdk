@@ -3,6 +3,8 @@
 [![PyPI](https://img.shields.io/pypi/v/speechmatics-flow)](https://pypi.org/project/speechmatics-flow/)
 ![PythonSupport](https://img.shields.io/badge/Python-3.9%2B-green)
 
+> **⚠️ DEPRECATED**: `speechmatics-flow` is deprecated and no longer maintained. The Flow API is no longer available and this SDK will not work regardless of version.
+
 Async Python client for the Speechmatics Flow API - Real-time conversational AI.
 
 ## Features

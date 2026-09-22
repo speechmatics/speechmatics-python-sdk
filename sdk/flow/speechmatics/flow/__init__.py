@@ -1,3 +1,5 @@
+import warnings
+
 __version__ = "0.0.0"
 
 from ._async_client import AsyncClient
@@ -59,3 +61,10 @@ __all__ = [
     "ConversationEndedException",
     "ConversationError",
 ]
+
+warnings.warn(
+    "speechmatics-flow is deprecated and no longer maintained. "
+    "The Flow API is no longer available and this SDK will not work regardless of version.",
+    DeprecationWarning,
+    stacklevel=2,
+)

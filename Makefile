@@ -1,7 +1,7 @@
 # Makefile for Speechmatics Python SDKs
 
 .PHONY: help
-.PHONY: test-all test-rt test-batch test-agent-stt test-flow test-tts test-voice
+.PHONY: test-all test-rt test-batch test-agent-stt test-tts test-voice
 .PHONY: format-all format-rt format-batch format-agent-stt format-flow format-tts format-voice
 .PHONY: lint-all lint-rt lint-batch lint-agent-stt lint-flow lint-tts lint-voice
 .PHONY: type-check-all type-check-rt type-check-batch type-check-agent-stt type-check-flow type-check-tts type-check-voice
@@ -18,7 +18,6 @@ help:
 	@echo "  test-rt           Run tests for RT SDK"
 	@echo "  test-batch        Run tests for Batch SDK"
 	@echo "  test-agent-stt    Run tests for Agent STT SDK"
-	@echo "  test-flow         Run tests for Flow SDK"
 	@echo "  test-tts          Run tests for TTS SDK"
 	@echo "  test-voice        Run tests for Voice Agent SDK"
 	@echo ""
@@ -69,7 +68,7 @@ help:
 	@echo ""
 
 # Testing targets
-test-all: test-rt test-batch test-agent-stt test-flow test-tts test-voice
+test-all: test-rt test-batch test-agent-stt test-tts test-voice
 test-rt:
 	pytest tests/rt/ -v -s
 
@@ -78,9 +77,6 @@ test-batch:
 
 test-agent-stt:
 	pytest tests/agent_stt/ -v -s
-
-test-flow:
-	pytest tests/flow/ -v -s
 
 test-tts:
 	pytest tests/tts/ -v -s
