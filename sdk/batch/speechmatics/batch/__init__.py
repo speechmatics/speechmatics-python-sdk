@@ -4,12 +4,15 @@ from ._async_client import AsyncClient
 from ._auth import AuthBase
 from ._auth import JWTAuth
 from ._auth import StaticKeyAuth
+from ._common import PROCESSING_DATA_HEADER
 from ._exceptions import AuthenticationError
 from ._exceptions import BatchError
 from ._exceptions import ConfigurationError
 from ._exceptions import ConnectionError
 from ._exceptions import JobError
+from ._exceptions import JobExpiredError
 from ._exceptions import TimeoutError
+from ._exceptions import TranscriptNotReadyError
 from ._exceptions import TransportError
 from ._models import AudioFilteringConfig
 from ._models import AutoChaptersConfig
@@ -36,13 +39,14 @@ from ._models import Transcript
 from ._models import TranscriptFilteringConfig
 from ._models import TranscriptionConfig
 from ._models import TranslationConfig
-from ._transport import PROCESSING_DATA_HEADER
+from ._sync_client import Client
 
 __all__ = [
     "AudioFilteringConfig",
     "AsyncClient",
     "PROCESSING_DATA_HEADER",
     "AuthBase",
+    "Client",
     "AuthenticationError",
     "AutoChaptersConfig",
     "BatchError",
@@ -55,6 +59,7 @@ __all__ = [
     "JobDetailError",
     "JobDetails",
     "JobError",
+    "JobExpiredError",
     "JobInfo",
     "JobStatus",
     "JobType",
@@ -72,6 +77,7 @@ __all__ = [
     "TimeoutError",
     "TopicDetectionConfig",
     "Transcript",
+    "TranscriptNotReadyError",
     "TranscriptionConfig",
     "TranslationConfig",
     "TransportError",

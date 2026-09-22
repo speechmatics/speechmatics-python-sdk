@@ -1,21 +1,19 @@
 """Unit tests for AsyncClient.submit_job, focusing on the parallel engines and user_id features."""
 
-import json
 from io import BytesIO
+from typing import Optional
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
-from typing import Optional
-
 import pytest
 
+from speechmatics.batch import PROCESSING_DATA_HEADER
 from speechmatics.batch import AsyncClient
 from speechmatics.batch import JobConfig
 from speechmatics.batch import JobStatus
 from speechmatics.batch import JobType
 from speechmatics.batch import TranscriptionConfig
-from speechmatics.batch import PROCESSING_DATA_HEADER
 
 
 def _make_client(api_key: str = "test-key") -> AsyncClient:
