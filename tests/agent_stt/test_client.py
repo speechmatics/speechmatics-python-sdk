@@ -4,6 +4,7 @@ import pytest
 
 from speechmatics.agent_stt import AgentSttAsyncClient
 from speechmatics.agent_stt import AudioEncoding
+from speechmatics.agent_stt import AudioFormat
 from speechmatics.agent_stt import ClientMessageType
 from speechmatics.agent_stt import ServerMessageType
 from speechmatics.agent_stt import TranscriptionConfig
@@ -94,6 +95,35 @@ async def test_sdk_identifier(client):
 async def test_audio_format_defaults_to_16k_pcm(client):
     assert client._audio_format.encoding == AudioEncoding.PCM_S16LE
     assert client._audio_format.sample_rate == 16000
+
+
+@pytest.mark.asyncio
+async def test_audio_format_accepts_8khz(monkeypatch):
+    monkeypatch.delenv("SPEECHMATICS_RT_URL", raising=False)
+    client = AgentSttAsyncClient(
+        api_key=API_KEY,
+        audio_format=AudioFormat(encoding=AudioEncoding.PCM_S16LE, sample_rate=8000),
+    )
+    assert client._audio_format.sample_rate == 8000
+
+
+@pytest.mark.asyncio
+async def test_audio_format_rejects_unsupported_sample_rate(monkeypatch):
+    monkeypatch.delenv("SPEECHMATICS_RT_URL", raising=False)
+    with pytest.raises(ValueError, match="sample_rate"):
+        AgentSttAsyncClient(
+            api_key=API_KEY,
+            audio_format=AudioFormat(encoding=AudioEncoding.PCM_S16LE, sample_rate=44100),
+        )
+
+
+@pytest.mark.asyncio
+async def test_start_session_rejects_unsupported_sample_rate(client):
+    start_session(client)
+    with pytest.raises(ValueError, match="sample_rate"):
+        await client.start_session(
+            audio_format=AudioFormat(encoding=AudioEncoding.PCM_S16LE, sample_rate=44100)
+        )
 
 
 @pytest.mark.asyncio

@@ -145,9 +145,11 @@ segment is appended when it is missing.
 
 ## Audio
 
-The service requires **16 kHz raw PCM**, `pcm_s16le` or `pcm_f32le`, which is what the client
-defaults to. Audio sent before the session is ready, or after it closes, is dropped rather than
-raising, so an audio callback does not have to track session state.
+The service accepts raw PCM (`pcm_s16le` or `pcm_f32le`) at **16 kHz** (default)or **8 kHz**, set
+using `audio_format=AudioFormat(sample_rate=8000, ...)`.
+Any other sample rate raises `ValueError`. Audio sent before the session is ready, or after it
+closes, is dropped rather than raising, so an audio callback does not have to track session
+state.
 
 ## Examples
 

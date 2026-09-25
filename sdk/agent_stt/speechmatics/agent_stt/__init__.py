@@ -38,6 +38,7 @@ from ._models import DEFAULT_MODEL
 from ._models import DEFAULT_SAMPLE_RATE
 from ._models import DEFAULT_WORD_DELIMITER
 from ._models import SEGMENT_MESSAGES
+from ._models import SUPPORTED_SAMPLE_RATES
 from ._models import TIMED_MESSAGES
 from ._models import AdditionalVocabEntry
 from ._models import ClientMessageType
@@ -59,6 +60,7 @@ __all__ = [
     "DEFAULT_SAMPLE_RATE",
     "DEFAULT_WORD_DELIMITER",
     "SEGMENT_MESSAGES",
+    "SUPPORTED_SAMPLE_RATES",
     "TIMED_MESSAGES",
     "__version__",
     # Client
