@@ -142,6 +142,12 @@ class TestModelToDict:
         assert result["model"] == Model.MELIA_1
         assert "operating_point" not in result
 
+    def test_oak_model_gets_serialized(self):
+        config = TranscriptionConfig(model=Model.OAK_1)
+        result = config.to_dict()
+        assert result["model"] == Model.OAK_1
+        assert "operating_point" not in result
+
     def test_operating_point_gets_serialized(self):
         config = TranscriptionConfig(operating_point=OperatingPoint.STANDARD)
         result = config.to_dict()

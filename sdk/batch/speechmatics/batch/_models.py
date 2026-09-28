@@ -50,6 +50,7 @@ class OperatingPoint(str, Enum):
     ENHANCED = "enhanced"
     STANDARD = "standard"
     MELIA_1 = "melia-1"
+    OAK_1 = "oak-1"
 
 
 class Model(str, Enum):
@@ -58,6 +59,7 @@ class Model(str, Enum):
     ENHANCED = "enhanced"
     STANDARD = "standard"
     MELIA_1 = "melia-1"
+    OAK_1 = "oak-1"
 
 
 class NotificationContents(str, Enum):
