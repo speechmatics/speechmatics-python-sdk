@@ -46,7 +46,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--emit-sentences",
         action="store_true",
-        help="split multi-sentence segments so each segment carries a single sentence",
+        help="one sentence per segment, split on end-of-sentence punctuation: 'Hi. How are you?' arrives as two segments",
     )
     return parser.parse_args()
 

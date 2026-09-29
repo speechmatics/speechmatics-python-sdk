@@ -183,9 +183,10 @@ class TranscriptionConfig(RTTranscriptionConfig):
         additional_vocab: Words to bias the engine towards, as `AdditionalVocabEntry` objects
             or raw dicts.
         model: Agent STT model to transcribe with. Defaults to `DEFAULT_MODEL`.
-        emit_sentences: Split multi-sentence segments on sentence boundaries, so each segment
-            carries a single sentence. Fixed for the life of the session. Defaults to False
-            service-side.
+        emit_sentences: Split a segment after each end-of-sentence punctuation mark (such as
+            `.`, `?` or `!`), so each segment carries a single sentence. For example,
+            "Hi there. How are you?" arrives as two segments rather than one. Fixed for the
+            life of the session. Defaults to False service-side.
 
     Examples:
         >>> transcription_config = TranscriptionConfig(language="en", enable_partials=True)
