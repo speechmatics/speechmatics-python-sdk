@@ -395,6 +395,15 @@ class TranscriptionConfig:
             Defaults to None.
         operating_point: (Deprecated) Legacy argument for specifying the operating point. Use `model` instead going forward
             Defaults to None.
+        language_hints: (Optional) List of languages that are most likely to appear in your audio,
+            This improves accuracy by biasing recognition toward the specified languages.
+            Use ``language_hints_strict`` to control whether other languages can also be detected.
+            Applicable only for the next-gen models (e.g. melia-1).
+        language_hints_strict: (Optional) Controls how strictly language hints are applied.
+            When ``True``, the transcript will only contain languages specified in ``language_hints``.
+            When ``False``, recognition is biased toward the specified languages while still allowing other
+            languages to be detected if present.
+            Applicable only for the next-gen models (e.g. melia-1).
 
     Examples:
         Basic English transcription:
@@ -438,6 +447,8 @@ class TranscriptionConfig:
     ctrl: Optional[dict] = None
     channel_diarization_labels: Optional[list[str]] = None
     operating_point: Optional[OperatingPoint] = None
+    language_hints: Optional[list[str]] = None
+    language_hints_strict: Optional[bool] = None
 
     def __post_init__(self) -> None:
         if self.model is not _UNSET and self.operating_point is not None:
