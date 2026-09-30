@@ -11,9 +11,7 @@ def test_service_vad_is_the_default():
 
 
 def test_external_mode_selects_external_turn_detection():
-    assert TurnConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL).to_dict() == {
-        "turn_detection_mode": "external"
-    }
+    assert TurnConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL).to_dict() == {"turn_detection_mode": "external"}
 
 
 def test_turn_detection_is_not_in_the_transcription_config():
@@ -46,6 +44,16 @@ def test_rt_fields_still_work():
     assert result["diarization"] == "speaker"
     assert result["enable_partials"] is True
     assert result["max_delay"] == 1.5
+
+
+def test_emit_sentences_omitted_by_default():
+    """Left out so the service applies its own default of false."""
+    assert "emit_sentences" not in TranscriptionConfig(language="en").to_dict()
+
+
+@pytest.mark.parametrize("value", [True, False])
+def test_emit_sentences_sent_when_set(value):
+    assert TranscriptionConfig(language="en", emit_sentences=value).to_dict()["emit_sentences"] is value
 
 
 def test_model_and_operating_point_conflict():
