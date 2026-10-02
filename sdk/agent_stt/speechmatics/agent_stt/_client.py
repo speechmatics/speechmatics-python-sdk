@@ -357,13 +357,15 @@ class AgentSttAsyncClient(RTAsyncClient):
                 audio format.
             transcription_config: Transcription config for the session.
             turn_config: Turn-taking config for the session.
-            audio_format: Audio format. Must be 16 kHz raw PCM for the Agent STT service.
+            audio_format: Audio format. Must be 8 kHz or 16 kHz raw PCM for the Agent STT
+                service.
             ws_headers: Additional WebSocket handshake headers.
             timeout: Maximum time in seconds to wait for the stream to finish.
 
         Raises:
             TimeoutError: If streaming exceeds the timeout.
             TranscriptionError: If the service reports an error.
+            ValueError: If `audio_format.sample_rate` is not 8000 or 16000.
 
         Examples:
             >>> with open("speech.raw", "rb") as audio:
@@ -375,6 +377,7 @@ class AgentSttAsyncClient(RTAsyncClient):
         if turn_config is not None:
             self._turn_config = turn_config
         if audio_format is not None:
+            _validate_sample_rate(audio_format.sample_rate)
             self._audio_format = audio_format
 
         if not self._is_connected:
