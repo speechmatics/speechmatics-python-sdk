@@ -145,11 +145,23 @@ segment is appended when it is missing.
 
 ## Audio
 
-The service accepts raw PCM (`pcm_s16le` or `pcm_f32le`) at **16 kHz** (default)or **8 kHz**, set
-using `audio_format=AudioFormat(sample_rate=8000, ...)`.
-Any other sample rate raises `ValueError`. Audio sent before the session is ready, or after it
-closes, is dropped rather than raising, so an audio callback does not have to track session
-state.
+The service accepts raw PCM (`pcm_s16le` or `pcm_f32le`) at **16 kHz** (the default) or
+**8 kHz**. Any other sample rate raises `ValueError`. To send 8 kHz audio, pass an
+`AudioFormat`:
+
+```python
+from speechmatics.agent_stt import AgentSttAsyncClient, AudioEncoding, AudioFormat
+
+client = AgentSttAsyncClient(
+    audio_format=AudioFormat(encoding=AudioEncoding.PCM_S16LE, sample_rate=8000, chunk_size=1024),
+)
+```
+
+Set `chunk_size` explicitly: `AudioFormat` defaults to 4096 bytes, not the client's default of
+1024.
+
+Audio sent before the session is ready, or after it closes, is dropped rather than raising, so
+an audio callback does not have to track session state.
 
 ## Examples
 
