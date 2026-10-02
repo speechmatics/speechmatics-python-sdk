@@ -38,12 +38,16 @@ SILERO_MODEL_PATH = os.getenv("SILERO_MODEL_PATH", ".models/silero_vad.onnx")
 # Hint for when dependencies are not available
 SILERO_INSTALL_HINT = "Silero VAD unavailable. Install `speechmatics-voice[smart]` to enable VAD."
 
-# Silero VAD constants
-SILERO_SAMPLE_RATE = 16000
-SILERO_CHUNK_SIZE = 512  # Silero expects 512 samples at 16kHz (32ms chunks)
-SILERO_CONTEXT_SIZE = 64  # Silero uses 64-sample context
+# Silero VAD supported sample rates (see https://github.com/snakers4/silero-vad)
+SILERO_SUPPORTED_SAMPLE_RATES = [8000, 16000]
+
+# Chunk and context sizes differ by sample rate.
+# Both result in ~32ms chunks: 512/16000 = 256/8000 = 0.032s
+SILERO_CHUNK_SIZES = {16000: 512, 8000: 256}
+SILERO_CONTEXT_SIZES = {16000: 64, 8000: 32}
+
 MODEL_RESET_STATES_TIME = 5.0  # Reset state every 5 seconds
-SILERO_CHUNK_DURATION_MS = (SILERO_CHUNK_SIZE / SILERO_SAMPLE_RATE) * 1000  # 32ms per chunk
+SILERO_CHUNK_DURATION_MS = 32.0  # Both sample rates produce 32ms chunks
 
 
 class SileroVADResult(BaseModel):
@@ -70,7 +74,7 @@ class SileroVAD:
     """Silero Voice Activity Detector.
 
     Uses Silero's opensource VAD model for detecting speech vs silence.
-    Processes audio in 512-sample chunks at 16kHz.
+    Supports 8kHz (256-sample chunks) and 16kHz (512-sample chunks).
 
     Further information at https://github.com/snakers4/silero-vad
     """
@@ -172,56 +176,72 @@ class SileroVAD:
         # Return the new session
         return ort.InferenceSession(onnx_path, providers=["CPUExecutionProvider"], sess_options=so)
 
-    def _init_states(self) -> None:
-        """Initialize or reset internal VAD states."""
+    def _init_states(self, sample_rate: int = 16000) -> None:
+        """Initialize or reset internal VAD states.
+
+        Args:
+            sample_rate: Audio sample rate, used to determine context size.
+        """
+        context_size = SILERO_CONTEXT_SIZES.get(sample_rate, 64)
         self._state = np.zeros((2, 1, 128), dtype=np.float32)
-        self._context = np.zeros((1, SILERO_CONTEXT_SIZE), dtype=np.float32)
+        self._context = np.zeros((1, context_size), dtype=np.float32)
+        self._last_sr: int = sample_rate
         self._last_reset_time = time.time()
 
-    def _maybe_reset_states(self) -> None:
+    def _maybe_reset_states(self, sample_rate: int) -> None:
         """Reset ONNX model states periodically to prevent drift.
+
+        Also resets if the sample rate changes between calls.
 
         Note: Does NOT reset prediction window or speech state tracking.
         """
-        if (time.time() - self._last_reset_time) >= MODEL_RESET_STATES_TIME:
-            self._state = np.zeros((2, 1, 128), dtype=np.float32)
-            self._context = np.zeros((1, SILERO_CONTEXT_SIZE), dtype=np.float32)
-            self._last_reset_time = time.time()
+        # Reset if sample rate changed (context size depends on it)
+        sr_changed = hasattr(self, "_last_sr") and self._last_sr != sample_rate
+        time_expired = (time.time() - self._last_reset_time) >= MODEL_RESET_STATES_TIME
 
-    def process_chunk(self, chunk_f32: np.ndarray) -> float:
-        """Process a single 512-sample chunk and return speech probability.
+        if sr_changed or time_expired:
+            self._init_states(sample_rate)
+
+    def process_chunk(self, chunk_f32: np.ndarray, sample_rate: int = 16000) -> float:
+        """Process a single audio chunk and return speech probability.
+
+        Chunk size depends on sample rate: 512 samples at 16kHz, 256 at 8kHz.
 
         Args:
-            chunk_f32: Float32 numpy array of exactly 512 samples.
+            chunk_f32: Float32 numpy array of audio samples.
+            sample_rate: Sample rate of the audio (8000 or 16000).
 
         Returns:
             Speech probability (0.0-1.0).
 
         Raises:
-            ValueError: If chunk is not exactly 512 samples.
+            ValueError: If chunk size doesn't match expected size for sample rate.
         """
-        # Ensure shape (1, 512)
-        x = np.reshape(chunk_f32, (1, -1))
-        if x.shape[1] != SILERO_CHUNK_SIZE:
-            raise ValueError(f"Expected {SILERO_CHUNK_SIZE} samples, got {x.shape[1]}")
+        # Expected sizes depend on sample rate (512 @ 16kHz, 256 @ 8kHz)
+        expected_chunk_size = SILERO_CHUNK_SIZES.get(sample_rate, 512)
+        context_size = SILERO_CONTEXT_SIZES.get(sample_rate, 64)
 
-        # Concatenate with context (previous 64 samples)
+        x = np.reshape(chunk_f32, (1, -1))
+        if x.shape[1] != expected_chunk_size:
+            raise ValueError(f"Expected {expected_chunk_size} samples for {sample_rate}Hz, got {x.shape[1]}")
+
+        # Concatenate with context (previous N samples, where N depends on sample rate)
         if self._context is not None:
             x = np.concatenate((self._context, x), axis=1)
 
-        # Run ONNX inference
+        # Run ONNX inference — pass actual sample rate so the model uses correct internal params
         ort_inputs = {
             "input": x.astype(np.float32),
             "state": self._state,
-            "sr": np.array(SILERO_SAMPLE_RATE, dtype=np.int64),
+            "sr": np.array(sample_rate, dtype=np.int64),
         }
         out, self._state = self.session.run(None, ort_inputs)
 
-        # Update context (keep last 64 samples)
-        self._context = x[:, -SILERO_CONTEXT_SIZE:]
+        # Update context (keep last N samples for next chunk)
+        self._context = x[:, -context_size:]
 
         # Maybe reset states periodically
-        self._maybe_reset_states()
+        self._maybe_reset_states(sample_rate)
 
         # Return probability (out shape is (1, 1))
         return float(out[0][0])
@@ -229,12 +249,13 @@ class SileroVAD:
     async def process_audio(self, audio_bytes: bytes, sample_rate: int = 16000, sample_width: int = 2) -> None:
         """Process incoming audio bytes and invoke callback on state changes.
 
-        This method buffers incomplete chunks and processes all complete 512-sample chunks.
+        This method buffers incomplete chunks and processes all complete chunks.
+        Chunk size depends on sample rate: 512 samples at 16kHz, 256 at 8kHz.
         The callback is invoked only once at the end if the VAD state changed during processing.
 
         Args:
             audio_bytes: Raw audio bytes (int16 PCM).
-            sample_rate: Sample rate of the audio (must be 16000).
+            sample_rate: Sample rate of the audio (8000 or 16000).
             sample_width: Sample width in bytes (2 for int16).
         """
 
@@ -242,15 +263,17 @@ class SileroVAD:
             logger.error("SileroVAD is not initialized")
             return
 
-        if sample_rate != SILERO_SAMPLE_RATE:
-            logger.error(f"Sample rate must be {SILERO_SAMPLE_RATE}Hz, got {sample_rate}Hz")
+        # Silero VAD only supports 8kHz and 16kHz natively
+        if sample_rate not in SILERO_SUPPORTED_SAMPLE_RATES:
+            logger.error(f"Sample rate must be one of {SILERO_SUPPORTED_SAMPLE_RATES}Hz, got {sample_rate}Hz")
             return
 
         # Add new bytes to buffer
         self._audio_buffer += audio_bytes
 
-        # Calculate bytes per chunk (512 samples * 2 bytes for int16)
-        bytes_per_chunk = SILERO_CHUNK_SIZE * sample_width
+        # Chunk size depends on sample rate (512 @ 16kHz, 256 @ 8kHz)
+        chunk_samples = SILERO_CHUNK_SIZES[sample_rate]
+        bytes_per_chunk = chunk_samples * sample_width
 
         # Process all complete chunks in buffer
         while len(self._audio_buffer) >= bytes_per_chunk:
@@ -266,8 +289,8 @@ class SileroVAD:
             float32_array: np.ndarray = int16_array.astype(np.float32) / 32768.0
 
             try:
-                # Process the chunk and add probability to rolling window
-                probability = self.process_chunk(float32_array)
+                # Process the chunk with the correct sample rate
+                probability = self.process_chunk(float32_array, sample_rate=sample_rate)
                 self._prediction_window.append(probability)
 
             except Exception as e:
@@ -307,10 +330,26 @@ class SileroVAD:
             # Update state after emitting
             self._last_is_speech = is_speech
 
-    def reset(self) -> None:
-        """Reset the VAD state and clear audio buffer."""
+    @property
+    def is_speech_likely(self) -> bool:
+        """Quick check if the most recent raw prediction suggests speech.
+
+        Unlike _last_is_speech which uses a smoothed rolling average (slower to
+        react), this checks the latest chunk prediction directly — giving faster
+        speech-onset detection at the cost of more false positives.
+        """
+        if not self._prediction_window:
+            return self._last_is_speech
+        return float(self._prediction_window[-1]) >= self._threshold
+
+    def reset(self, sample_rate: int = 16000) -> None:
+        """Reset the VAD state and clear audio buffer.
+
+        Args:
+            sample_rate: Sample rate to reinitialise context size for.
+        """
         if self._is_initialized:
-            self._init_states()
+            self._init_states(sample_rate)
             self._audio_buffer = b""
             self._prediction_window.clear()
             self._last_is_speech = False
