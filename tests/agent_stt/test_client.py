@@ -1,3 +1,4 @@
+import io
 import json
 
 import pytest
@@ -124,6 +125,17 @@ async def test_start_session_rejects_unsupported_sample_rate(client):
         await client.start_session(
             audio_format=AudioFormat(encoding=AudioEncoding.PCM_S16LE, sample_rate=44100)
         )
+
+
+@pytest.mark.asyncio
+async def test_transcribe_rejects_unsupported_sample_rate_without_keeping_it(client):
+    start_session(client)
+    with pytest.raises(ValueError, match="sample_rate"):
+        await client.transcribe(
+            io.BytesIO(b""),
+            audio_format=AudioFormat(encoding=AudioEncoding.PCM_S16LE, sample_rate=44100),
+        )
+    assert client._audio_format.sample_rate == 16000
 
 
 @pytest.mark.asyncio
