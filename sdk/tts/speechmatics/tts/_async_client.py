@@ -8,7 +8,6 @@ using the Speechmatics TTS API.
 from __future__ import annotations
 
 import os
-import uuid
 from typing import Any
 from typing import Optional
 
@@ -88,11 +87,10 @@ class AsyncClient:
         self._auth = auth or StaticKeyAuth(api_key)
         self._url = url or os.environ.get("SPEECHMATICS_TTS_URL") or "https://preview.tts.speechmatics.com"
         self._conn_config = conn_config or ConnectionConfig()
-        self._request_id = str(uuid.uuid4())
-        self._transport = Transport(self._url, self._conn_config, self._auth, self._request_id)
+        self._transport = Transport(self._url, self._conn_config, self._auth)
 
         self._logger = get_logger(__name__)
-        self._logger.debug("AsyncClient initialized (request_id=%s, url=%s)", self._request_id, self._url)
+        self._logger.debug("AsyncClient initialized (url=%s)", self._url)
 
     async def __aenter__(self) -> AsyncClient:
         """
