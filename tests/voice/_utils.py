@@ -18,7 +18,7 @@ from speechmatics.voice import VoiceAgentConfig
 async def get_client(
     api_key: Optional[str] = None,
     url: Optional[str] = None,
-    app: Optional[str] = None,
+    app: str = "sdk-test",
     config: Optional[VoiceAgentConfig] = None,
     connect: bool = True,
 ) -> VoiceAgentClient:
