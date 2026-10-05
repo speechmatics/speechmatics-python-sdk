@@ -11,7 +11,6 @@ from ._base_client import _BaseClient
 from ._exceptions import AudioError
 from ._exceptions import TimeoutError
 from ._logging import get_logger
-from ._models import AudioEncoding
 from ._models import AudioEventsConfig
 from ._models import AudioFormat
 from ._models import ClientMessageType
@@ -106,7 +105,9 @@ class AsyncClient(_BaseClient):
         self.on(ServerMessageType.WARNING, self._on_warning)
         self.on(ServerMessageType.AUDIO_ADDED, self._on_audio_added)
 
-        self._audio_format = AudioFormat(encoding=AudioEncoding.PCM_S16LE, sample_rate=44100, chunk_size=4096)
+        # Audio format is set when start_session is called with an explicit format.
+        # Deliberately None until then to avoid silently using incorrect defaults.
+        self._audio_format: Optional[AudioFormat] = None
 
         self._logger.debug("AsyncClient initialized (request_id=%s)", self._session.request_id)
 
@@ -144,10 +145,10 @@ class AsyncClient(_BaseClient):
                 ...     await client.start_session()
                 ...     await client.send_audio(frame)
         """
-        if audio_format is not None:
-            self._audio_format = audio_format
 
-        await self._start_recognition_session(
+        # _start_recognition_session resolves defaults (e.g. AudioFormat() if None),
+        # so we capture the resolved format to keep _audio_format in sync.
+        _, self._audio_format = await self._start_recognition_session(
             transcription_config=transcription_config,
             audio_format=audio_format,
             translation_config=translation_config,
@@ -219,8 +220,13 @@ class AsyncClient(_BaseClient):
         """Number of audio seconds sent to the server.
 
         Raises:
-            ValueError: If the audio format does not have an encoding set.
+            ValueError: If called before start_session has set the audio format,
+                or if the audio format does not have an encoding set.
         """
+        # _audio_format is only set once start_session receives an explicit AudioFormat.
+        # Failing here prevents silently computing with wrong defaults (e.g. 44100Hz).
+        if self._audio_format is None:
+            raise ValueError("audio_seconds_sent is not available before start_session is called with an audio format")
         return self._audio_bytes_sent / (self._audio_format.sample_rate * self._audio_format.bytes_per_sample)
 
     async def transcribe(
