@@ -196,13 +196,21 @@ class SmartTurnDetector:
         # Convert int16 to float32 in range [-1, 1] (same as reference implementation)
         float32_array: np.ndarray = int16_array.astype(np.float32) / 32768.0
 
+        # Whisper's feature extractor requires 16kHz audio. Resample if needed.
+        target_rate = 16000
+        if sample_rate != target_rate:
+            float32_array = self._resample(float32_array, sample_rate, target_rate)
+
+        # After resampling, max_samples is relative to 16kHz
+        max_samples_16k = 8 * target_rate
+
         # Process audio using Whisper's feature extractor
         inputs = self.feature_extractor(
             float32_array,
-            sampling_rate=sample_rate,
+            sampling_rate=target_rate,
             return_tensors="np",
             padding="max_length",
-            max_length=max_samples,
+            max_length=max_samples_16k,
             truncation=True,
             do_normalize=True,
         )
@@ -229,6 +237,44 @@ class SmartTurnDetector:
             probability=round(probability, 3),
             processing_time=round(float((end_time - start_time).total_seconds()), 3),
         )
+
+    @staticmethod
+    def _resample(audio: np.ndarray, orig_rate: int, target_rate: int) -> np.ndarray:
+        """Resample audio using FFT-based method (zero-pad in frequency domain).
+
+        This produces higher quality resampling than linear interpolation by
+        preserving the original spectral content without aliasing artifacts.
+
+        Args:
+            audio: Float32 numpy array of audio samples.
+            orig_rate: Original sample rate.
+            target_rate: Target sample rate.
+
+        Returns:
+            Resampled float32 numpy array.
+        """
+        if orig_rate == target_rate:
+            return audio
+
+        n_orig = len(audio)
+        n_target = int(n_orig * target_rate / orig_rate)
+
+        # FFT of original signal
+        fft = np.fft.rfft(audio)
+
+        # Create zero-padded FFT array for target length
+        n_fft_target = n_target // 2 + 1
+        new_fft = np.zeros(n_fft_target, dtype=complex)
+
+        # Copy original frequency bins (preserves spectral content)
+        copy_len = min(len(fft), n_fft_target)
+        new_fft[:copy_len] = fft[:copy_len]
+
+        # Inverse FFT at target length, scale to preserve amplitude
+        resampled = np.fft.irfft(new_fft, n=n_target)
+        resampled *= n_target / n_orig
+
+        return resampled.astype(np.float32)
 
     @staticmethod
     def truncate_audio_to_last_n_seconds(
