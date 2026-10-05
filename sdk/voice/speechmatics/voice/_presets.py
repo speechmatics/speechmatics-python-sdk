@@ -8,7 +8,7 @@ from typing import Optional
 
 from ._models import EndOfTurnConfig
 from ._models import EndOfUtteranceMode
-from ._models import OperatingPoint
+from ._models import Model
 from ._models import SmartTurnConfig
 from ._models import SpeechSegmentConfig
 from ._models import VoiceActivityConfig
@@ -26,12 +26,11 @@ class VoiceAgentConfigPreset:
         delay to finalizing the spoken sentences. It is not recommended for
         conversation, as it will not account for pauses, slow speech or disfluencies.
 
-        Note that this uses our standard operating point so will have marginally lower
-        accuracy that the enhanced operating point.
+        Note that this uses our standard model.
         """
         return VoiceAgentConfigPreset._merge_configs(
             VoiceAgentConfig(
-                operating_point=OperatingPoint.STANDARD,
+                model=Model.STANDARD,
                 enable_diarization=True,
                 max_delay=2.0,
                 end_of_utterance_silence_trigger=0.25,
@@ -51,7 +50,7 @@ class VoiceAgentConfigPreset:
         """
         return VoiceAgentConfigPreset._merge_configs(
             VoiceAgentConfig(
-                operating_point=OperatingPoint.ENHANCED,
+                model=Model.ENHANCED,
                 enable_diarization=True,
                 max_delay=2.0,
                 end_of_utterance_silence_trigger=0.5,
@@ -75,7 +74,7 @@ class VoiceAgentConfigPreset:
         """
         return VoiceAgentConfigPreset._merge_configs(
             VoiceAgentConfig(
-                operating_point=OperatingPoint.ENHANCED,
+                model=Model.ENHANCED,
                 enable_diarization=True,
                 max_delay=2.0,
                 end_of_utterance_silence_trigger=0.7,
@@ -104,7 +103,7 @@ class VoiceAgentConfigPreset:
         """
         return VoiceAgentConfigPreset._merge_configs(
             VoiceAgentConfig(
-                operating_point=OperatingPoint.ENHANCED,
+                model=Model.ENHANCED,
                 enable_diarization=True,
                 max_delay=2.0,
                 end_of_utterance_silence_trigger=0.8,
@@ -131,7 +130,7 @@ class VoiceAgentConfigPreset:
         """
         return VoiceAgentConfigPreset._merge_configs(
             VoiceAgentConfig(
-                operating_point=OperatingPoint.ENHANCED,
+                model=Model.ENHANCED,
                 enable_diarization=True,
                 max_delay=2.0,
                 end_of_utterance_silence_trigger=1.0,
@@ -150,7 +149,7 @@ class VoiceAgentConfigPreset:
         """
         return VoiceAgentConfigPreset._merge_configs(
             VoiceAgentConfig(
-                operating_point=OperatingPoint.ENHANCED,
+                model=Model.ENHANCED,
                 enable_diarization=True,
                 max_delay=0.7,
                 end_of_utterance_silence_trigger=0.5,
@@ -170,7 +169,7 @@ class VoiceAgentConfigPreset:
         """
         return VoiceAgentConfigPreset._merge_configs(
             VoiceAgentConfig(
-                operating_point=OperatingPoint.ENHANCED,
+                model=Model.ENHANCED,
                 enable_diarization=True,
                 max_delay=2.0,
                 end_of_utterance_mode=EndOfUtteranceMode.EXTERNAL,

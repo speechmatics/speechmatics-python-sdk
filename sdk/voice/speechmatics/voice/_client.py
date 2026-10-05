@@ -400,6 +400,7 @@ class VoiceAgentClient(AsyncClient):
             language=config.language,
             domain=config.domain,
             output_locale=config.output_locale,
+            model=config.model,
             operating_point=config.operating_point,
             diarization="speaker" if config.enable_diarization else None,
             enable_partials=True,
