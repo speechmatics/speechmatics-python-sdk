@@ -170,6 +170,7 @@ install-dev: install-dev-batch install-dev-agent-stt install-dev-flow install-de
 
 install-dev-rt:
 	python -m pip install --upgrade pip
+	python -m pip install pip-audit
 	python -m pip install -e sdk/rt[dev]
 
 install-dev-batch:
