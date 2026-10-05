@@ -120,15 +120,17 @@ class TranscriptionConfig:
             defaults to None.
         audio_filtering_config: Configuration for limiting the transcription of quiet audio.
             Defaults to None.
-        language_hints: List of languages that are most likely to appear in your audio,
-            This improves accuracy by biasing recognition toward the specified languages.
-            Use ``language_hints_strict`` to control whether other languages can also be detected.
-            Applicable only for the next-gen models. Support for next-gen models is coming soon.
-        language_hints_strict: Controls how strictly language hints are applied.
-            When ``True``, the transcript will only contain languages specified in ``language_hints``.
-            When ``False``, recognition is biased toward the specified languages while still allowing other
-            languages to be detected if present.
-            Applicable only for the next-gen models. Support for the next-gen models is coming soon.
+        language_hints: List of languages that are most likely to appear in your audio.
+            Recognition is restricted to these languages, which improves accuracy on multilingual
+            audio. Typically used with ``language="multi"``. Hints take precedence over ``language``,
+            so the transcript may not contain the language named there.
+            Applicable only for the next-gen models (e.g. melia-1, oak-1).
+        language_hints_strict: Controls how strictly ``language_hints`` is applied, and is only valid
+            alongside it.
+            Only ``True`` is currently supported: the transcript will contain only the languages
+            specified in ``language_hints``. This is also what happens when it is left unset.
+            ``False`` is reserved for biasing recognition toward the hinted languages while still
+            allowing other languages to be detected, which the models do not implement yet.
     """
 
     language: str = "en"
