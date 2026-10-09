@@ -6,21 +6,24 @@ ForceEndOfUtterance stamped with the audio position at the moment of the call.
 
 The fixed interval below stands in for the host framework's own end-of-speech signal.
 
-Run with: python examples/agent_stt/client_vad/main.py [path/to/16kHz.wav]
+Run with: python examples/agent_stt/client_vad/main.py [path/to/8kHz-or-16kHz.wav]
 """
 
 import asyncio
 import sys
 import wave
 
+from speechmatics.agent_stt import DEFAULT_CHUNK_SIZE
+from speechmatics.agent_stt import SUPPORTED_SAMPLE_RATES
 from speechmatics.agent_stt import AgentSttAsyncClient
+from speechmatics.agent_stt import AudioEncoding
+from speechmatics.agent_stt import AudioFormat
 from speechmatics.agent_stt import ServerMessageType
 from speechmatics.agent_stt import TranscriptionConfig
 from speechmatics.agent_stt import TurnConfig
 from speechmatics.agent_stt import TurnDetectionMode
 
 DEFAULT_AUDIO_FILE = "./tests/voice/assets/audio_01_16kHz.wav"
-CHUNK_SIZE = 1024
 TURN_SECONDS = 5.0
 
 
@@ -28,23 +31,33 @@ async def main(path: str) -> None:
     transcription_config = TranscriptionConfig(language="en", enable_partials=True)
     turn_config = TurnConfig(turn_detection_mode=TurnDetectionMode.EXTERNAL)
 
-    # Uses SPEECHMATICS_API_KEY from the environment
-    client = AgentSttAsyncClient(transcription_config=transcription_config, turn_config=turn_config)
+    with wave.open(path, "rb") as wav:
+        sample_rate = wav.getframerate()
+        if sample_rate not in SUPPORTED_SAMPLE_RATES:
+            print(f"{path} is {sample_rate} Hz; the Agent STT service needs 8 kHz or 16 kHz audio")
+            return
+        audio_format = AudioFormat(
+            encoding=AudioEncoding.PCM_S16LE,
+            sample_rate=sample_rate,
+            chunk_size=DEFAULT_CHUNK_SIZE,
+        )
 
-    # Registered before the session opens, so no message can arrive unhandled
-    @client.on(ServerMessageType.ADD_SEGMENT)
-    def handle_segment(message):
-        print(f"[final] {message['segment']['transcript']}")
+        # Uses SPEECHMATICS_API_KEY from the environment
+        client = AgentSttAsyncClient(
+            transcription_config=transcription_config,
+            turn_config=turn_config,
+            audio_format=audio_format,
+        )
 
-    async with client:
-        with wave.open(path, "rb") as wav:
-            if wav.getframerate() != 16000:
-                print(f"{path} is {wav.getframerate()} Hz; the Agent STT service needs 16 kHz audio")
-                return
+        # Registered before the session opens, so no message can arrive unhandled
+        @client.on(ServerMessageType.ADD_SEGMENT)
+        def handle_segment(message):
+            print(f"[final] {message['segment']['transcript']}")
 
+        async with client:
             next_turn_end = TURN_SECONDS
             while True:
-                frame = wav.readframes(CHUNK_SIZE // wav.getsampwidth())
+                frame = wav.readframes(DEFAULT_CHUNK_SIZE // wav.getsampwidth())
                 if not frame:
                     break
                 await client.send_audio(frame)
