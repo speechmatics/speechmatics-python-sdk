@@ -12,6 +12,7 @@ from warnings import warn
 from speechmatics.rt import TranscriptionConfig as RTTranscriptionConfig
 
 DEFAULT_SAMPLE_RATE = 16000
+SUPPORTED_SAMPLE_RATES = (8000, 16000)
 DEFAULT_CHUNK_SIZE = 1024
 DEFAULT_WORD_DELIMITER = " "
 

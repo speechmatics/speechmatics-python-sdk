@@ -1,11 +1,11 @@
-"""Stream a 16 kHz WAV file to the Agent STT service at wall-clock speed.
+"""Stream an 8 kHz or 16 kHz WAV file to the Agent STT service at wall-clock speed.
 
 A file read at full speed reaches the service far ahead of real time, so VAD windows, turn
 boundaries and latency all read wrong. This paces the send loop so each frame leaves at the
 moment its audio would have been captured live, and prints how far behind the audio position
 every message arrives - the number worth watching when testing locally.
 
-Run with: python examples/agent_stt/realtime_file/main.py [path/to/16kHz.wav]
+Run with: python examples/agent_stt/realtime_file/main.py [path/to/8kHz-or-16kHz.wav]
 """
 
 import argparse
@@ -14,14 +14,17 @@ import time
 import wave
 from typing import Optional
 
+from speechmatics.agent_stt import DEFAULT_CHUNK_SIZE
+from speechmatics.agent_stt import SUPPORTED_SAMPLE_RATES
 from speechmatics.agent_stt import AgentSttAsyncClient
+from speechmatics.agent_stt import AudioEncoding
+from speechmatics.agent_stt import AudioFormat
 from speechmatics.agent_stt import ServerMessageType
 from speechmatics.agent_stt import TranscriptionConfig
 from speechmatics.agent_stt import TurnConfig
 from speechmatics.agent_stt import TurnDetectionMode
 
 DEFAULT_AUDIO_FILE = "./tests/voice/assets/audio_01_16kHz.wav"
-SAMPLE_RATE = 16000
 BYTES_PER_SAMPLE = 2
 
 
@@ -30,7 +33,7 @@ def parse_args() -> argparse.Namespace:
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("audio", nargs="?", default=DEFAULT_AUDIO_FILE, help="16 kHz mono WAV file")
+    parser.add_argument("audio", nargs="?", default=DEFAULT_AUDIO_FILE, help="8 kHz or 16 kHz mono WAV file")
     parser.add_argument("--language", default="en")
     parser.add_argument("--chunk-ms", type=float, default=20.0, help="audio frame size in milliseconds")
     parser.add_argument(
@@ -76,7 +79,7 @@ class Clock:
         print(f"[{self.elapsed:6.2f}s] {tag:<17}{lag:<10} {text}")
 
 
-def build_client(args: argparse.Namespace, clock: Clock) -> AgentSttAsyncClient:
+def build_client(args: argparse.Namespace, clock: Clock, sample_rate: int) -> AgentSttAsyncClient:
     transcription_config = TranscriptionConfig(
         language=args.language,
         enable_partials=not args.no_partials,
@@ -84,8 +87,18 @@ def build_client(args: argparse.Namespace, clock: Clock) -> AgentSttAsyncClient:
     )
     turn_config = TurnConfig(turn_detection_mode=TurnDetectionMode(args.turn_detection))
 
+    audio_format = AudioFormat(
+        encoding=AudioEncoding.PCM_S16LE,
+        sample_rate=sample_rate,
+        chunk_size=DEFAULT_CHUNK_SIZE,
+    )
+
     # Uses SPEECHMATICS_API_KEY, and SPEECHMATICS_RT_URL to point at a local service
-    client = AgentSttAsyncClient(transcription_config=transcription_config, turn_config=turn_config)
+    client = AgentSttAsyncClient(
+        transcription_config=transcription_config,
+        turn_config=turn_config,
+        audio_format=audio_format,
+    )
 
     @client.on(ServerMessageType.ADD_PARTIAL_SEGMENT)
     def handle_partial_segment(message):
@@ -126,7 +139,8 @@ def build_client(args: argparse.Namespace, clock: Clock) -> AgentSttAsyncClient:
 
 async def stream(client: AgentSttAsyncClient, wav: wave.Wave_read, args: argparse.Namespace, clock: Clock) -> None:
     """Send the file frame by frame, releasing each frame no earlier than its capture time."""
-    frames_per_chunk = int(SAMPLE_RATE * args.chunk_ms / 1000)
+    sample_rate = wav.getframerate()
+    frames_per_chunk = int(sample_rate * args.chunk_ms / 1000)
     next_turn_end = args.turn_seconds
     clock.start()
 
@@ -134,7 +148,7 @@ async def stream(client: AgentSttAsyncClient, wav: wave.Wave_read, args: argpars
         # Hold each frame until the wall clock reaches the end of the audio it carries, so a
         # frame leaves exactly when a live capture would have finished recording it. Paced off
         # the session clock rather than per-frame sleeps, so the send does not drift.
-        frame_end = client.audio_seconds_sent + len(frame) / (SAMPLE_RATE * BYTES_PER_SAMPLE)
+        frame_end = client.audio_seconds_sent + len(frame) / (sample_rate * BYTES_PER_SAMPLE)
         early = frame_end - clock.elapsed
         if early > 0:
             await asyncio.sleep(early)
@@ -150,13 +164,15 @@ async def stream(client: AgentSttAsyncClient, wav: wave.Wave_read, args: argpars
 async def main() -> None:
     args = parse_args()
     clock = Clock()
-    client = build_client(args, clock)
 
     with wave.open(args.audio, "rb") as wav:
-        if (wav.getframerate(), wav.getnchannels(), wav.getsampwidth()) != (SAMPLE_RATE, 1, BYTES_PER_SAMPLE):
-            print(f"{args.audio} must be 16 kHz mono 16-bit PCM for the Agent STT service")
+        sample_rate = wav.getframerate()
+        is_supported_rate = sample_rate in SUPPORTED_SAMPLE_RATES
+        if not is_supported_rate or (wav.getnchannels(), wav.getsampwidth()) != (1, BYTES_PER_SAMPLE):
+            print(f"{args.audio} must be 8 kHz or 16 kHz mono 16-bit PCM for the Agent STT service")
             return
-        duration = wav.getnframes() / SAMPLE_RATE
+        duration = wav.getnframes() / sample_rate
+        client = build_client(args, clock, sample_rate)
 
         async with client:
             await stream(client, wav, args, clock)

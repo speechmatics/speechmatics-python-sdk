@@ -18,6 +18,7 @@ from speechmatics.rt import TransportError
 from ._logging import get_logger
 from ._models import DEFAULT_CHUNK_SIZE
 from ._models import DEFAULT_SAMPLE_RATE
+from ._models import SUPPORTED_SAMPLE_RATES
 from ._models import TIMED_MESSAGES
 from ._models import ClientMessageType
 from ._models import LanguagePackInfo
@@ -34,6 +35,14 @@ from ._version import get_version
 _UNSET = object()
 
 DISCONNECT_TIMEOUT_S = 5.0
+
+
+def _validate_sample_rate(sample_rate: int) -> None:
+    """Raise if `sample_rate` is not one the Agent STT service accepts."""
+    if sample_rate not in SUPPORTED_SAMPLE_RATES:
+        raise ValueError(
+            f"sample_rate must be one of {SUPPORTED_SAMPLE_RATES}, got {sample_rate}",
+        )
 
 
 class AgentSttAsyncClient(RTAsyncClient):
@@ -56,8 +65,8 @@ class AgentSttAsyncClient(RTAsyncClient):
         transcription_config: Transcription config for the session, normally an
             `agent_stt.TranscriptionConfig`.
         turn_config: Turn-taking config for the session. Defaults to the service's VAD.
-        audio_format: Audio format. Defaults to 16 kHz signed 16-bit PCM, which is what the
-            service requires.
+        audio_format: Audio format. Defaults to 16 kHz signed 16-bit PCM. The service also
+            accepts 8 kHz; no other sample rate is supported.
         conn_config: WebSocket connection configuration.
         record_events: Whether to keep every raw server message in `events`.
 
@@ -109,6 +118,7 @@ class AgentSttAsyncClient(RTAsyncClient):
             sample_rate=DEFAULT_SAMPLE_RATE,
             chunk_size=DEFAULT_CHUNK_SIZE,
         )
+        _validate_sample_rate(self._audio_format.sample_rate)
 
         self._session_info = SessionInfo(request_id=self._session.request_id)
         self._transcript = Transcript(record_events=record_events)
@@ -224,18 +234,21 @@ class AgentSttAsyncClient(RTAsyncClient):
         Args:
             transcription_config: Transcription config for the session.
             turn_config: Turn-taking config for the session.
-            audio_format: Audio format. Must be 16 kHz raw PCM for the Agent STT service.
+            audio_format: Audio format. Must be 8 kHz or 16 kHz raw PCM for the Agent STT
+                service.
             ws_headers: Additional WebSocket handshake headers.
 
         Raises:
             ConnectionError: If the WebSocket connection fails.
             TimeoutError: If the service does not accept the session in time.
+            ValueError: If `audio_format.sample_rate` is not 8000 or 16000.
         """
         if transcription_config is not None:
             self._transcription_config = transcription_config
         if turn_config is not None:
             self._turn_config = turn_config
         if audio_format is not None:
+            _validate_sample_rate(audio_format.sample_rate)
             self._audio_format = audio_format
 
         await super().start_session(
@@ -344,13 +357,15 @@ class AgentSttAsyncClient(RTAsyncClient):
                 audio format.
             transcription_config: Transcription config for the session.
             turn_config: Turn-taking config for the session.
-            audio_format: Audio format. Must be 16 kHz raw PCM for the Agent STT service.
+            audio_format: Audio format. Must be 8 kHz or 16 kHz raw PCM for the Agent STT
+                service.
             ws_headers: Additional WebSocket handshake headers.
             timeout: Maximum time in seconds to wait for the stream to finish.
 
         Raises:
             TimeoutError: If streaming exceeds the timeout.
             TranscriptionError: If the service reports an error.
+            ValueError: If `audio_format.sample_rate` is not 8000 or 16000.
 
         Examples:
             >>> with open("speech.raw", "rb") as audio:
@@ -362,6 +377,7 @@ class AgentSttAsyncClient(RTAsyncClient):
         if turn_config is not None:
             self._turn_config = turn_config
         if audio_format is not None:
+            _validate_sample_rate(audio_format.sample_rate)
             self._audio_format = audio_format
 
         if not self._is_connected:
