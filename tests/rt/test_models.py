@@ -1,4 +1,13 @@
+from speechmatics.rt._models import Model
 from speechmatics.rt._models import TranscriptionConfig
+
+
+class TestModelToDict:
+    def test_oak_model_gets_serialized(self):
+        config = TranscriptionConfig(model=Model.OAK_1)
+        result = config.to_dict()
+        assert result["model"] == Model.OAK_1
+        assert "operating_point" not in result
 
 
 class TestLanguageHintsToDict:
