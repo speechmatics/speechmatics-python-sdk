@@ -41,6 +41,7 @@ class OperatingPoint(str, Enum):
     ENHANCED = "enhanced"
     STANDARD = "standard"
     MELIA_1 = "melia-1"
+    OAK_1 = "oak-1"
 
 
 class Model(str, Enum):
@@ -49,6 +50,7 @@ class Model(str, Enum):
     ENHANCED = "enhanced"
     STANDARD = "standard"
     MELIA_1 = "melia-1"
+    OAK_1 = "oak-1"
 
 
 @dataclass
@@ -399,7 +401,7 @@ class TranscriptionConfig:
             Recognition is restricted to these languages, which improves accuracy on multilingual
             audio. Typically used with ``language="multi"``. Hints take precedence over ``language``,
             so the transcript may not contain the language named there.
-            Applicable only for the next-gen models (e.g. melia-1).
+            Applicable only for the next-gen models (e.g. melia-1, oak-1).
             Defaults to None.
         language_hints_strict: (Optional) Controls how strictly ``language_hints`` is applied, and is
             only valid alongside it.
