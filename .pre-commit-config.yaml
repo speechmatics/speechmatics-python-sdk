@@ -15,15 +15,15 @@ repos:
       - id: requirements-txt-fixer
 
   - repo: https://github.com/psf/black
-    rev: 23.12.1
+    rev: 26.5.1
     hooks:
       - id: black
         name: black
         files: ^sdk/.*/speechmatics/
         args: [--line-length=120, --target-version=py39]
 
-  - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: v0.1.9
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.8
     hooks:
       - id: ruff
         name: ruff

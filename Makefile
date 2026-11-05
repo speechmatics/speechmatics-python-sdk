@@ -1,6 +1,6 @@
 # Makefile for Speechmatics Python SDKs
 
-.PHONY: help
+.PHONY: help check-tools
 .PHONY: test-all test-rt test-batch test-agent-stt test-tts test-voice
 .PHONY: format-all format-rt format-batch format-agent-stt format-flow format-tts format-voice
 .PHONY: lint-all lint-rt lint-batch lint-agent-stt lint-flow lint-tts lint-voice
@@ -8,6 +8,16 @@
 .PHONY: build-all build-rt build-batch build-agent-stt build-flow build-tts build-voice
 .PHONY: clean-all clean-rt clean-batch clean-agent-stt clean-flow clean-tts clean-voice
 .PHONY: install-dev install-dev-rt install-dev-batch install-dev-agent-stt install-dev-flow install-dev-tts install-dev-voice
+
+# Formatter/linter versions are pinned to keep local runs, pre-commit and CI identical.
+# When bumping, update: these two variables, the dev extras in sdk/*/pyproject.toml,
+# and the `rev:` entries for black and ruff in .pre-commit-config.yaml.
+RUFF_VERSION := 0.16.8
+BLACK_VERSION := 26.5.1
+
+check-tools:
+	@ruff --version | grep -qF "$(RUFF_VERSION)" || { echo "Expected ruff $(RUFF_VERSION) but found: $$(ruff --version 2>&1). Run: pip install 'ruff==$(RUFF_VERSION)' 'black==$(BLACK_VERSION)' (or activate the project .venv)"; exit 1; }
+	@black --version | grep -qF "$(BLACK_VERSION)" || { echo "Expected black $(BLACK_VERSION) but found: $$(black --version 2>&1 | head -1). Run: pip install 'ruff==$(RUFF_VERSION)' 'black==$(BLACK_VERSION)' (or activate the project .venv)"; exit 1; }
 
 
 help:
@@ -87,57 +97,57 @@ test-voice:
 # Formatting targets
 format-all: format-rt format-batch format-agent-stt format-flow format-tts format-voice format-tests format-examples
 
-format-rt:
+format-rt: check-tools
 	cd sdk/rt/speechmatics && black .
 	cd sdk/rt/speechmatics && ruff check --fix .
 
-format-batch:
+format-batch: check-tools
 	cd sdk/batch/speechmatics && black .
 	cd sdk/batch/speechmatics && ruff check --fix .
 
-format-agent-stt:
+format-agent-stt: check-tools
 	cd sdk/agent_stt/speechmatics && black .
 	cd sdk/agent_stt/speechmatics && ruff check --fix .
 
-format-flow:
+format-flow: check-tools
 	cd sdk/flow/speechmatics && black .
 	cd sdk/flow/speechmatics && ruff check --fix .
 
-format-tts:
+format-tts: check-tools
 	cd sdk/tts/speechmatics && black .
 	cd sdk/tts/speechmatics && ruff check --fix .
 
-format-voice:
+format-voice: check-tools
 	cd sdk/voice/speechmatics && black .
 	cd sdk/voice/speechmatics && ruff check --fix .
 
-format-tests:
+format-tests: check-tools
 	cd tests && black .
 	cd tests && ruff check --fix .
 
-format-examples:
+format-examples: check-tools
 	cd examples && black .
 	cd examples && ruff check --fix .
 
 # Linting targets
 lint-all: lint-rt lint-batch lint-agent-stt lint-flow lint-tts lint-voice
 
-lint-rt:
+lint-rt: check-tools
 	cd sdk/rt/speechmatics && ruff check .
 
-lint-batch:
+lint-batch: check-tools
 	cd sdk/batch/speechmatics && ruff check .
 
-lint-agent-stt:
+lint-agent-stt: check-tools
 	cd sdk/agent_stt/speechmatics && ruff check .
 
-lint-flow:
+lint-flow: check-tools
 	cd sdk/flow/speechmatics && ruff check .
 
-lint-tts:
+lint-tts: check-tools
 	cd sdk/tts/speechmatics && ruff check .
 
-lint-voice:
+lint-voice: check-tools
 	cd sdk/voice/speechmatics && ruff check .
 
 # Type checking targets

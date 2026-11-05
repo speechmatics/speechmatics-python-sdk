@@ -34,8 +34,8 @@ keywords = [
 [project.optional-dependencies]
 jwt = ["aiohttp"]
 dev = [
-    "black",
-    "ruff",
+    "black==26.5.1",
+    "ruff==0.16.8",
     "mypy",
     "pre-commit",
     "pytest",

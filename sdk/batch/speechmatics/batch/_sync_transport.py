@@ -317,9 +317,9 @@ class SyncTransport:
             Headers dictionary with authentication and tracking info
         """
         auth_headers = self._auth.get_auth_headers_sync()
-        auth_headers[
-            "User-Agent"
-        ] = f"speechmatics-batch-v{get_version()} python/{sys.version_info.major}.{sys.version_info.minor}"
+        auth_headers["User-Agent"] = (
+            f"speechmatics-batch-v{get_version()} python/{sys.version_info.major}.{sys.version_info.minor}"
+        )
 
         if self._request_id:
             auth_headers["X-Request-Id"] = self._request_id

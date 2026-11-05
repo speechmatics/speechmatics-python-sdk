@@ -45,8 +45,8 @@ smart = [
     "transformers>=4.57.0,<5",
 ]
 dev = [
-    "black",
-    "ruff",
+    "black==26.5.1",
+    "ruff==0.16.8",
     "mypy",
     "pre-commit",
     "pytest",
