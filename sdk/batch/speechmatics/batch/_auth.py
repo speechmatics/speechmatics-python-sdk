@@ -196,7 +196,7 @@ class JWTAuth(AuthBase):
 
     def _token_request(self) -> tuple[str, dict[str, str], dict[str, Any], dict[str, str]]:
         """Build the endpoint, params, payload and headers for minting a token."""
-        endpoint = f"{self._mp_url}/v1/api_keys"
+        endpoint = f"{self._mp_url}/v1/jwts"
         params = {"type": "batch"}
         payload: dict[str, Any] = {"ttl": self._ttl, "region": str(self._region)}
 
