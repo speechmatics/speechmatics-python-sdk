@@ -89,7 +89,7 @@ async def main():
 
     async with AsyncClient(conn_config=config) as client:
         response = await client.generate(text="Hello World")
-   
+
 
 asyncio.run(main())
 ```
