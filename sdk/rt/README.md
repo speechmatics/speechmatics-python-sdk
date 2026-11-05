@@ -1,7 +1,7 @@
 # Speechmatics Real-Time API Client
 
 [![PyPI](https://img.shields.io/pypi/v/speechmatics-rt)](https://pypi.org/project/speechmatics-rt/)
-![PythonSupport](https://img.shields.io/badge/Python-3.9%2B-green)
+![PythonSupport](https://img.shields.io/badge/Python-3.10%2B-green)
 
 Async Python client for the Speechmatics Real-Time API.
 

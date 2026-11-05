@@ -3,8 +3,6 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from typing import Optional
-from typing import Union
 from urllib.parse import parse_qsl
 from urllib.parse import urlencode
 from urllib.parse import urlparse
@@ -59,9 +57,9 @@ class Transport:
         url: str,
         conn_config: ConnectionConfig,
         auth: AuthBase,
-        request_id: Optional[str] = None,
+        request_id: str | None = None,
         *,
-        sdk_identifier: Optional[str] = None,
+        sdk_identifier: str | None = None,
     ) -> None:
         """
         Initialize the transport with connection configuration.
@@ -82,13 +80,13 @@ class Transport:
         self._conn_config = conn_config
         self._request_id = request_id or str(uuid.uuid4())
         self._sdk_identifier = sdk_identifier
-        self._websocket: Optional[Union[ClientConnection, WebSocketClientProtocol]] = None
+        self._websocket: ClientConnection | WebSocketClientProtocol | None = None
         self._closed = False
         self._logger = get_logger("speechmatics.rt.transport")
 
         self._logger.debug("Transport initialized (request_id=%s, url=%s)", self._request_id, self._url)
 
-    async def connect(self, ws_headers: Optional[dict] = None) -> None:
+    async def connect(self, ws_headers: dict | None = None) -> None:
         """
         Establish WebSocket connection to the Speechmatics RT API.
 
@@ -147,7 +145,7 @@ class Transport:
             self._logger.error("WebSocket connection error: %s", e)
             raise ConnectionError(f"WebSocket connection error: {str(e)}")
 
-    async def send_message(self, payload: Union[bytes, str]) -> None:
+    async def send_message(self, payload: bytes | str) -> None:
         """
         Send a message through the WebSocket connection.
 

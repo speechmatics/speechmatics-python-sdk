@@ -1,7 +1,7 @@
 # Speechmatics Batch API Client
 
 [![PyPI](https://img.shields.io/pypi/v/speechmatics-batch)](https://pypi.org/project/speechmatics-batch/)
-![PythonSupport](https://img.shields.io/badge/Python-3.9%2B-green)
+![PythonSupport](https://img.shields.io/badge/Python-3.10%2B-green)
 
 Python client for Speechmatics Batch API, with both async and blocking interfaces.
 

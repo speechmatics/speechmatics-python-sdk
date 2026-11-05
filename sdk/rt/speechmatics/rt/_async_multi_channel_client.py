@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 from typing import BinaryIO
-from typing import Optional
 
 from ._audio_sources import MultiChanSource
 from ._auth import AuthBase
@@ -61,12 +60,12 @@ class AsyncMultiChannelClient(_BaseClient):
 
     def __init__(
         self,
-        auth: Optional[AuthBase] = None,
+        auth: AuthBase | None = None,
         *,
-        api_key: Optional[str] = None,
-        url: Optional[str] = None,
-        conn_config: Optional[ConnectionConfig] = None,
-        sdk_identifier: Optional[str] = None,
+        api_key: str | None = None,
+        url: str | None = None,
+        conn_config: ConnectionConfig | None = None,
+        sdk_identifier: str | None = None,
     ) -> None:
         self._logger = get_logger("speechmatics.rt.async_multi_chan_client")
 
@@ -104,12 +103,12 @@ class AsyncMultiChannelClient(_BaseClient):
         self,
         sources: dict[str, BinaryIO],
         *,
-        transcription_config: Optional[TranscriptionConfig] = None,
-        audio_format: Optional[AudioFormat] = None,
-        translation_config: Optional[TranslationConfig] = None,
-        audio_events_config: Optional[AudioEventsConfig] = None,
-        ws_headers: Optional[dict] = None,
-        timeout: Optional[float] = None,
+        transcription_config: TranscriptionConfig | None = None,
+        audio_format: AudioFormat | None = None,
+        translation_config: TranslationConfig | None = None,
+        audio_events_config: AudioEventsConfig | None = None,
+        ws_headers: dict | None = None,
+        timeout: float | None = None,
     ) -> None:
         """
         Transcribe multiple audio streams simultaneously in real-time.

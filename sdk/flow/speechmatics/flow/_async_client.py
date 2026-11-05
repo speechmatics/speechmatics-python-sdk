@@ -5,8 +5,6 @@ import os
 import uuid
 from typing import Any
 from typing import BinaryIO
-from typing import Optional
-from typing import Union
 
 from ._auth import AuthBase
 from ._auth import StaticKeyAuth
@@ -30,7 +28,7 @@ from ._models import ToolFunctionParam
 from ._transport import Transport
 from ._utils.audio import read_audio_chunks
 
-Tool = Union[ToolFunctionParam, dict[str, Any]]
+Tool = ToolFunctionParam | dict[str, Any]
 
 
 class AsyncClient(EventEmitter):
@@ -82,11 +80,11 @@ class AsyncClient(EventEmitter):
 
     def __init__(
         self,
-        auth: Optional[AuthBase] = None,
+        auth: AuthBase | None = None,
         *,
-        api_key: Optional[str] = None,
-        url: Optional[str] = None,
-        conn_config: Optional[ConnectionConfig] = None,
+        api_key: str | None = None,
+        url: str | None = None,
+        conn_config: ConnectionConfig | None = None,
     ) -> None:
         """
         Create a new AsyncClient.
@@ -139,7 +137,7 @@ class AsyncClient(EventEmitter):
         return self._session.request_id
 
     @property
-    def conversation_id(self) -> Optional[str]:
+    def conversation_id(self) -> str | None:
         """ID assigned by the service once the conversation actually starts."""
         return self._session.conversation_id
 
@@ -160,12 +158,12 @@ class AsyncClient(EventEmitter):
         self,
         source: BinaryIO,
         *,
-        conversation_config: Optional[ConversationConfig] = None,
-        audio_format: Optional[AudioFormat] = None,
-        tools: Optional[list[Tool]] = None,
-        debug_mode: Optional[DebugMode] = None,
-        ws_headers: Optional[dict[str, str]] = None,
-        timeout: Optional[float] = None,
+        conversation_config: ConversationConfig | None = None,
+        audio_format: AudioFormat | None = None,
+        tools: list[Tool] | None = None,
+        debug_mode: DebugMode | None = None,
+        ws_headers: dict[str, str] | None = None,
+        timeout: float | None = None,
     ) -> None:
         """
         Begin a new Flow conversation and run it to completion.
@@ -270,9 +268,9 @@ class AsyncClient(EventEmitter):
         source: BinaryIO,
         audio_format: AudioFormat,
         conversation_config: ConversationConfig,
-        tools: Optional[list[Tool]],
-        debug_mode: Optional[DebugMode],
-        ws_headers: Optional[dict[str, str]],
+        tools: list[Tool] | None,
+        debug_mode: DebugMode | None,
+        ws_headers: dict[str, str] | None,
     ) -> None:
         """
         Run producer + consumer tasks until one of them finishes or errors.
@@ -316,8 +314,8 @@ class AsyncClient(EventEmitter):
         self,
         conversation_config: ConversationConfig,
         audio_format: AudioFormat,
-        tools: Optional[list[Tool]],
-        debug_mode: Optional[DebugMode],
+        tools: list[Tool] | None,
+        debug_mode: DebugMode | None,
     ) -> None:
         """
         Send the *START_CONVERSATION* message and switch the session to “running”.
@@ -445,7 +443,7 @@ class AsyncClient(EventEmitter):
         elif msg_type == ServerMessageType.DEBUG:
             self._logger.debug("DEBUG: %s", message.get("content", "—"))
 
-    async def _handle_binary_message(self, message: Union[bytes, bytearray]) -> None:
+    async def _handle_binary_message(self, message: bytes | bytearray) -> None:
         """
         Binary messages are assistant audio.  They are forwarded verbatim to
         subscribers of *ServerMessageType.ADD_AUDIO*.

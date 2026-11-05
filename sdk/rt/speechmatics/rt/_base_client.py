@@ -6,9 +6,8 @@ import json
 import logging
 import os
 import uuid
+from collections.abc import Callable
 from typing import Any
-from typing import Callable
-from typing import Optional
 
 from typing_extensions import Self
 
@@ -43,12 +42,12 @@ class _BaseClient(EventEmitter):
     def __init__(self, transport: Transport) -> None:
         super().__init__()
         self._transport = transport
-        self._recv_task: Optional[asyncio.Task[None]] = None
+        self._recv_task: asyncio.Task[None] | None = None
         self._closed_evt = asyncio.Event()
         self._eos_sent = False
         self._audio_bytes_sent = 0
         self._seq_no = 0
-        self._last_error_reason: Optional[str] = None
+        self._last_error_reason: str | None = None
 
         self._session: SessionInfo
         self._session_done_evt: asyncio.Event
@@ -58,7 +57,7 @@ class _BaseClient(EventEmitter):
             self._logger = get_logger("speechmatics.rt.base_client")
 
     @classmethod
-    def _init_session_info(cls, request_id: Optional[str] = None) -> tuple[SessionInfo, asyncio.Event, asyncio.Event]:
+    def _init_session_info(cls, request_id: str | None = None) -> tuple[SessionInfo, asyncio.Event, asyncio.Event]:
         """
         Create common session state used by RT clients.
 
@@ -80,13 +79,13 @@ class _BaseClient(EventEmitter):
     @classmethod
     def _create_transport_from_config(
         cls,
-        auth: Optional[AuthBase] = None,
+        auth: AuthBase | None = None,
         *,
-        api_key: Optional[str] = None,
-        url: Optional[str] = None,
-        conn_config: Optional[ConnectionConfig] = None,
-        request_id: Optional[str] = None,
-        sdk_identifier: Optional[str] = None,
+        api_key: str | None = None,
+        url: str | None = None,
+        conn_config: ConnectionConfig | None = None,
+        request_id: str | None = None,
+        sdk_identifier: str | None = None,
     ) -> Transport:
         """
         Create a Transport instance from common configuration parameters.
@@ -110,7 +109,7 @@ class _BaseClient(EventEmitter):
 
         return Transport(url, conn_config, auth, request_id, sdk_identifier=sdk_identifier)
 
-    async def _ws_connect(self, ws_headers: Optional[dict] = None) -> None:
+    async def _ws_connect(self, ws_headers: dict | None = None) -> None:
         await self._transport.connect(ws_headers)
         self._recv_task = asyncio.create_task(self._recv_loop())
 
@@ -153,7 +152,7 @@ class _BaseClient(EventEmitter):
         return self._session.request_id
 
     @property
-    def session_id(self) -> Optional[str]:
+    def session_id(self) -> str | None:
         """Service-assigned session id, set once RecognitionStarted arrives."""
         return self._session.session_id
 
@@ -233,11 +232,11 @@ class _BaseClient(EventEmitter):
     async def _start_recognition_session(
         self,
         *,
-        transcription_config: Optional[TranscriptionConfig] = None,
-        audio_format: Optional[AudioFormat] = None,
-        translation_config: Optional[TranslationConfig] = None,
-        audio_events_config: Optional[AudioEventsConfig] = None,
-        ws_headers: Optional[dict] = None,
+        transcription_config: TranscriptionConfig | None = None,
+        audio_format: AudioFormat | None = None,
+        translation_config: TranslationConfig | None = None,
+        audio_events_config: AudioEventsConfig | None = None,
+        ws_headers: dict | None = None,
     ) -> tuple[TranscriptionConfig, AudioFormat]:
         if self._closed_evt.is_set():
             self._begin_new_session()

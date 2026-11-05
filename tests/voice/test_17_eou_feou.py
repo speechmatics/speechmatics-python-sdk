@@ -273,7 +273,6 @@ async def run_test(endpoint: str, sample: TranscriptionTest, config: VoiceAgentC
 
     # Validate each segment
     for idx, segment in enumerate(segments_received):
-
         # Extract segment data
         text = segment.get("text", "")
         speaker_id = segment.get("speaker_id", "")

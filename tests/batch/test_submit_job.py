@@ -1,7 +1,6 @@
 """Unit tests for AsyncClient.submit_job, focusing on the parallel engines and user_id features."""
 
 from io import BytesIO
-from typing import Optional
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
@@ -29,7 +28,7 @@ def _job_response(job_id: str = "job-123") -> dict:
 # ---------------------------------------------------------------------------
 
 
-def _captured_extra_headers(mock_post: AsyncMock) -> Optional[dict]:
+def _captured_extra_headers(mock_post: AsyncMock) -> dict | None:
     """Return the extra_headers kwarg from the first call to transport.post."""
     _, kwargs = mock_post.call_args
     return kwargs.get("extra_headers")

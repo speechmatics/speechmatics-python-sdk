@@ -4,9 +4,8 @@ import json
 import os
 import time
 import wave
+from collections.abc import Callable
 from typing import Any
-from typing import Callable
-from typing import Optional
 
 import aiofiles
 
@@ -16,10 +15,10 @@ from speechmatics.voice import VoiceAgentConfig
 
 
 async def get_client(
-    api_key: Optional[str] = None,
-    url: Optional[str] = None,
-    app: Optional[str] = None,
-    config: Optional[VoiceAgentConfig] = None,
+    api_key: str | None = None,
+    url: str | None = None,
+    app: str | None = None,
+    config: VoiceAgentConfig | None = None,
     connect: bool = True,
 ) -> VoiceAgentClient:
     """Get a client."""
@@ -61,11 +60,11 @@ async def get_client(
 async def send_audio_file(
     client: VoiceAgentClient,
     audio_file: str,
-    terminate_event: Optional[asyncio.Event] = None,
+    terminate_event: asyncio.Event | None = None,
     chunk_size: int = 320,
     sample_rate: int = 16000,
     sample_size: int = 2,
-    progress_callback: Optional[Callable[[int], None]] = None,
+    progress_callback: Callable[[int], None] | None = None,
 ) -> None:
     """Send audio data to the API server."""
 
@@ -88,7 +87,6 @@ async def send_audio_file(
 
     # Catch errors - we can be lazy as this is only for testing
     try:
-
         # Load the file
         async with aiofiles.open(file, "rb") as wav_file:
             # Trim off the WAV file header
@@ -142,11 +140,11 @@ async def load_audio_file(audio_file: str) -> bytes:
 async def send_silence(
     client: VoiceAgentClient,
     duration: float,
-    terminate_event: Optional[asyncio.Event] = None,
+    terminate_event: asyncio.Event | None = None,
     chunk_size: int = 320,
     sample_rate: int = 16000,
     sample_size: int = 2,
-    progress_callback: Optional[Callable[[int], None]] = None,
+    progress_callback: Callable[[int], None] | None = None,
 ):
     """Send silence to the client (creates a chunk of silence and sends it to the client)"""
 
@@ -175,7 +173,6 @@ async def send_silence(
 
     # Catch errors - we can be lazy as this is only for testing
     try:
-
         # Keep sending
         while (not terminate_event.is_set() if terminate_event else True) and iterations > 0:
             # Send audio to client
@@ -199,7 +196,7 @@ async def send_silence(
         pass
 
 
-def log_client_messages(client: VoiceAgentClient, messages: Optional[list[AgentServerMessageType]] = None) -> None:
+def log_client_messages(client: VoiceAgentClient, messages: list[AgentServerMessageType] | None = None) -> None:
     """Register and log client messages."""
 
     # Start time
@@ -236,7 +233,7 @@ class ConversationLog:
         with open(self.file) as f:
             return [json.loads(line) for line in f]
 
-    def get_conversation(self, filter: Optional[list[str]] = None) -> list[dict[str, Any]]:
+    def get_conversation(self, filter: list[str] | None = None) -> list[dict[str, Any]]:
         """Get the conversation."""
         try:
             if filter:

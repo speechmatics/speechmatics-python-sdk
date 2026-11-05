@@ -336,7 +336,6 @@ class TestPollingResilienceParity:
                 client.call("wait_for_completion", "job-1", min_polling_interval=interval)
 
 
-
 class TestTranscribeParity:
     def test_single_round_trip_when_wait_succeeds(self, client):
         with client.patch_transport("post") as post:

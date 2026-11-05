@@ -3,7 +3,6 @@ import asyncio
 import os
 import time
 from typing import Literal
-from typing import Optional
 
 from ._exceptions import AuthenticationError
 
@@ -43,7 +42,7 @@ class StaticKeyAuth(AuthBase):
         {'Authorization': 'Bearer your-api-key'}
     """
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         self._api_key = api_key or os.environ.get("SPEECHMATICS_API_KEY")
 
         if not self._api_key:
@@ -80,13 +79,13 @@ class JWTAuth(AuthBase):
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         *,
         ttl: int = 60,
         region: Literal["eu", "usa", "au"] = "eu",
-        client_ref: Optional[str] = None,
-        mp_url: Optional[str] = None,
-        request_id: Optional[str] = None,
+        client_ref: str | None = None,
+        mp_url: str | None = None,
+        request_id: str | None = None,
     ):
         self._api_key = api_key or os.environ.get("SPEECHMATICS_API_KEY")
         self._ttl = ttl
@@ -103,7 +102,7 @@ class JWTAuth(AuthBase):
         if not 60 <= self._ttl <= 86_400:
             raise ValueError("ttl must be between 60 and 86400 seconds")
 
-        self._cached_token: Optional[str] = None
+        self._cached_token: str | None = None
         self._token_expires_at: float = 0
         self._token_lock = asyncio.Lock()
 

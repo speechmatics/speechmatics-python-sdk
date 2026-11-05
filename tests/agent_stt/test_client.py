@@ -122,9 +122,7 @@ async def test_audio_format_rejects_unsupported_sample_rate(monkeypatch):
 async def test_start_session_rejects_unsupported_sample_rate(client):
     start_session(client)
     with pytest.raises(ValueError, match="sample_rate"):
-        await client.start_session(
-            audio_format=AudioFormat(encoding=AudioEncoding.PCM_S16LE, sample_rate=44100)
-        )
+        await client.start_session(audio_format=AudioFormat(encoding=AudioEncoding.PCM_S16LE, sample_rate=44100))
     assert client._audio_format.sample_rate == 16000
 
 

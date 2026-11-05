@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/license-MIT-yellow.svg)](https://github.com/speechmatics/speechmatics-python-sdk/blob/main/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/speechmatics-voice)](https://pypi.org/project/speechmatics-voice/)
-[![PythonSupport](https://img.shields.io/badge/Python-3.9%2B-green)](https://www.python.org/)
+[![PythonSupport](https://img.shields.io/badge/Python-3.10%2B-green)](https://www.python.org/)
 
 Python SDK for building voice-enabled applications using Speechmatics Real-Time API. Optimized for specific use cases: conversational AI, voice agents, transcription services, and real-time captioning.
 
@@ -800,7 +800,7 @@ class VoiceAgentClient:
 
 ## Requirements
 
-- Python 3.9+
+- Python 3.10+
 - Speechmatics API key (Get one through: [Speechmatics Portal](https://portal.speechmatics.com/))
 
 ## Documentation
