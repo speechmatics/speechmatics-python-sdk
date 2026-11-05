@@ -13,8 +13,6 @@ import time
 import uuid
 from typing import Any
 from typing import BinaryIO
-from typing import Optional
-from typing import Union
 
 from ._auth import AuthBase
 from ._auth import StaticKeyAuth
@@ -92,11 +90,11 @@ class Client:
 
     def __init__(
         self,
-        auth: Optional[AuthBase] = None,
+        auth: AuthBase | None = None,
         *,
-        api_key: Optional[str] = None,
-        url: Optional[str] = None,
-        conn_config: Optional[ConnectionConfig] = None,
+        api_key: str | None = None,
+        url: str | None = None,
+        conn_config: ConnectionConfig | None = None,
     ) -> None:
         """
         Initialize the Client.
@@ -147,13 +145,13 @@ class Client:
 
     def submit_job(
         self,
-        audio_file: Union[str, BinaryIO, None],
+        audio_file: str | BinaryIO | None,
         *,
-        config: Optional[JobConfig] = None,
-        transcription_config: Optional[TranscriptionConfig] = None,
-        parallel_engines: Optional[int] = None,
-        user_id: Optional[str] = None,
-        wait: Optional[int] = None,
+        config: JobConfig | None = None,
+        transcription_config: TranscriptionConfig | None = None,
+        parallel_engines: int | None = None,
+        user_id: str | None = None,
+        wait: int | None = None,
         format_type: FormatType = FormatType.JSON,
     ) -> JobDetails:
         """
@@ -224,11 +222,11 @@ class Client:
                 multipart_data = build_file_multipart(config_dict, filename, file_data)
                 return self._submit(multipart_data, filename, config, parallel_engines, user_id, wait, format_type)
         except Exception as e:
-            if isinstance(e, (AuthenticationError, BatchError)):
+            if isinstance(e, AuthenticationError | BatchError):
                 raise
             raise BatchError(f"Job submission failed: {e}") from e
 
-    def get_job_info(self, job_id: str, *, wait: Optional[int] = None) -> JobDetails:
+    def get_job_info(self, job_id: str, *, wait: int | None = None) -> JobDetails:
         """
         Get information about a specific job.
 
@@ -253,7 +251,7 @@ class Client:
         """
         return self._request_job_info(job_id, wait=wait, request_timeout=None)
 
-    def _request_job_info(self, job_id: str, *, wait: Optional[int], request_timeout: Optional[float]) -> JobDetails:
+    def _request_job_info(self, job_id: str, *, wait: int | None, request_timeout: float | None) -> JobDetails:
         """
         Fetch job info, optionally under a caller-imposed request timeout.
 
@@ -281,9 +279,9 @@ class Client:
     def list_jobs(
         self,
         *,
-        limit: Optional[int] = None,
-        created_before: Optional[str] = None,
-        created_after: Optional[str] = None,
+        limit: int | None = None,
+        created_before: str | None = None,
+        created_after: str | None = None,
     ) -> list[JobDetails]:
         """
         List jobs with optional filtering.
@@ -353,8 +351,8 @@ class Client:
         job_id: str,
         *,
         format_type: FormatType = FormatType.JSON,
-        wait: Optional[int] = None,
-    ) -> Union[Transcript, str]:
+        wait: int | None = None,
+    ) -> Transcript | str:
         """
         Get the transcript for a completed job.
 
@@ -415,8 +413,8 @@ class Client:
         format_type: FormatType = FormatType.JSON,
         polling_interval: float = 5.0,
         min_polling_interval: float = 0.5,
-        timeout: Optional[float] = DEFAULT_TIMEOUT,
-    ) -> Union[Transcript, str]:
+        timeout: float | None = DEFAULT_TIMEOUT,
+    ) -> Transcript | str:
         """
         Wait for a job to complete and return the result.
 
@@ -455,18 +453,18 @@ class Client:
 
     def transcribe(
         self,
-        audio_file: Union[str, BinaryIO],
+        audio_file: str | BinaryIO,
         *,
-        config: Optional[JobConfig] = None,
-        transcription_config: Optional[TranscriptionConfig] = None,
+        config: JobConfig | None = None,
+        transcription_config: TranscriptionConfig | None = None,
         format_type: FormatType = FormatType.JSON,
         polling_interval: float = 5.0,
         min_polling_interval: float = 0.5,
-        timeout: Optional[float] = DEFAULT_TIMEOUT,
-        parallel_engines: Optional[int] = None,
-        user_id: Optional[str] = None,
-        wait: Optional[int] = None,
-    ) -> Union[Transcript, str]:
+        timeout: float | None = DEFAULT_TIMEOUT,
+        parallel_engines: int | None = None,
+        user_id: str | None = None,
+        wait: int | None = None,
+    ) -> Transcript | str:
         """
         Complete transcription workflow: submit job and return the transcript.
 
@@ -566,7 +564,7 @@ class Client:
             pass  # Best effort cleanup
 
     def _poll_job_status(
-        self, job_id: str, polling_interval: float, min_polling_interval: float, timeout: Optional[float]
+        self, job_id: str, polling_interval: float, min_polling_interval: float, timeout: float | None
     ) -> None:
         """Poll job status until completion, failure or timeout."""
         self._logger.debug(
@@ -651,9 +649,9 @@ class Client:
         multipart_data: dict[str, Any],
         filename: str,
         config: JobConfig,
-        parallel_engines: Optional[int],
-        user_id: Optional[str],
-        wait: Optional[int],
+        parallel_engines: int | None,
+        user_id: str | None,
+        wait: int | None,
         format_type: FormatType,
     ) -> JobDetails:
         """Submit the job and build its JobDetails."""

@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import logging
 from typing import Any
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +25,8 @@ class Microphone:
         sample_rate: int = 16000,
         channels: int = 1,
         chunk_size: int = 4096,
-        device_index: Optional[int] = None,
-        loop: Optional[asyncio.AbstractEventLoop] = None,
+        device_index: int | None = None,
+        loop: asyncio.AbstractEventLoop | None = None,
     ):
         if sample_rate <= 0 or channels <= 0 or chunk_size <= 0:
             raise ValueError("Sample rate, channels, and chunk size must be positive")
@@ -37,9 +36,9 @@ class Microphone:
         self._chunk_size = chunk_size
         self._device_index = device_index
         self._is_recording = False
-        self._audio: Optional[Any] = None
-        self._stream: Optional[Any] = None
-        self._loop: Optional[asyncio.AbstractEventLoop] = loop
+        self._audio: Any | None = None
+        self._stream: Any | None = None
+        self._loop: asyncio.AbstractEventLoop | None = loop
 
         # Check if pyaudio is available
         try:

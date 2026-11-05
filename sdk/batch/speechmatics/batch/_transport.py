@@ -14,7 +14,6 @@ import json as _json
 import sys
 import uuid
 from typing import Any
-from typing import Optional
 
 import aiohttp
 
@@ -64,7 +63,7 @@ class Transport:
         url: str,
         conn_config: ConnectionConfig,
         auth: AuthBase,
-        request_id: Optional[str] = None,
+        request_id: str | None = None,
     ) -> None:
         """
         Initialize the transport with connection configuration.
@@ -79,7 +78,7 @@ class Transport:
         self._conn_config = conn_config
         self._auth = auth
         self._request_id = request_id or str(uuid.uuid4())
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
         self._closed = False
         self._logger = get_logger(__name__)
 
@@ -95,7 +94,7 @@ class Transport:
         await self.close()
 
     async def get(
-        self, path: str, params: Optional[dict[str, Any]] = None, timeout: Optional[float] = None
+        self, path: str, params: dict[str, Any] | None = None, timeout: float | None = None
     ) -> dict[str, Any]:
         """
         Send GET request to the API.
@@ -117,11 +116,11 @@ class Transport:
     async def post(
         self,
         path: str,
-        json_data: Optional[dict[str, Any]] = None,
-        multipart_data: Optional[dict[str, Any]] = None,
-        timeout: Optional[float] = None,
-        extra_headers: Optional[dict[str, Any]] = None,
-        params: Optional[dict[str, Any]] = None,
+        json_data: dict[str, Any] | None = None,
+        multipart_data: dict[str, Any] | None = None,
+        timeout: float | None = None,
+        extra_headers: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Send POST request to the API.
@@ -152,7 +151,7 @@ class Transport:
         )
 
     async def delete(
-        self, path: str, timeout: Optional[float] = None, params: Optional[dict[str, Any]] = None
+        self, path: str, timeout: float | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """
         Send DELETE request to the API.
@@ -215,11 +214,11 @@ class Transport:
         self,
         method: str,
         path: str,
-        params: Optional[dict[str, Any]] = None,
-        json_data: Optional[dict[str, Any]] = None,
-        multipart_data: Optional[dict[str, Any]] = None,
-        timeout: Optional[float] = None,
-        extra_headers: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
+        multipart_data: dict[str, Any] | None = None,
+        timeout: float | None = None,
+        extra_headers: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Send HTTP request to the API.

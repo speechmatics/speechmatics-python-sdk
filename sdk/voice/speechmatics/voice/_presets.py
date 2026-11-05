@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from ._models import EndOfTurnConfig
 from ._models import EndOfUtteranceMode
 from ._models import OperatingPoint
@@ -19,7 +17,7 @@ class VoiceAgentConfigPreset:
     """Set of preset configurations for the Voice Agent SDK."""
 
     @staticmethod
-    def FAST(overlay: Optional[VoiceAgentConfig] = None) -> VoiceAgentConfig:  # noqa: N802
+    def FAST(overlay: VoiceAgentConfig | None = None) -> VoiceAgentConfig:  # noqa: N802
         """Best suited for low latency situations.
 
         This configuration will emit the end of turn as soon as possible, with minimal
@@ -42,7 +40,7 @@ class VoiceAgentConfigPreset:
         )
 
     @staticmethod
-    def FIXED(overlay: Optional[VoiceAgentConfig] = None) -> VoiceAgentConfig:  # noqa: N802
+    def FIXED(overlay: VoiceAgentConfig | None = None) -> VoiceAgentConfig:  # noqa: N802
         """Best suited for general conversational use cases with fixed end-of-utterance timing.
 
         For conversation, there is a balance between accuracy, speed and the rate at
@@ -62,7 +60,7 @@ class VoiceAgentConfigPreset:
         )
 
     @staticmethod
-    def ADAPTIVE(overlay: Optional[VoiceAgentConfig] = None) -> VoiceAgentConfig:  # noqa: N802
+    def ADAPTIVE(overlay: VoiceAgentConfig | None = None) -> VoiceAgentConfig:  # noqa: N802
         """Best suited for general conversational use cases.
 
         For conversation, there is a balance between accuracy, speed and the rate at
@@ -88,7 +86,7 @@ class VoiceAgentConfigPreset:
         )
 
     @staticmethod
-    def SMART_TURN(overlay: Optional[VoiceAgentConfig] = None) -> VoiceAgentConfig:  # noqa: N802
+    def SMART_TURN(overlay: VoiceAgentConfig | None = None) -> VoiceAgentConfig:  # noqa: N802
         """Best suited for complex conversational use cases.
 
         For conversation, there is a balance between accuracy, speed and the rate at
@@ -120,7 +118,7 @@ class VoiceAgentConfigPreset:
         )
 
     @staticmethod
-    def SCRIBE(overlay: Optional[VoiceAgentConfig] = None) -> VoiceAgentConfig:  # noqa: N802
+    def SCRIBE(overlay: VoiceAgentConfig | None = None) -> VoiceAgentConfig:  # noqa: N802
         """Best suited for note-taking and scribes.
 
         This mode will emit partial and final segments as they become available. The end of
@@ -142,7 +140,7 @@ class VoiceAgentConfigPreset:
         )
 
     @staticmethod
-    def CAPTIONS(overlay: Optional[VoiceAgentConfig] = None) -> VoiceAgentConfig:  # noqa: N802
+    def CAPTIONS(overlay: VoiceAgentConfig | None = None) -> VoiceAgentConfig:  # noqa: N802
         """Best suited for captioning.
 
         This mode will emit final segments as they become available. The end of
@@ -162,7 +160,7 @@ class VoiceAgentConfigPreset:
         )
 
     @staticmethod
-    def EXTERNAL(overlay: Optional[VoiceAgentConfig] = None) -> VoiceAgentConfig:  # noqa: N802
+    def EXTERNAL(overlay: VoiceAgentConfig | None = None) -> VoiceAgentConfig:  # noqa: N802
         """Best suited for external turn control.
 
         This mode will emit partial and final segments as they become available. The end of
@@ -186,7 +184,7 @@ class VoiceAgentConfigPreset:
         return [attr.lower() for attr in dir(VoiceAgentConfigPreset) if not attr.startswith("_") and attr.isupper()]
 
     @staticmethod
-    def load(preset: str, overlay_json: Optional[str] = None) -> VoiceAgentConfig:
+    def load(preset: str, overlay_json: str | None = None) -> VoiceAgentConfig:
         """Get a preset configuration.
 
         Args:
@@ -208,7 +206,7 @@ class VoiceAgentConfigPreset:
             raise ValueError(f"Invalid preset: {preset}")
 
     @staticmethod
-    def _merge_configs(base: VoiceAgentConfig, overlay: Optional[VoiceAgentConfig]) -> VoiceAgentConfig:
+    def _merge_configs(base: VoiceAgentConfig, overlay: VoiceAgentConfig | None) -> VoiceAgentConfig:
         """Merge two VoiceAgentConfig objects.
 
         Simply merge any overrides from the overlay into the base config. This makes creating

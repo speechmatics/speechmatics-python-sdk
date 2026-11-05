@@ -12,7 +12,6 @@ import argparse
 import asyncio
 import time
 import wave
-from typing import Optional
 
 from speechmatics.agent_stt import DEFAULT_CHUNK_SIZE
 from speechmatics.agent_stt import SUPPORTED_SAMPLE_RATES
@@ -69,7 +68,7 @@ class Clock:
     def elapsed(self) -> float:
         return time.monotonic() - self._started_at
 
-    def log(self, tag: str, text: str, *, audio_time: Optional[float] = None, record: bool = False) -> None:
+    def log(self, tag: str, text: str, *, audio_time: float | None = None, record: bool = False) -> None:
         lag = ""
         if audio_time is not None:
             behind = self.elapsed - audio_time

@@ -5,7 +5,7 @@ extraPaths = ["sdk/agent_stt", "sdk/batch", "sdk/flow", "sdk/rt", "sdk/tts", "sd
 
 [tool.black]
 line-length = 120
-target-version = ['py39']
+target-version = ['py310']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -22,7 +22,7 @@ extend-exclude = '''
 
 [tool.ruff]
 line-length = 120
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = [
@@ -40,7 +40,6 @@ ignore = [
     "B008",   # do not perform function calls in argument defaults
     "E203",   # whitespace before ':'
     "N818",   # Exception name should end with Error - we have ForceEndSession by design
-    "UP007",  # Use X | Y for type annotations - we support Python 3.9
     "B904",   # Within except clause, raise exceptions with raise ... from err
     "SIM105", # Use contextlib.suppress - keep explicit for clarity
     "SIM108", # Use ternary operator - keep explicit for readability
@@ -48,16 +47,12 @@ ignore = [
     "E501",   # Line too long - handled by black
 ]
 
-[tool.ruff.lint.pyupgrade]
-# Preserve types, even if a file imports `from __future__ import annotations`.
-keep-runtime-typing = true
-
 [tool.ruff.lint.isort]
 known-first-party = ["speechmatics"]
 force-single-line = true
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 explicit_package_bases = true
 namespace_packages = true
 warn_return_any = true

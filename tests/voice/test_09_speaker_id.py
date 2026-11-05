@@ -2,7 +2,6 @@ import asyncio
 import datetime
 import json
 import os
-from typing import Optional
 
 import pytest
 from _utils import get_client
@@ -23,7 +22,7 @@ pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping spea
 
 # Constants
 API_KEY = os.getenv("SPEECHMATICS_API_KEY")
-URL: Optional[str] = "wss://eu2.rt.speechmatics.com/v2"
+URL: str | None = "wss://eu2.rt.speechmatics.com/v2"
 SHOW_LOG = os.getenv("SPEECHMATICS_SHOW_LOG", "0").lower() in ["1", "true"]
 
 # List of know speakers during tests

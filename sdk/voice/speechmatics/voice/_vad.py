@@ -9,9 +9,8 @@ import os
 import time
 import urllib.request
 from collections import deque
+from collections.abc import Callable
 from typing import Any
-from typing import Callable
-from typing import Optional
 from urllib.parse import urlparse
 
 import numpy as np
@@ -62,8 +61,8 @@ class SileroVADResult(BaseModel):
     probability: float = 0.0
     transition_duration_ms: float = 0.0
     speech_ended: bool = False
-    metadata: Optional[dict] = None
-    error: Optional[str] = None
+    metadata: dict | None = None
+    error: str | None = None
 
 
 class SileroVAD:
@@ -80,7 +79,7 @@ class SileroVAD:
         auto_init: bool = True,
         threshold: float = 0.5,
         silence_duration: float = 0.1,
-        on_state_change: Optional[Callable[[SileroVADResult], None]] = None,
+        on_state_change: Callable[[SileroVADResult], None] | None = None,
     ):
         """Create the new SileroVAD.
 
@@ -93,11 +92,11 @@ class SileroVAD:
 
         self._is_initialized: bool = False
         self._threshold: float = threshold
-        self._on_state_change: Optional[Callable[[SileroVADResult], None]] = on_state_change
+        self._on_state_change: Callable[[SileroVADResult], None] | None = on_state_change
 
         # ONNX session state
-        self._state: Optional[np.ndarray] = None
-        self._context: Optional[np.ndarray] = None
+        self._state: np.ndarray | None = None
+        self._context: np.ndarray | None = None
         self._last_reset_time: float = 0.0
 
         # Audio buffering

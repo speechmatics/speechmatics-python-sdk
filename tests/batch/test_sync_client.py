@@ -413,7 +413,6 @@ class TestSyncClientBasics:
 
 
 class TestSyncClientWaitForCompletion:
-
     def test_sleep_is_bounded_by_remaining_timeout(self):
         from speechmatics.batch import TimeoutError as SMTimeoutError
 

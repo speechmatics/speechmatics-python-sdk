@@ -11,7 +11,6 @@ from collections.abc import Generator
 from contextlib import asynccontextmanager
 from contextlib import contextmanager
 from typing import BinaryIO
-from typing import Union
 
 import aiofiles
 
@@ -20,8 +19,8 @@ from ._common import resolve_stream_filename
 
 @asynccontextmanager
 async def prepare_audio_file(
-    audio_file: Union[str, BinaryIO],
-) -> AsyncGenerator[tuple[str, Union[BinaryIO, bytes]], None]:
+    audio_file: str | BinaryIO,
+) -> AsyncGenerator[tuple[str, BinaryIO | bytes], None]:
     """
     Async context manager for file handling with proper resource management.
 
@@ -48,8 +47,8 @@ async def prepare_audio_file(
 
 @contextmanager
 def prepare_audio_file_sync(
-    audio_file: Union[str, BinaryIO],
-) -> Generator[tuple[str, Union[BinaryIO, bytes]], None, None]:
+    audio_file: str | BinaryIO,
+) -> Generator[tuple[str, BinaryIO | bytes], None, None]:
     """
     Context manager for file handling with proper resource management.
 

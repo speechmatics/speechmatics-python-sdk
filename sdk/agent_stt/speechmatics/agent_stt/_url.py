@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-from typing import Optional
 from urllib.parse import parse_qs
 from urllib.parse import urlencode
 from urllib.parse import urlparse
@@ -14,8 +13,8 @@ AGENT_PATH_SEGMENT = "agent"
 
 
 def resolve_url(
-    url: Optional[str] = None,
-    app: Optional[str] = None,
+    url: str | None = None,
+    app: str | None = None,
 ) -> str:
     """
     Resolve the Agent STT WebSocket URL.
@@ -55,7 +54,7 @@ def _resolve_path(path: str) -> str:
     return "/" + "/".join(segments)
 
 
-def _resolve_query(query: str, app: Optional[str]) -> str:
+def _resolve_query(query: str, app: str | None) -> str:
     """Set the sm-app parameter, keeping any parameters already on the URL."""
     params = parse_qs(query, keep_blank_values=True)
     existing_app = params.get("sm-app", [None])[0]

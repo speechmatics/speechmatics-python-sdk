@@ -5,8 +5,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Callable
-from typing import Optional
+from collections.abc import Callable
 
 
 class TurnTaskProcessor:
@@ -17,7 +16,7 @@ class TurnTaskProcessor:
     make a call to the `done_callback` function (sync or async).
     """
 
-    def __init__(self, name: str, handler_id: int = 0, done_callback: Optional[Callable] = None):
+    def __init__(self, name: str, handler_id: int = 0, done_callback: Callable | None = None):
         """Create new handler.
 
         Args:
@@ -38,7 +37,7 @@ class TurnTaskProcessor:
         self._listener_tasks: list[asyncio.Task] = []
 
         # Done callback (can be async)
-        self._done_callback: Optional[Callable] = done_callback
+        self._done_callback: Callable | None = done_callback
 
     @property
     def has_pending_tasks(self) -> bool:

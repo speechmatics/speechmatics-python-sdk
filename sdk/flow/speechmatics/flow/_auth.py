@@ -1,7 +1,6 @@
 import abc
 import os
 from typing import Literal
-from typing import Optional
 
 from ._exceptions import AuthenticationError
 
@@ -41,7 +40,7 @@ class StaticKeyAuth(AuthBase):
         {'Authorization': 'Bearer your-api-key'}
     """
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         self._api_key = api_key or os.environ.get("SPEECHMATICS_API_KEY")
 
         if not self._api_key:
@@ -77,12 +76,12 @@ class JWTAuth(AuthBase):
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         *,
         ttl: int = 60,
         region: Literal["eu", "usa"] = "eu",
-        client_ref: Optional[str] = None,
-        mp_url: Optional[str] = None,
+        client_ref: str | None = None,
+        mp_url: str | None = None,
     ):
         self._api_key = api_key or os.environ.get("SPEECHMATICS_API_KEY")
         self._ttl = ttl

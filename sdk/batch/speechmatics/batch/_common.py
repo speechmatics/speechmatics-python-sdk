@@ -13,8 +13,6 @@ import os
 import random
 from typing import Any
 from typing import BinaryIO
-from typing import Optional
-from typing import Union
 
 from ._exceptions import BatchError
 from ._exceptions import ConnectionError
@@ -82,8 +80,8 @@ def raise_for_failed_status(job_id: str, status: JobStatus) -> None:
 
 
 def build_job_config(
-    config: Optional[JobConfig],
-    transcription_config: Optional[TranscriptionConfig],
+    config: JobConfig | None,
+    transcription_config: TranscriptionConfig | None,
 ) -> JobConfig:
     """Return the job config to submit, building a default one if needed."""
     if config is not None:
@@ -94,7 +92,7 @@ def build_job_config(
     )
 
 
-def validate_audio_source(audio_file: Union[str, BinaryIO, None], config_dict: dict[str, Any]) -> bool:
+def validate_audio_source(audio_file: str | BinaryIO | None, config_dict: dict[str, Any]) -> bool:
     """
     Validate that exactly one audio source is configured.
 
@@ -109,7 +107,7 @@ def validate_audio_source(audio_file: Union[str, BinaryIO, None], config_dict: d
     return has_fetch_data
 
 
-def validate_wait(wait: Optional[int]) -> None:
+def validate_wait(wait: int | None) -> None:
     """
     Validate the ``wait`` argument.
 
@@ -148,7 +146,7 @@ def build_fetch_data_multipart(config_dict: dict[str, Any]) -> tuple[dict[str, A
 def build_file_multipart(
     config_dict: dict[str, Any],
     filename: str,
-    file_data: Union[BinaryIO, bytes],
+    file_data: BinaryIO | bytes,
 ) -> dict[str, Any]:
     """Build multipart fields for a file upload submission."""
     return {
@@ -158,9 +156,9 @@ def build_file_multipart(
 
 
 def build_processing_data_header(
-    parallel_engines: Optional[int],
-    user_id: Optional[str],
-) -> Optional[dict[str, Any]]:
+    parallel_engines: int | None,
+    user_id: str | None,
+) -> dict[str, Any] | None:
     """Build the ``X-SM-Processing-Data`` header value, if any is needed."""
     processing_data: dict[str, Any] = {}
     if parallel_engines is not None:
@@ -173,10 +171,10 @@ def build_processing_data_header(
 
 
 def build_list_jobs_params(
-    limit: Optional[int],
-    created_before: Optional[str],
-    created_after: Optional[str],
-) -> Optional[dict[str, str]]:
+    limit: int | None,
+    created_before: str | None,
+    created_after: str | None,
+) -> dict[str, str] | None:
     """Build query parameters for listing jobs."""
     params: dict[str, str] = {}
     if limit is not None:
@@ -188,16 +186,16 @@ def build_list_jobs_params(
     return params or None
 
 
-def build_delete_job_params(force: bool) -> Optional[dict[str, str]]:
+def build_delete_job_params(force: bool) -> dict[str, str] | None:
     """Query parameters for deleting a job; a running job needs force."""
     return {"force": "true"} if force else None
 
 
 def build_query_params(
     *,
-    wait: Optional[int] = None,
+    wait: int | None = None,
     format_type: FormatType = FormatType.JSON,
-) -> Optional[dict[str, str]]:
+) -> dict[str, str] | None:
     """
     Build query parameters for synchronous transcription.
 
@@ -215,9 +213,9 @@ def build_query_params(
 
 
 def build_submit_query_params(
-    wait: Optional[int],
+    wait: int | None,
     format_type: FormatType,
-) -> Optional[dict[str, str]]:
+) -> dict[str, str] | None:
     """
     Build query parameters for a job submission.
 
@@ -229,7 +227,7 @@ def build_submit_query_params(
     return build_query_params(wait=wait, format_type=format_type)
 
 
-def request_timeout_for_wait(wait: Optional[int], conn_config: ConnectionConfig) -> Optional[float]:
+def request_timeout_for_wait(wait: int | None, conn_config: ConnectionConfig) -> float | None:
     """
     Request timeout that covers both the upload and the server-side ``wait``.
 
@@ -242,7 +240,7 @@ def request_timeout_for_wait(wait: Optional[int], conn_config: ConnectionConfig)
     return conn_config.operation_timeout + wait + WAIT_TIMEOUT_BUFFER
 
 
-def clamp_wait(wait: Optional[int], remaining_timeout: Optional[float]) -> Optional[int]:
+def clamp_wait(wait: int | None, remaining_timeout: float | None) -> int | None:
     """
     Reduce ``wait`` so it cannot outlive the caller's overall timeout.
 
@@ -257,7 +255,7 @@ def clamp_wait(wait: Optional[int], remaining_timeout: Optional[float]) -> Optio
 def extract_embedded_transcript(
     response: dict[str, Any],
     format_type: FormatType = FormatType.JSON,
-) -> Optional[Union[Transcript, str]]:
+) -> Transcript | str | None:
     """
     Pull the transcript out of a response that embedded one.
 

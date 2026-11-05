@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 from typing import BinaryIO
-from typing import Optional
 
 from ._audio_sources import FileSource
 from ._auth import AuthBase
@@ -73,12 +72,12 @@ class AsyncClient(_BaseClient):
 
     def __init__(
         self,
-        auth: Optional[AuthBase] = None,
+        auth: AuthBase | None = None,
         *,
-        api_key: Optional[str] = None,
-        url: Optional[str] = None,
-        conn_config: Optional[ConnectionConfig] = None,
-        sdk_identifier: Optional[str] = None,
+        api_key: str | None = None,
+        url: str | None = None,
+        conn_config: ConnectionConfig | None = None,
+        sdk_identifier: str | None = None,
     ) -> None:
         self._logger = get_logger("speechmatics.rt.async_client")
 
@@ -113,11 +112,11 @@ class AsyncClient(_BaseClient):
     async def start_session(
         self,
         *,
-        transcription_config: Optional[TranscriptionConfig] = None,
-        audio_format: Optional[AudioFormat] = None,
-        translation_config: Optional[TranslationConfig] = None,
-        audio_events_config: Optional[AudioEventsConfig] = None,
-        ws_headers: Optional[dict] = None,
+        transcription_config: TranscriptionConfig | None = None,
+        audio_format: AudioFormat | None = None,
+        translation_config: TranslationConfig | None = None,
+        audio_events_config: AudioEventsConfig | None = None,
+        ws_headers: dict | None = None,
     ) -> None:
         """
         This method establishes a WebSocket connection, and configures the transcription session.
@@ -175,7 +174,7 @@ class AsyncClient(_BaseClient):
         await self._session_done_evt.wait()  # Wait for end of transcript event to indicate we can stop listening
         await self.close()
 
-    async def force_end_of_utterance(self, *, timestamp: Optional[float] | object = _UNSET) -> None:
+    async def force_end_of_utterance(self, *, timestamp: float | None | object = _UNSET) -> None:
         """
         This method sends a ForceEndOfUtterance message to the server to signal
         the end of an utterance. Forcing end of utterance will cause the final
@@ -227,12 +226,12 @@ class AsyncClient(_BaseClient):
         self,
         source: BinaryIO,
         *,
-        transcription_config: Optional[TranscriptionConfig] = None,
-        audio_format: Optional[AudioFormat] = None,
-        translation_config: Optional[TranslationConfig] = None,
-        audio_events_config: Optional[AudioEventsConfig] = None,
-        ws_headers: Optional[dict] = None,
-        timeout: Optional[float] = None,
+        transcription_config: TranscriptionConfig | None = None,
+        audio_format: AudioFormat | None = None,
+        translation_config: TranslationConfig | None = None,
+        audio_events_config: AudioEventsConfig | None = None,
+        ws_headers: dict | None = None,
+        timeout: float | None = None,
     ) -> None:
         """
         Transcribe a single audio stream in real-time.

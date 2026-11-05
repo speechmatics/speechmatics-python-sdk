@@ -2,7 +2,6 @@ import asyncio
 import datetime
 import os
 from typing import Any
-from typing import Optional
 
 import pytest
 from _utils import ConversationLog
@@ -52,7 +51,7 @@ async def test_speech_fragments():
 
     # Event to wait
     event_rx: asyncio.Event = asyncio.Event()
-    last_message: Optional[dict[str, Any]] = None
+    last_message: dict[str, Any] | None = None
 
     # Reset message
     def message_reset():
@@ -163,7 +162,7 @@ async def test_end_of_utterance_fixed():
 
     # Event to wait
     event_rx: asyncio.Event = asyncio.Event()
-    last_message: Optional[dict[str, Any]] = None
+    last_message: dict[str, Any] | None = None
 
     # Message receiver
     def message_rx(message: dict[str, Any]):
@@ -242,7 +241,7 @@ async def test_external_vad():
 
     # Event to wait
     event_rx: asyncio.Event = asyncio.Event()
-    last_message: Optional[dict[str, Any]] = None
+    last_message: dict[str, Any] | None = None
 
     # Message receiver
     def message_rx(message: dict[str, Any]):
@@ -349,11 +348,11 @@ async def test_end_of_utterance_adaptive_vad():
 
     # Event to wait
     eot_received: asyncio.Event = asyncio.Event()
-    last_message: Optional[dict[str, Any]] = None
+    last_message: dict[str, Any] | None = None
 
     # Time for last final (used to calculate the interval)
-    last_final_time: Optional[float] = None
-    receive_interval: Optional[float] = None
+    last_final_time: float | None = None
+    receive_interval: float | None = None
 
     # Transcript receiver
     def transcript_rx(message: dict[str, Any]):

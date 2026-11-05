@@ -4,7 +4,6 @@ import os
 from dataclasses import dataclass
 from dataclasses import field
 from typing import Any
-from typing import Optional
 
 import pytest
 from _utils import get_client
@@ -135,7 +134,7 @@ async def test_transcribe_languages(sample: AudioSample):
     # Create an event to track when the callback is called
     messages: list[str] = []
     bytes_sent: int = 0
-    last_message: Optional[dict[str, Any]] = None
+    last_message: dict[str, Any] | None = None
 
     # Segments
     segments: list[dict[str, Any]] = []

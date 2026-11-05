@@ -10,7 +10,6 @@ from __future__ import annotations
 import os
 import uuid
 from typing import Any
-from typing import Optional
 
 import aiohttp
 
@@ -65,11 +64,11 @@ class AsyncClient:
 
     def __init__(
         self,
-        auth: Optional[AuthBase] = None,
+        auth: AuthBase | None = None,
         *,
-        api_key: Optional[str] = None,
-        url: Optional[str] = None,
-        conn_config: Optional[ConnectionConfig] = None,
+        api_key: str | None = None,
+        url: str | None = None,
+        conn_config: ConnectionConfig | None = None,
     ) -> None:
         """
         Initialize the AsyncClient.
