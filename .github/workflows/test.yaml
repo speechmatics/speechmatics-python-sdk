@@ -12,8 +12,9 @@ permissions:
 jobs:
   test-rt:
     name: Test RT SDK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     steps:
@@ -32,8 +33,9 @@ jobs:
 
   test-batch:
     name: Test Batch SDK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     steps:
@@ -52,8 +54,9 @@ jobs:
 
   test-agent-stt:
     name: Test Agent STT SDK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     steps:
@@ -72,8 +75,9 @@ jobs:
 
   test-voice:
     name: Test Voice Agent SDK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     steps:
@@ -92,8 +96,9 @@ jobs:
 
   test-tts:
     name: Test TTS SDK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     steps:
