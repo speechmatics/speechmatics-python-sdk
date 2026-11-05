@@ -4,7 +4,6 @@ import asyncio
 import time
 from typing import Any
 from typing import BinaryIO
-from typing import Optional
 
 from speechmatics.rt import AsyncClient as RTAsyncClient
 from speechmatics.rt import AudioEncoding
@@ -90,15 +89,15 @@ class AgentSttAsyncClient(RTAsyncClient):
 
     def __init__(
         self,
-        auth: Optional[AuthBase] = None,
+        auth: AuthBase | None = None,
         *,
-        api_key: Optional[str] = None,
-        url: Optional[str] = None,
-        app: Optional[str] = None,
-        transcription_config: Optional[RTTranscriptionConfig] = None,
-        turn_config: Optional[TurnConfig] = None,
-        audio_format: Optional[AudioFormat] = None,
-        conn_config: Optional[ConnectionConfig] = None,
+        api_key: str | None = None,
+        url: str | None = None,
+        app: str | None = None,
+        transcription_config: RTTranscriptionConfig | None = None,
+        turn_config: TurnConfig | None = None,
+        audio_format: AudioFormat | None = None,
+        conn_config: ConnectionConfig | None = None,
         record_events: bool = True,
     ) -> None:
         super().__init__(
@@ -125,8 +124,8 @@ class AgentSttAsyncClient(RTAsyncClient):
 
         self._is_connected = False
         self._is_ready_for_audio = False
-        self._session_error: Optional[str] = None
-        self._finalize_sent_at: Optional[float] = None
+        self._session_error: str | None = None
+        self._finalize_sent_at: float | None = None
         self._last_finalize_latency = 0.0
 
         self._register_handlers()
@@ -144,7 +143,7 @@ class AgentSttAsyncClient(RTAsyncClient):
     # Session lifecycle
     # ==========================================================================
 
-    async def connect(self, ws_headers: Optional[dict] = None) -> None:
+    async def connect(self, ws_headers: dict | None = None) -> None:
         """
         Open the session and wait until the service is ready for audio.
 
@@ -220,10 +219,10 @@ class AgentSttAsyncClient(RTAsyncClient):
     async def start_session(
         self,
         *,
-        transcription_config: Optional[RTTranscriptionConfig] = None,
-        turn_config: Optional[TurnConfig] = None,
-        audio_format: Optional[AudioFormat] = None,
-        ws_headers: Optional[dict] = None,
+        transcription_config: RTTranscriptionConfig | None = None,
+        turn_config: TurnConfig | None = None,
+        audio_format: AudioFormat | None = None,
+        ws_headers: dict | None = None,
     ) -> None:
         """
         Start the session, defaulting to the configs this client was built with.
@@ -283,7 +282,7 @@ class AgentSttAsyncClient(RTAsyncClient):
             self._logger.warning("Error sending audio: %s", e)
             self._is_ready_for_audio = False
 
-    def finalize(self, *, timestamp: Optional[float] | object = _UNSET) -> None:
+    def finalize(self, *, timestamp: float | None | object = _UNSET) -> None:
         """
         Close the current turn now, from a synchronous context.
 
@@ -310,7 +309,7 @@ class AgentSttAsyncClient(RTAsyncClient):
             return
         loop.create_task(self._send_force_end_of_utterance(resolved))
 
-    async def force_end_of_utterance(self, *, timestamp: Optional[float] | object = _UNSET) -> None:
+    async def force_end_of_utterance(self, *, timestamp: float | None | object = _UNSET) -> None:
         """
         Close the current turn now, awaiting the send.
 
@@ -326,7 +325,7 @@ class AgentSttAsyncClient(RTAsyncClient):
         resolved = self.audio_seconds_sent if timestamp is _UNSET else timestamp
         await self._send_force_end_of_utterance(resolved)
 
-    async def _send_force_end_of_utterance(self, timestamp: Optional[float] | object) -> None:
+    async def _send_force_end_of_utterance(self, timestamp: float | None | object) -> None:
         """Send ForceEndOfUtterance, including the timestamp unless it is None."""
         message: dict[str, Any] = {"message": ClientMessageType.FORCE_END_OF_UTTERANCE}
         if timestamp is not None:
@@ -343,11 +342,11 @@ class AgentSttAsyncClient(RTAsyncClient):
         self,
         source: BinaryIO,
         *,
-        transcription_config: Optional[RTTranscriptionConfig] = None,
-        turn_config: Optional[TurnConfig] = None,
-        audio_format: Optional[AudioFormat] = None,
-        ws_headers: Optional[dict] = None,
-        timeout: Optional[float] = None,
+        transcription_config: RTTranscriptionConfig | None = None,
+        turn_config: TurnConfig | None = None,
+        audio_format: AudioFormat | None = None,
+        ws_headers: dict | None = None,
+        timeout: float | None = None,
     ) -> None:
         """
         Stream an audio source to the end, then close the session.
@@ -415,7 +414,7 @@ class AgentSttAsyncClient(RTAsyncClient):
         return self._transcript.segments
 
     @property
-    def partial_segment(self) -> Optional[Segment]:
+    def partial_segment(self) -> Segment | None:
         """The segment currently being built, or None when there is nothing in flight."""
         return self._transcript.partial
 
@@ -445,7 +444,7 @@ class AgentSttAsyncClient(RTAsyncClient):
         return self._is_ready_for_audio
 
     @property
-    def session_error(self) -> Optional[str]:
+    def session_error(self) -> str | None:
         """The reason the service gave for ending the session, or None while it is healthy."""
         return self._session_error
 

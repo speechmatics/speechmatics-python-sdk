@@ -4,8 +4,6 @@ from dataclasses import dataclass
 from dataclasses import field
 from enum import Enum
 from typing import Any
-from typing import Optional
-from typing import Union
 from typing import cast
 from warnings import warn
 
@@ -168,7 +166,7 @@ class AdditionalVocabEntry:
     """
 
     content: str
-    sounds_like: Optional[list[str]] = None
+    sounds_like: list[str] | None = None
 
 
 @dataclass
@@ -197,8 +195,8 @@ class TranscriptionConfig(RTTranscriptionConfig):
     """
 
     model: Model = _UNSET
-    additional_vocab: Optional[list[Union[AdditionalVocabEntry, dict[str, Any]]]] = None
-    emit_sentences: Optional[bool] = None
+    additional_vocab: list[AdditionalVocabEntry | dict[str, Any]] | None = None
+    emit_sentences: bool | None = None
 
     def __post_init__(self) -> None:
         if self.model is not _UNSET and self.operating_point is not None:  # type: ignore[unreachable]
@@ -237,7 +235,7 @@ class Segment:
     transcript: str
     start_time: float = 0.0
     end_time: float = 0.0
-    speaker: Optional[str] = None
+    speaker: str | None = None
     is_final: bool = True
 
     @classmethod
@@ -319,5 +317,5 @@ class SessionInfo:
     """
 
     request_id: str
-    session_id: Optional[str] = None
+    session_id: str | None = None
     language_pack_info: LanguagePackInfo = field(default_factory=LanguagePackInfo)

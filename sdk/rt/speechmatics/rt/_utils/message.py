@@ -1,5 +1,4 @@
 from typing import Any
-from typing import Optional
 
 from .._models import AudioEventsConfig
 from .._models import AudioFormat
@@ -11,8 +10,8 @@ from .._models import TranslationConfig
 def build_start_recognition_message(
     transcription_config: TranscriptionConfig,
     audio_format: AudioFormat,
-    translation_config: Optional[TranslationConfig] = None,
-    audio_events_config: Optional[AudioEventsConfig] = None,
+    translation_config: TranslationConfig | None = None,
+    audio_events_config: AudioEventsConfig | None = None,
 ) -> dict[str, Any]:
     """Build the start recognition message for the server.
 

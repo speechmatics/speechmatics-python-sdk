@@ -12,7 +12,6 @@ import json as _json
 import sys
 import uuid
 from typing import Any
-from typing import Optional
 
 import httpx
 
@@ -59,7 +58,7 @@ class SyncTransport:
         url: str,
         conn_config: ConnectionConfig,
         auth: AuthBase,
-        request_id: Optional[str] = None,
+        request_id: str | None = None,
     ) -> None:
         """
         Initialize the transport with connection configuration.
@@ -75,7 +74,7 @@ class SyncTransport:
         self._conn_config = conn_config
         self._auth = auth
         self._request_id = request_id or str(uuid.uuid4())
-        self._client: Optional[httpx.Client] = None
+        self._client: httpx.Client | None = None
         self._closed = False
         self._logger = get_logger(__name__)
 
@@ -90,9 +89,7 @@ class SyncTransport:
         """Context manager exit with automatic cleanup."""
         self.close()
 
-    def get(
-        self, path: str, params: Optional[dict[str, Any]] = None, timeout: Optional[float] = None
-    ) -> dict[str, Any]:
+    def get(self, path: str, params: dict[str, Any] | None = None, timeout: float | None = None) -> dict[str, Any]:
         """
         Send GET request to the API.
 
@@ -113,11 +110,11 @@ class SyncTransport:
     def post(
         self,
         path: str,
-        json_data: Optional[dict[str, Any]] = None,
-        multipart_data: Optional[dict[str, Any]] = None,
-        timeout: Optional[float] = None,
-        extra_headers: Optional[dict[str, Any]] = None,
-        params: Optional[dict[str, Any]] = None,
+        json_data: dict[str, Any] | None = None,
+        multipart_data: dict[str, Any] | None = None,
+        timeout: float | None = None,
+        extra_headers: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Send POST request to the API.
@@ -147,9 +144,7 @@ class SyncTransport:
             params=params,
         )
 
-    def delete(
-        self, path: str, timeout: Optional[float] = None, params: Optional[dict[str, Any]] = None
-    ) -> dict[str, Any]:
+    def delete(self, path: str, timeout: float | None = None, params: dict[str, Any] | None = None) -> dict[str, Any]:
         """
         Send DELETE request to the API.
 
@@ -211,11 +206,11 @@ class SyncTransport:
         self,
         method: str,
         path: str,
-        params: Optional[dict[str, Any]] = None,
-        json_data: Optional[dict[str, Any]] = None,
-        multipart_data: Optional[dict[str, Any]] = None,
-        timeout: Optional[float] = None,
-        extra_headers: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
+        multipart_data: dict[str, Any] | None = None,
+        timeout: float | None = None,
+        extra_headers: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Send HTTP request to the API.

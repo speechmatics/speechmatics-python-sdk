@@ -20,7 +20,7 @@ assignees: ""
 
 - **Package Name**: (e.g., speechmatics-rt, speechmatics-batch, speechmatics-voice)
 - **Package Version**: (e.g., 1.0.0)
-- **Python Version**: (e.g., 3.9, 3.10, 3.11, 3.12, 3.13)
+- **Python Version**: (e.g., 3.10, 3.11, 3.12, 3.13, 3.14)
 - **Operating System**: (e.g., Windows 10, macOS 12, Ubuntu 20.04)
 
 **Specific question**

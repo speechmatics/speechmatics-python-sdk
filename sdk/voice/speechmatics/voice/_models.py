@@ -8,7 +8,6 @@ import datetime
 from enum import Enum
 from typing import Any
 from typing import Literal
-from typing import Optional
 
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ConfigDict
@@ -330,7 +329,7 @@ class AdditionalVocabEntry(BaseModel):
     """
 
     content: str
-    sounds_like: Optional[list[str]] = None
+    sounds_like: list[str] | None = None
 
 
 class SpeakerFocusConfig(BaseModel):
@@ -386,7 +385,7 @@ class SpeechSegmentConfig(BaseModel):
 
     add_trailing_eos: bool = False
     emit_sentences: bool = True
-    pause_mark: Optional[str] = None
+    pause_mark: str | None = None
 
 
 class EndOfTurnPenaltyItem(BaseModel):
@@ -671,9 +670,9 @@ class VoiceAgentConfig(BaseModel):
 
     # Service configuration
     operating_point: OperatingPoint = OperatingPoint.ENHANCED
-    domain: Optional[str] = None
+    domain: str | None = None
     language: str = "en"
-    output_locale: Optional[str] = None
+    output_locale: str | None = None
 
     # Features
     max_delay: float = 1.0
@@ -681,7 +680,7 @@ class VoiceAgentConfig(BaseModel):
     end_of_utterance_max_delay: float = 10.0
     end_of_utterance_mode: EndOfUtteranceMode = EndOfUtteranceMode.FIXED
     additional_vocab: list[AdditionalVocabEntry] = Field(default_factory=list)
-    punctuation_overrides: Optional[dict] = None
+    punctuation_overrides: dict | None = None
     enable_entities: bool = False
     max_delay_mode: MaxDelayMode = MaxDelayMode.FLEXIBLE
     include_partials: bool = True
@@ -689,7 +688,7 @@ class VoiceAgentConfig(BaseModel):
     # Diarization
     enable_diarization: bool = False
     speaker_sensitivity: float = 0.5
-    max_speakers: Optional[int] = None
+    max_speakers: int | None = None
     prefer_current_speaker: bool = False
     speaker_config: SpeakerFocusConfig = Field(default_factory=SpeakerFocusConfig)
     known_speakers: list[SpeakerIdentifier] = Field(default_factory=list)
@@ -698,13 +697,13 @@ class VoiceAgentConfig(BaseModel):
     include_results: bool = False
     transcription_update_preset: TranscriptionUpdatePreset = TranscriptionUpdatePreset.COMPLETE
     end_of_turn_config: EndOfTurnConfig = Field(default_factory=EndOfTurnConfig)
-    vad_config: Optional[VoiceActivityConfig] = None
-    smart_turn_config: Optional[SmartTurnConfig] = None
+    vad_config: VoiceActivityConfig | None = None
+    smart_turn_config: SmartTurnConfig | None = None
     speech_segment_config: SpeechSegmentConfig = Field(default_factory=SpeechSegmentConfig)
     audio_buffer_length: float = 0.0
 
     # Advanced engine configuration
-    advanced_engine_control: Optional[dict[str, Any]] = None
+    advanced_engine_control: dict[str, Any] | None = None
 
     # Audio
     sample_rate: int = 16000
@@ -811,7 +810,7 @@ class SessionSpeaker(BaseModel):
     speaker_id: str
     word_count: int = 0
     last_heard: float = 0
-    volume: Optional[float] = None
+    volume: float | None = None
     final_word_count: int = Field(default=0, exclude=True)
     volume_history: list[float] = Field(default_factory=list, exclude=True)
 
@@ -920,11 +919,11 @@ class SpeechFragment(BaseModel):
     is_punctuation: bool = False
     attaches_to: str = ""
     content: str = ""
-    speaker: Optional[str] = None
+    speaker: str | None = None
     confidence: float = 1.0
-    volume: Optional[float] = None
-    result: Optional[Any] = None
-    annotation: Optional[AnnotationResult] = None
+    volume: float | None = None
+    result: Any | None = None
+    annotation: AnnotationResult | None = None
 
     model_config = ConfigDict(use_enum_values=True, arbitrary_types_allowed=True)
 
@@ -943,12 +942,12 @@ class SpeakerSegment(BaseModel):
         is_eou: Whether the fragment is the end of an utterance. Defaults to `False`.
     """
 
-    speaker_id: Optional[str] = None
+    speaker_id: str | None = None
     is_active: bool = False
-    timestamp: Optional[str] = None
-    language: Optional[str] = None
+    timestamp: str | None = None
+    language: str | None = None
     fragments: list[SpeechFragment] = Field(default_factory=list)
-    text: Optional[str] = None
+    text: str | None = None
     annotation: AnnotationResult = Field(default_factory=AnnotationResult)
     is_eou: bool = False
 
@@ -1011,13 +1010,13 @@ class SpeakerSegmentView(BaseModel):
     session: ClientSessionInfo
     fragments: list[SpeechFragment]
     segments: list[SpeakerSegment] = Field(default_factory=list)
-    focus_speakers: Optional[list[str]] = None
+    focus_speakers: list[str] | None = None
 
     def __init__(
         self,
         session: ClientSessionInfo,
         fragments: list[SpeechFragment],
-        focus_speakers: Optional[list[str]] = None,
+        focus_speakers: list[str] | None = None,
         annotate_segments: bool = True,
         **data: Any,
     ) -> None:
@@ -1159,10 +1158,10 @@ class MessageTimeMetadata(BaseModel):
         processing_time: The processing time of the segment.
     """
 
-    time: Optional[float] = None
-    start_time: Optional[float] = None
-    end_time: Optional[float] = None
-    processing_time: Optional[float] = None
+    time: float | None = None
+    start_time: float | None = None
+    end_time: float | None = None
+    processing_time: float | None = None
 
 
 class ErrorMessage(BaseMessage):
@@ -1210,8 +1209,8 @@ class SpeakerStatusMessage(BaseMessage):
 
     message: Literal[AgentServerMessageType.SPEAKER_STARTED, AgentServerMessageType.SPEAKER_ENDED]
     is_active: bool
-    speaker_id: Optional[str] = None
-    time: Optional[float] = None
+    speaker_id: str | None = None
+    time: float | None = None
 
 
 class VADStatusMessage(BaseMessage):
@@ -1320,12 +1319,12 @@ class SegmentMessageSegment(BaseModel):
         metadata: The metadata associated with the segment.
     """
 
-    speaker_id: Optional[str] = None
+    speaker_id: str | None = None
     is_active: bool = False
-    timestamp: Optional[str] = None
-    language: Optional[str] = None
-    text: Optional[str] = None
-    fragments: Optional[list[SegmentMessageSegmentFragment]] = None
+    timestamp: str | None = None
+    language: str | None = None
+    text: str | None = None
+    fragments: list[SegmentMessageSegmentFragment] | None = None
     annotation: list[AnnotationFlags] = Field(default_factory=list, exclude=False)
     is_eou: bool = False
     metadata: MessageTimeMetadata

@@ -13,7 +13,6 @@ import io
 import sys
 import uuid
 from typing import Any
-from typing import Optional
 
 import aiohttp
 
@@ -60,7 +59,7 @@ class Transport:
         url: str,
         conn_config: ConnectionConfig,
         auth: AuthBase,
-        request_id: Optional[str] = None,
+        request_id: str | None = None,
     ) -> None:
         """
         Initialize the transport with connection configuration.
@@ -75,7 +74,7 @@ class Transport:
         self._conn_config = conn_config
         self._auth = auth
         self._request_id = request_id or str(uuid.uuid4())
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
         self._closed = False
         self._logger = get_logger(__name__)
 
@@ -93,9 +92,9 @@ class Transport:
     async def post(
         self,
         path: str,
-        json_data: Optional[dict[str, Any]] = None,
-        multipart_data: Optional[dict[str, Any]] = None,
-        timeout: Optional[float] = None,
+        json_data: dict[str, Any] | None = None,
+        multipart_data: dict[str, Any] | None = None,
+        timeout: float | None = None,
     ) -> aiohttp.ClientResponse:
         """
         Send POST request to the API.
@@ -159,10 +158,10 @@ class Transport:
         self,
         method: str,
         path: str,
-        params: Optional[dict[str, Any]] = None,
-        json_data: Optional[dict[str, Any]] = None,
-        multipart_data: Optional[dict[str, Any]] = None,
-        timeout: Optional[float] = None,
+        params: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
+        multipart_data: dict[str, Any] | None = None,
+        timeout: float | None = None,
     ) -> aiohttp.ClientResponse:
         """
         Send HTTP request to the API.
@@ -264,9 +263,9 @@ class Transport:
             Headers dictionary with authentication and tracking info
         """
         auth_headers = await self._auth.get_auth_headers()
-        auth_headers["User-Agent"] = (
-            f"speechmatics-batch-v{get_version()} python/{sys.version_info.major}.{sys.version_info.minor}"
-        )
+        auth_headers[
+            "User-Agent"
+        ] = f"speechmatics-batch-v{get_version()} python/{sys.version_info.major}.{sys.version_info.minor}"
 
         if self._request_id:
             auth_headers["X-Request-Id"] = self._request_id

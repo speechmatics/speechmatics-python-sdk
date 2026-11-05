@@ -10,10 +10,8 @@ import os
 import re
 import time
 from collections.abc import Awaitable
+from collections.abc import Callable
 from typing import Any
-from typing import Callable
-from typing import Optional
-from typing import Union
 from urllib.parse import parse_qs
 from urllib.parse import urlencode
 from urllib.parse import urlparse
@@ -89,12 +87,12 @@ class VoiceAgentClient(AsyncClient):
 
     def __init__(
         self,
-        auth: Optional[AuthBase] = None,
-        api_key: Optional[str] = None,
-        url: Optional[str] = None,
-        app: Optional[str] = None,
-        config: Optional[VoiceAgentConfig] = None,
-        preset: Optional[str] = None,
+        auth: AuthBase | None = None,
+        api_key: str | None = None,
+        url: str | None = None,
+        app: str | None = None,
+        config: VoiceAgentConfig | None = None,
+        preset: str | None = None,
     ):
         """Initialize the Voice Agent client.
 
@@ -222,7 +220,7 @@ class VoiceAgentClient(AsyncClient):
 
         # STT message received queue
         self._stt_message_queue: asyncio.Queue[Callable[[], Awaitable[None]]] = asyncio.Queue()
-        self._stt_queue_task: Optional[asyncio.Task] = None
+        self._stt_queue_task: asyncio.Task | None = None
 
         # -------------------------------------
         # Session Timing
@@ -241,8 +239,8 @@ class VoiceAgentClient(AsyncClient):
         self._last_fragment_end_time: float = 0
         self._speech_fragments: list[SpeechFragment] = []
         self._speech_fragments_lock: asyncio.Lock = asyncio.Lock()
-        self._current_view: Optional[SpeakerSegmentView] = None
-        self._previous_view: Optional[SpeakerSegmentView] = None
+        self._current_view: SpeakerSegmentView | None = None
+        self._previous_view: SpeakerSegmentView | None = None
 
         # -------------------------------------
         # VAD
@@ -250,7 +248,7 @@ class VoiceAgentClient(AsyncClient):
 
         # Handlers
         self._uses_silero_vad: bool = False
-        self._silero_detector: Optional[SileroVAD] = None
+        self._silero_detector: SileroVAD | None = None
 
         # Silero VAD detector
         if self._config.vad_config and self._config.vad_config.enabled:
@@ -275,14 +273,14 @@ class VoiceAgentClient(AsyncClient):
 
         # Handlers
         self._uses_smart_turn: bool = False
-        self._smart_turn_detector: Optional[SmartTurnDetector] = None
+        self._smart_turn_detector: SmartTurnDetector | None = None
 
         # Current turn
-        self._turn_start_time: Optional[float] = None
+        self._turn_start_time: float | None = None
         self._turn_active: bool = False
 
         # Smart turn cutoff time - filters late transcripts during finalization
-        self._smart_turn_pending_cutoff: Optional[float] = None
+        self._smart_turn_pending_cutoff: float | None = None
 
         # Start turn detector if SMART_TURN requested
         if self._config.smart_turn_config and self._config.smart_turn_config.enabled:
@@ -308,7 +306,7 @@ class VoiceAgentClient(AsyncClient):
 
         # Handlers
         self._turn_handler: TurnTaskProcessor = TurnTaskProcessor(name="turn_handler", done_callback=self.finalize)
-        self._eot_calculation_task: Optional[asyncio.Task] = None
+        self._eot_calculation_task: asyncio.Task | None = None
 
         # Uses fixed EndOfUtterance message from STT
         self._uses_fixed_eou: bool = (
@@ -334,12 +332,12 @@ class VoiceAgentClient(AsyncClient):
 
         self._session_speakers: dict[str, SessionSpeaker] = {}
         self._is_speaking: bool = False
-        self._current_speaker: Optional[str] = None
+        self._current_speaker: str | None = None
         self._last_valid_partial_word_count: int = 0
         self._dz_enabled: bool = self._config.enable_diarization
         self._dz_config = self._config.speaker_config
-        self._last_speak_start_time: Optional[float] = None
-        self._last_speak_end_time: Optional[float] = None
+        self._last_speak_start_time: float | None = None
+        self._last_speak_end_time: float | None = None
         self._last_speak_end_latency: float = 0
 
         # -------------------------------------
@@ -347,7 +345,7 @@ class VoiceAgentClient(AsyncClient):
         # -------------------------------------
 
         self._metrics_emitter_interval: float = 5.0
-        self._metrics_emitter_task: Optional[asyncio.Task] = None
+        self._metrics_emitter_task: asyncio.Task | None = None
 
         # -------------------------------------
         # Audio
@@ -377,7 +375,7 @@ class VoiceAgentClient(AsyncClient):
         self._register_event_handlers()
 
     def _prepare_config(
-        self, config: Optional[VoiceAgentConfig] = None
+        self, config: VoiceAgentConfig | None = None
     ) -> tuple[VoiceAgentConfig, TranscriptionConfig, AudioFormat]:
         """Create a formatted STT transcription and audio config.
 
@@ -814,7 +812,7 @@ class VoiceAgentClient(AsyncClient):
         # Forward to the emit() method
         self.emit(message.message, message.to_dict())
 
-    def _emit_diagnostic_message(self, message: Union[str, dict[str, Any]]) -> None:
+    def _emit_diagnostic_message(self, message: str | dict[str, Any]) -> None:
         """Emit a diagnostic message to the client."""
         if isinstance(message, str):
             message = {"msg": message}
@@ -1160,7 +1158,7 @@ class VoiceAgentClient(AsyncClient):
             focus_speakers=self._dz_config.focus_speakers,
         )
 
-    async def _process_speech_fragments(self, change_filter: Optional[list[AnnotationFlags]] = None) -> None:
+    async def _process_speech_fragments(self, change_filter: list[AnnotationFlags] | None = None) -> None:
         """Process the speech fragments.
 
         Compares the current speech fragments against the last set of speech fragments.
@@ -1444,7 +1442,7 @@ class VoiceAgentClient(AsyncClient):
     # TURN DETECTION & FINALIZATION
     # ============================================================================
 
-    def _run_background_eot_calculation(self, fn: Callable, source: Optional[str] = None) -> None:
+    def _run_background_eot_calculation(self, fn: Callable, source: str | None = None) -> None:
         """Run the calculation async."""
 
         # Existing task takes precedence
@@ -1454,7 +1452,7 @@ class VoiceAgentClient(AsyncClient):
         # Create new task
         self._eot_calculation_task = asyncio.create_task(fn())
 
-    async def _calculate_fixed_finalize_delay(self) -> Optional[float]:
+    async def _calculate_fixed_finalize_delay(self) -> float | None:
         """Will return the end of utterance delay as a default."""
 
         # Delay defined in config
@@ -1479,8 +1477,8 @@ class VoiceAgentClient(AsyncClient):
 
     async def _calculate_finalize_delay(
         self,
-        annotation: Optional[AnnotationResult] = None,
-    ) -> Optional[float]:
+        annotation: AnnotationResult | None = None,
+    ) -> float | None:
         """Calculate the delay before finalizing / end of turn.
 
         Process the most recent segment and view to determine how long to delay before finalizing
@@ -1574,9 +1572,9 @@ class VoiceAgentClient(AsyncClient):
 
     async def _eot_prediction(
         self,
-        end_time: Optional[float] = None,
-        speaker: Optional[str] = None,
-        annotation: Optional[AnnotationResult] = None,
+        end_time: float | None = None,
+        speaker: str | None = None,
+        annotation: AnnotationResult | None = None,
     ) -> float:
         """Handle end of turn prediction."""
 
@@ -1598,7 +1596,7 @@ class VoiceAgentClient(AsyncClient):
         return max(delay or 0, self._config.end_of_turn_config.min_end_of_turn_delay)
 
     async def _smart_turn_prediction(
-        self, end_time: float, language: str, start_time: float = 0.0, speaker: Optional[str] = None
+        self, end_time: float, language: str, start_time: float = 0.0, speaker: str | None = None
     ) -> SmartTurnPredictionResult:
         """Predict when to emit the end of turn.
 
@@ -1864,7 +1862,7 @@ class VoiceAgentClient(AsyncClient):
 
             self._run_background_eot_calculation(fn, "silero_vad")
 
-    async def _handle_speaker_started(self, speaker: Optional[str], event_time: float) -> None:
+    async def _handle_speaker_started(self, speaker: str | None, event_time: float) -> None:
         """Reset timers when a new speaker starts speaking after silence."""
 
         # Clear smart turn cutoff for new speech
@@ -1894,7 +1892,7 @@ class VoiceAgentClient(AsyncClient):
         # Reset the handlers
         self._turn_handler.reset()
 
-    async def _handle_speaker_stopped(self, speaker: Optional[str], event_time: float) -> None:
+    async def _handle_speaker_stopped(self, speaker: str | None, event_time: float) -> None:
         """Reset the current speaker and do smart turn detection (if enabled)."""
 
         # Update last speak end time
@@ -1932,7 +1930,7 @@ class VoiceAgentClient(AsyncClient):
         self._fragment_idx += 10
         return self._fragment_idx
 
-    def _get_endpoint_url(self, url: str, app: Optional[str] = None) -> str:
+    def _get_endpoint_url(self, url: str, app: str | None = None) -> str:
         """Format the endpoint URL with the SDK and app versions.
 
         Args:

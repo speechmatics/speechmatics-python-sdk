@@ -1,7 +1,7 @@
 # Speechmatics TTS API Client
 
 [![PyPI](https://img.shields.io/pypi/v/speechmatics-tts)](https://pypi.org/project/speechmatics-tts/)
-![PythonSupport](https://img.shields.io/badge/Python-3.9%2B-green)
+![PythonSupport](https://img.shields.io/badge/Python-3.10%2B-green)
 
 Async Python client for Speechmatics TTS API.
 

@@ -5,10 +5,9 @@ import inspect
 from collections.abc import AsyncGenerator
 from typing import Any
 from typing import BinaryIO
-from typing import Union
 
 
-async def read_audio_chunks(stream: Union[BinaryIO, Any], chunk_size: int) -> AsyncGenerator[Union[bytes, Any], None]:
+async def read_audio_chunks(stream: BinaryIO | Any, chunk_size: int) -> AsyncGenerator[bytes | Any, None]:
     """
     Read audio stream in chunks with async support.
 

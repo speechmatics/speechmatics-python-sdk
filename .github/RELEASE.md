@@ -184,5 +184,5 @@ No manual secrets are required as the workflows use OIDC for PyPI authentication
 
 Both packages are tested against:
 
-- Python versions: 3.9, 3.10, 3.11, 3.12, 3.13
+- Python versions: 3.10, 3.11, 3.12, 3.13, 3.14
 - Operating system: Ubuntu (latest)

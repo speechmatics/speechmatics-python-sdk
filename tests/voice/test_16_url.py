@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Optional
 from urllib.parse import parse_qs
 from urllib.parse import urlparse
 
@@ -12,7 +11,7 @@ from speechmatics.voice import __version__
 @dataclass
 class URLExample:
     input_url: str
-    input_app: Optional[str] = None
+    input_app: str | None = None
 
 
 URLS: list[URLExample] = [
