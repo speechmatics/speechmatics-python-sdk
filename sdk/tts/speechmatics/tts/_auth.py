@@ -125,7 +125,7 @@ class JWTAuth(AuthBase):
                 "aiohttp is required for JWT authentication. Please install it with `pip install 'speechmatics-tts[jwt]'`"
             )
 
-        endpoint = f"{self._mp_url}/v1/api_keys"
+        endpoint = f"{self._mp_url}/v1/jwts"
         params = {"type": "tts"}
         payload = {"ttl": self._ttl, "region": str(self._region)}
 
