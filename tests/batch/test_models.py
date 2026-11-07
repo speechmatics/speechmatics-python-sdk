@@ -9,16 +9,12 @@ from speechmatics.batch._models import TranscriptionConfig
 
 class TestTranscriptFilteringConfigToDict:
     def test_remove_disfluencies_true_serializes_correctly(self):
-        config = TranscriptionConfig(
-            transcript_filtering_config=TranscriptFilteringConfig(remove_disfluencies=True)
-        )
+        config = TranscriptionConfig(transcript_filtering_config=TranscriptFilteringConfig(remove_disfluencies=True))
         result = config.to_dict()
         assert result["transcript_filtering_config"] == {"remove_disfluencies": True}
 
     def test_remove_disfluencies_false_included_in_output(self):
-        config = TranscriptionConfig(
-            transcript_filtering_config=TranscriptFilteringConfig(remove_disfluencies=False)
-        )
+        config = TranscriptionConfig(transcript_filtering_config=TranscriptFilteringConfig(remove_disfluencies=False))
         result = config.to_dict()
         assert result["transcript_filtering_config"] == {"remove_disfluencies": False}
 
@@ -29,9 +25,7 @@ class TestTranscriptFilteringConfigToDict:
 
     def test_replacements_serialized(self):
         replacements = [{"from": "um", "to": ""}, {"from": "uh", "to": ""}]
-        config = TranscriptionConfig(
-            transcript_filtering_config=TranscriptFilteringConfig(replacements=replacements)
-        )
+        config = TranscriptionConfig(transcript_filtering_config=TranscriptFilteringConfig(replacements=replacements))
         result = config.to_dict()
         assert result["transcript_filtering_config"] == {
             "remove_disfluencies": False,
@@ -39,18 +33,14 @@ class TestTranscriptFilteringConfigToDict:
         }
 
     def test_replacements_absent_when_none(self):
-        config = TranscriptionConfig(
-            transcript_filtering_config=TranscriptFilteringConfig(remove_disfluencies=True)
-        )
+        config = TranscriptionConfig(transcript_filtering_config=TranscriptFilteringConfig(remove_disfluencies=True))
         result = config.to_dict()
         assert "replacements" not in result["transcript_filtering_config"]
 
     def test_replacements_and_remove_disfluencies_together(self):
         replacements = [{"from": "gonna", "to": "going to"}]
         config = TranscriptionConfig(
-            transcript_filtering_config=TranscriptFilteringConfig(
-                remove_disfluencies=True, replacements=replacements
-            )
+            transcript_filtering_config=TranscriptFilteringConfig(remove_disfluencies=True, replacements=replacements)
         )
         result = config.to_dict()
         assert result["transcript_filtering_config"] == {

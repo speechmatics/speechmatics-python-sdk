@@ -3,7 +3,6 @@ import json
 import os
 import re
 from dataclasses import field
-from typing import Optional
 
 import pytest
 from _utils import get_client
@@ -33,8 +32,8 @@ class SpeakerTest(BaseModel):
     sample_rate: int = 16000
     sample_size: int = 2
     segment_regex: list[str] = field(default_factory=list)
-    config: Optional[VoiceAgentConfig] = None
-    speaker_config: Optional[SpeakerFocusConfig] = None
+    config: VoiceAgentConfig | None = None
+    speaker_config: SpeakerFocusConfig | None = None
     speakers_present: list[str] = field(default_factory=list)
 
 

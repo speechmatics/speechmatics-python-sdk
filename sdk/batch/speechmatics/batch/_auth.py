@@ -7,7 +7,6 @@ import time
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import Literal
-from typing import Optional
 
 from ._exceptions import AuthenticationError
 
@@ -72,7 +71,7 @@ class StaticKeyAuth(AuthBase):
         {'Authorization': 'Bearer your-api-key'}
     """
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         self._api_key = api_key or os.environ.get("SPEECHMATICS_API_KEY")
 
         if not self._api_key:
@@ -112,13 +111,13 @@ class JWTAuth(AuthBase):
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         *,
         ttl: int = 60,
         region: Literal["eu", "usa", "au"] = "eu",
-        client_ref: Optional[str] = None,
-        mp_url: Optional[str] = None,
-        request_id: Optional[str] = None,
+        client_ref: str | None = None,
+        mp_url: str | None = None,
+        request_id: str | None = None,
     ):
         self._api_key = api_key or os.environ.get("SPEECHMATICS_API_KEY")
         self._ttl = ttl
@@ -135,7 +134,7 @@ class JWTAuth(AuthBase):
         if not 60 <= self._ttl <= 86_400:
             raise ValueError("ttl must be between 60 and 86400 seconds")
 
-        self._cached_token: Optional[str] = None
+        self._cached_token: str | None = None
         self._token_expires_at: float = 0
         # The cache is reachable from an event loop and from threads, so both
         # paths guard it with _cache_lock and serialise minting separately.
@@ -144,7 +143,7 @@ class JWTAuth(AuthBase):
         # Created on first async use: on Python 3.9 asyncio.Lock() binds to the
         # current event loop, so building one outside a loop (as sync-only
         # callers do) raises RuntimeError.
-        self._token_lock: Optional[asyncio.Lock] = None
+        self._token_lock: asyncio.Lock | None = None
 
     def _async_mint_lock(self) -> asyncio.Lock:
         """The asyncio lock serialising async minting, created inside the loop."""
@@ -154,7 +153,7 @@ class JWTAuth(AuthBase):
             self._token_lock = asyncio.Lock()
         return self._token_lock
 
-    def _cached_headers(self) -> Optional[dict[str, str]]:
+    def _cached_headers(self) -> dict[str, str] | None:
         """Return headers from the cached token, if it is still valid."""
         with self._cache_lock:
             if self._cached_token and time.time() < self._token_expires_at - 10:

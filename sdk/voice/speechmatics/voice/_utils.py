@@ -7,7 +7,6 @@ from __future__ import annotations
 import datetime
 import re
 import unicodedata
-from typing import Optional
 
 from ._models import AnnotationFlags
 from ._models import AnnotationResult
@@ -55,7 +54,7 @@ class FragmentUtils:
             fragments = [frag for frag in fragments if frag.is_final]
 
         # Assemble the text
-        previous_frag: Optional[SpeechFragment] = None
+        previous_frag: SpeechFragment | None = None
         for frag in fragments:
             if not previous_frag:
                 content = frag.content
@@ -83,7 +82,7 @@ class FragmentUtils:
     def segment_list_from_fragments(
         session: ClientSessionInfo,
         fragments: list[SpeechFragment],
-        focus_speakers: Optional[list[str]] = None,
+        focus_speakers: list[str] | None = None,
         annotate_segments: bool = True,
     ) -> list[SpeakerSegment]:
         """Create SpeakerSegment objects from a list of SpeechFragment objects.
@@ -99,7 +98,7 @@ class FragmentUtils:
         """
 
         # Speaker groups
-        current_speaker: Optional[str] = None
+        current_speaker: str | None = None
         speaker_groups: list[list[SpeechFragment]] = [[]]
 
         # Group by speakers
@@ -162,9 +161,9 @@ class FragmentUtils:
     def segment_from_fragments(
         session: ClientSessionInfo,
         fragments: list[SpeechFragment],
-        focus_speakers: Optional[list[str]] = None,
+        focus_speakers: list[str] | None = None,
         annotate: bool = True,
-    ) -> Optional[SpeakerSegment]:
+    ) -> SpeakerSegment | None:
         """Take a group of fragments and piece together into SpeakerSegment.
 
         Each fragment for a given speaker is assembled into a string,
@@ -239,7 +238,7 @@ class FragmentUtils:
         segment_length: int = len(segment.fragments)
         first_fragment: SpeechFragment = segment.fragments[0]
         last_fragment: SpeechFragment = segment.fragments[-1]
-        penultimate_fragment: Optional[SpeechFragment] = segment.fragments[-2] if segment_length > 1 else None
+        penultimate_fragment: SpeechFragment | None = segment.fragments[-2] if segment_length > 1 else None
 
         # Count of words
         words = [frag for frag in segment.fragments if frag.type_ == "word"]
@@ -305,7 +304,7 @@ class FragmentUtils:
 
     @staticmethod
     def compare_views(
-        session: ClientSessionInfo, view1: SpeakerSegmentView, view2: Optional[SpeakerSegmentView]
+        session: ClientSessionInfo, view1: SpeakerSegmentView, view2: SpeakerSegmentView | None
     ) -> AnnotationResult:
         """Compare two SpeakerSegmentView objects and return the differences.
 

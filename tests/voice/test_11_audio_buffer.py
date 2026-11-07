@@ -4,7 +4,6 @@ import os
 import random
 import shutil
 import wave
-from typing import Optional
 
 import aiofiles
 import pytest
@@ -234,7 +233,7 @@ async def test_transcribe_and_slice():
 
     # Save a slice
     async def save_slice(
-        start_time: float, end_time: float, prefix: str = "slice", json_data: Optional[str] = None
+        start_time: float, end_time: float, prefix: str = "slice", json_data: str | None = None
     ) -> None:
         try:
             output_file = os.path.join(output_folder, f"{file}_{prefix}_{start_time:.2f}_{end_time:.2f}")
@@ -340,7 +339,7 @@ async def x_test_transcribe_and_slice_vad():
 
     # Save a slice
     async def save_slice(
-        start_time: float, end_time: float, prefix: str = "slice", json_data: Optional[str] = None
+        start_time: float, end_time: float, prefix: str = "slice", json_data: str | None = None
     ) -> None:
         try:
             output_file = os.path.join(output_folder, f"{file}_{prefix}_{start_time:.2f}_{end_time:.2f}")

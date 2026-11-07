@@ -4,7 +4,6 @@ from dataclasses import asdict
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
-from typing import Optional
 
 
 class AudioEncoding(str, Enum):
@@ -129,7 +128,7 @@ class ConversationConfig:
     """
 
     template_id: str = "default"
-    template_variables: Optional[dict[str, str]] = None
+    template_variables: dict[str, str] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {"template_id": self.template_id}
@@ -160,14 +159,14 @@ class ConnectionConfig:
         Websocket connection configuration as a dict while excluding None values.
     """
 
-    open_timeout: Optional[float] = None
-    ping_interval: Optional[float] = None
-    ping_timeout: Optional[float] = 60
-    close_timeout: Optional[float] = None
-    max_size: Optional[int] = None
-    max_queue: Optional[int] = None
-    read_limit: Optional[int] = None
-    write_limit: Optional[int] = None
+    open_timeout: float | None = None
+    ping_interval: float | None = None
+    ping_timeout: float | None = 60
+    close_timeout: float | None = None
+    max_size: int | None = None
+    max_queue: int | None = None
+    read_limit: int | None = None
+    write_limit: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self, dict_factory=lambda x: {k: v for (k, v) in x if v is not None})
@@ -187,7 +186,7 @@ class SessionInfo:
     """
 
     request_id: str
-    conversation_id: Optional[str] = None
+    conversation_id: str | None = None
     client_seq_no: int = 0
     server_seq_no: int = 0
     is_running: bool = False
@@ -207,7 +206,7 @@ class FunctionParam:
 
     type: str
     properties: dict[str, FunctionParamProperty]
-    required: Optional[list[str]] = None
+    required: list[str] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {
@@ -224,8 +223,8 @@ class FunctionDefinition:
     """Tool function definition."""
 
     name: str
-    description: Optional[str] = None
-    parameters: Optional[FunctionParam] = None
+    description: str | None = None
+    parameters: FunctionParam | None = None
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {"name": self.name}

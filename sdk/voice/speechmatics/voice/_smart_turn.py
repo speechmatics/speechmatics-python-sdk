@@ -10,7 +10,6 @@ import os
 import ssl
 import urllib.request
 from typing import Any
-from typing import Optional
 from urllib.parse import urlparse
 
 import numpy as np
@@ -65,8 +64,8 @@ class SmartTurnPredictionResult(BaseModel):
 
     prediction: bool = False
     probability: float = 0.0
-    processing_time: Optional[float] = None
-    error: Optional[str] = None
+    processing_time: float | None = None
+    error: str | None = None
 
 
 class SmartTurnDetector:

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from typing import Any
-from typing import Optional
 
 from ._models import DEFAULT_WORD_DELIMITER
 from ._models import Segment
@@ -35,7 +34,7 @@ class Transcript:
         self._record_events = record_events
         self._delimiter = delimiter
         self._segments: list[Segment] = []
-        self._partial: Optional[Segment] = None
+        self._partial: Segment | None = None
         self._events: list[dict[str, Any]] = []
         self._timeline: list[TimedEvent] = []
 
@@ -45,7 +44,7 @@ class Transcript:
         return list(self._segments)
 
     @property
-    def partial(self) -> Optional[Segment]:
+    def partial(self) -> Segment | None:
         """The segment currently being built, or None when there is nothing in flight."""
         return self._partial
 

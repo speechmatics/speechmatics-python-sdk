@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+from collections.abc import Callable
 from typing import Any
-from typing import Callable
-from typing import Optional
 
 from ._logging import get_logger
 from ._models import ServerMessageType
@@ -21,7 +20,7 @@ class EventEmitter:
         self._once_handlers: dict[ServerMessageType, set[Callable]] = {}
         self._logger = get_logger(__name__)
 
-    def on(self, event: ServerMessageType, callback: Optional[Callable] = None) -> Callable:
+    def on(self, event: ServerMessageType, callback: Callable | None = None) -> Callable:
         """
         Register persistent event handler.
 
@@ -47,7 +46,7 @@ class EventEmitter:
 
         return decorator
 
-    def once(self, event: ServerMessageType, callback: Optional[Callable] = None) -> Callable:
+    def once(self, event: ServerMessageType, callback: Callable | None = None) -> Callable:
         """
         Register one-time event handler.
 
@@ -108,7 +107,7 @@ class EventEmitter:
         except Exception as e:
             self._logger.warning("Event handler error in %r: (%s) message: %s", callback, e, message, exc_info=True)
 
-    def remove_all_listeners(self, event: Optional[ServerMessageType] = None) -> None:
+    def remove_all_listeners(self, event: ServerMessageType | None = None) -> None:
         """
         Remove all listeners for an event, or all events if none specified.
 

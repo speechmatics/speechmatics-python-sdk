@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from dataclasses import field
 from enum import Enum
 from typing import Any
-from typing import Optional
 from typing import cast
 from warnings import warn
 
@@ -55,7 +54,7 @@ class Model(str, Enum):
 
 @dataclass
 class AudioEventsConfig:
-    types: Optional[list[str]] = None
+    types: list[str] | None = None
     """Optional list of audio event types to detect."""
 
     def to_dict(self) -> dict[str, Any]:
@@ -198,7 +197,7 @@ class AudioFormat:
             ... )
     """
 
-    encoding: Optional[AudioEncoding] = None
+    encoding: AudioEncoding | None = None
     sample_rate: int = 44100
     chunk_size: int = 4096
 
@@ -277,7 +276,7 @@ class ConversationConfig:
         >>> config = ConversationConfig(end_of_utterance_silence_trigger=0.5)
     """
 
-    end_of_utterance_silence_trigger: Optional[float] = None
+    end_of_utterance_silence_trigger: float | None = None
 
 
 @dataclass
@@ -312,10 +311,10 @@ class SpeakerDiarizationConfig:
 
     """
 
-    max_speakers: Optional[int] = None
-    speaker_sensitivity: Optional[float] = None
-    prefer_current_speaker: Optional[bool] = None
-    speakers: Optional[list[SpeakerIdentifier]] = None
+    max_speakers: int | None = None
+    speaker_sensitivity: float | None = None
+    prefer_current_speaker: bool | None = None
+    speakers: list[SpeakerIdentifier] | None = None
 
 
 @dataclass
@@ -436,25 +435,25 @@ class TranscriptionConfig:
 
     language: str = "en"
     model: Model = _UNSET
-    output_locale: Optional[str] = None
-    diarization: Optional[str] = None
-    additional_vocab: Optional[list[dict[str, Any]]] = None
-    punctuation_overrides: Optional[dict] = None
-    domain: Optional[str] = None
-    enable_entities: Optional[bool] = None
-    audio_filtering_config: Optional[dict] = None
-    transcript_filtering_config: Optional[dict] = None
-    max_delay: Optional[float] = None
-    max_delay_mode: Optional[str] = None
-    enable_partials: Optional[bool] = None
-    speaker_diarization_config: Optional[SpeakerDiarizationConfig] = None
-    streaming_mode: Optional[bool] = None
-    conversation_config: Optional[ConversationConfig] = None
-    ctrl: Optional[dict] = None
-    channel_diarization_labels: Optional[list[str]] = None
-    operating_point: Optional[OperatingPoint] = None
-    language_hints: Optional[list[str]] = None
-    language_hints_strict: Optional[bool] = None
+    output_locale: str | None = None
+    diarization: str | None = None
+    additional_vocab: list[dict[str, Any]] | None = None
+    punctuation_overrides: dict | None = None
+    domain: str | None = None
+    enable_entities: bool | None = None
+    audio_filtering_config: dict | None = None
+    transcript_filtering_config: dict | None = None
+    max_delay: float | None = None
+    max_delay_mode: str | None = None
+    enable_partials: bool | None = None
+    speaker_diarization_config: SpeakerDiarizationConfig | None = None
+    streaming_mode: bool | None = None
+    conversation_config: ConversationConfig | None = None
+    ctrl: dict | None = None
+    channel_diarization_labels: list[str] | None = None
+    operating_point: OperatingPoint | None = None
+    language_hints: list[str] | None = None
+    language_hints_strict: bool | None = None
 
     def __post_init__(self) -> None:
         if self.model is not _UNSET and self.operating_point is not None:
@@ -519,7 +518,7 @@ class TranslationConfig:
     """
 
     target_languages: list[str]
-    enable_partials: Optional[bool] = None
+    enable_partials: bool | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self, dict_factory=lambda x: {k: v for (k, v) in x if v is not None})
@@ -547,14 +546,14 @@ class ConnectionConfig:
         Websocket connection configuration as a dict while excluding None values.
     """
 
-    open_timeout: Optional[float] = None
-    ping_interval: Optional[float] = None
-    ping_timeout: Optional[float] = 60
-    close_timeout: Optional[float] = None
-    max_size: Optional[int] = None
-    max_queue: Optional[int] = None
-    read_limit: Optional[int] = None
-    write_limit: Optional[int] = None
+    open_timeout: float | None = None
+    ping_interval: float | None = None
+    ping_timeout: float | None = 60
+    close_timeout: float | None = None
+    max_size: int | None = None
+    max_queue: int | None = None
+    read_limit: int | None = None
+    write_limit: int | None = None
     ssl_context: ssl.SSLContext = field(default_factory=ssl.create_default_context)
 
     def to_dict(self) -> dict[str, Any]:
@@ -607,7 +606,7 @@ class SessionInfo:
     """
 
     request_id: str
-    session_id: Optional[str] = None
+    session_id: str | None = None
     sequence_number: int = 0
     is_running: bool = False
 
@@ -648,10 +647,10 @@ class RecognitionAlternative:
 
     content: str
     confidence: float
-    language: Optional[str] = None
-    display: Optional[RecognitionDisplay] = None
-    speaker: Optional[str] = None
-    tags: Optional[list[str]] = None
+    language: str | None = None
+    display: RecognitionDisplay | None = None
+    speaker: str | None = None
+    tags: list[str] | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> RecognitionAlternative:
@@ -693,12 +692,12 @@ class RecognitionResult:
     type: str
     start_time: float
     end_time: float
-    channel: Optional[str] = None
-    attaches_to: Optional[str] = None
-    is_eos: Optional[bool] = None
-    alternatives: Optional[list[RecognitionAlternative]] = None
-    score: Optional[float] = None
-    volume: Optional[float] = None
+    channel: str | None = None
+    attaches_to: str | None = None
+    is_eos: bool | None = None
+    alternatives: list[RecognitionAlternative] | None = None
+    score: float | None = None
+    volume: float | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> RecognitionResult:
@@ -784,7 +783,7 @@ class TranscriptResult:
 
     metadata: RecognitionMetadata
     results: list[RecognitionResult]
-    format: Optional[str] = None
+    format: str | None = None
     is_final: bool = False
 
     @classmethod
