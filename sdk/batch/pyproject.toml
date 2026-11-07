@@ -28,8 +28,8 @@ keywords = ["speechmatics", "speech-to-text", "batch", "transcription", "api"]
 
 [project.optional-dependencies]
 dev = [
-    "black",
-    "ruff",
+    "black==26.5.1",
+    "ruff==0.16.8",
     "mypy",
     "types-aiofiles",
     "pre-commit",

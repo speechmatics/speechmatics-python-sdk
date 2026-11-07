@@ -1,17 +1,14 @@
 import asyncio
 import logging
 
-from speechmatics.rt import (
-    AsyncClient,
-    AudioEncoding,
-    AudioFormat,
-    Microphone,
-    OperatingPoint,
-    ServerMessageType,
-    TranscriptResult,
-    TranscriptionConfig,
-)
-
+from speechmatics.rt import AsyncClient
+from speechmatics.rt import AudioEncoding
+from speechmatics.rt import AudioFormat
+from speechmatics.rt import Microphone
+from speechmatics.rt import OperatingPoint
+from speechmatics.rt import ServerMessageType
+from speechmatics.rt import TranscriptionConfig
+from speechmatics.rt import TranscriptResult
 
 logging.basicConfig(level=logging.INFO)
 
